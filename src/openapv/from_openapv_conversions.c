@@ -6,8 +6,7 @@
 #include <oapv/oapv.h>
 #include <stdint.h>
 
-static void yuv4444p10le_to_vuya(const struct from_planar_data d)
-{
+static void yuv4444p10le_to_vuya(const struct from_planar_data d) {
         for (int y = 0; y < d.height; ++y) {
                 const uint16_t *src_y = (const void *) (d.in_data[0] + d.in_linesize[0] * y);
                 const uint16_t *src_u = (const void *) (d.in_data[1] + d.in_linesize[1] * y);
@@ -25,9 +24,7 @@ static void yuv4444p10le_to_vuya(const struct from_planar_data d)
         }
 }
 
-static void
-yuv444p10le_to_y416(const struct from_planar_data d)
-{
+static void yuv444p10le_to_y416(const struct from_planar_data d) {
         for (int y = 0; y < d.height; ++y) {
                 const uint16_t *src_y = (const void *) (d.in_data[0] + d.in_linesize[0] * y);
                 const uint16_t *src_u = (const void *) (d.in_data[1] + d.in_linesize[1] * y);
@@ -44,9 +41,7 @@ yuv444p10le_to_y416(const struct from_planar_data d)
         }
 }
 
-static void
-yuv4444p10le_to_y416(const struct from_planar_data d)
-{
+static void yuv4444p10le_to_y416(const struct from_planar_data d) {
         for (int y = 0; y < d.height; ++y) {
                 const uint16_t *src_y = (const void *) (d.in_data[0] + d.in_linesize[0] * y);
                 const uint16_t *src_u = (const void *) (d.in_data[1] + d.in_linesize[1] * y);
@@ -64,9 +59,7 @@ yuv4444p10le_to_y416(const struct from_planar_data d)
         }
 }
 
-static void
-yuv444p12le_to_y416(const struct from_planar_data d)
-{
+static void yuv444p12le_to_y416(const struct from_planar_data d) {
         for (int y = 0; y < d.height; ++y) {
                 const uint16_t *src_y = (const void *) (d.in_data[0] + d.in_linesize[0] * y);
                 const uint16_t *src_u = (const void *) (d.in_data[1] + d.in_linesize[1] * y);
@@ -84,7 +77,7 @@ yuv444p12le_to_y416(const struct from_planar_data d)
 }
 
 static const struct from_openapv_conversion from_openapv_conversions[] = {
-        { UYVY, OAPV_CS_YCBCR422_10LE,  yuv422pXX_to_uyvy     },
+        { UYVY, OAPV_CS_YCBCR422_10LE,  yuv422p10le_to_uyvy   },
         { YUYV, OAPV_CS_YCBCR422_10LE,  yuv422p_to_yuyv       },
         { v210, OAPV_CS_YCBCR422_10LE,  yuv422p10le_to_v210   },
         { Y416, OAPV_CS_YCBCR444_10LE,  yuv444p10le_to_y416   },

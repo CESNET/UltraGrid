@@ -22,7 +22,6 @@ namespace {
 
 #define MOD_NAME "[OpenAPV enc.] "
 
-#define MAX_BS_BUF   (128 * 1024 * 1024)
 #define MAX_NUM_FRMS (1) // support only primary frame
 #define FRM_INDEX    (0) // index of primary frame in oapv_frms_t
 
@@ -34,7 +33,6 @@ struct state_video_compress_oapv {
         bool parse_fmt(char *fmt);
 
         oapve_t id = nullptr;       // OAPV encoder handle
-        oapvm_t mid = nullptr;      // OAPV metadata handle
         oapve_cdesc_t cdsc{};       // description used for encoder creation (params, threads, …)
         
         oapv_bitb_t bitb{};         // bitstream buffer (output)
@@ -55,34 +53,17 @@ state_video_compress_oapv::state_video_compress_oapv(module *parent, const char 
 {
         (void) parent;
 
+        memset(&cdsc, 0, sizeof(cdsc));
         int ret = oapve_param_default(cdsc.param);
         if (OAPV_FAILED(ret)) {
                 printf("Failed to get default parameters for OAPV encoder: %d\n", ret);
                 throw 1;
         }
 
-        cdsc.max_bs_buf_size = MAX_BS_BUF;
         cdsc.max_num_frms = MAX_NUM_FRMS;
-        cdsc.threads = OAPV_CDESC_THREADS_AUTO;
-        cdsc.param[0].rc_type = OAPV_RC_ABR;
-        cdsc.param[0].qp      = OAPVE_PARAM_QP_AUTO;
-
-        unsigned char *bs_buf = (unsigned char *) malloc(cdsc.max_bs_buf_size);
-        if (bs_buf == nullptr) {
-                printf("Failed to allocate bitstream buffer\n");
-                throw 1;
-        }
-        bitb.addr = bs_buf;
-        bitb.bsize = cdsc.max_bs_buf_size;
-
-        mid = oapvm_create(&ret);
-        if (OAPV_FAILED(ret)) {
-                printf("Failed to create OAPV metadata: %d\n", ret);
-                throw 1;
-        }
 
         memset(&input_frm, 0, sizeof(input_frm));
-        input_frm.num_frms         = MAX_NUM_FRMS;
+        input_frm.num_frms                 = MAX_NUM_FRMS;
         input_frm.frm[FRM_INDEX].pbu_type  = OAPV_PBU_TYPE_PRIMARY_FRAME;
         input_frm.frm[FRM_INDEX].group_id  = 1;
         input_frm.frm[FRM_INDEX].imgb      = &imgb;
@@ -104,10 +85,6 @@ state_video_compress_oapv::~state_video_compress_oapv() {
 
         if (id) {
                 oapve_delete(id);
-        }
-        
-        if (mid) {
-                oapvm_delete(mid);
         }
 
         free(bitb.addr);
@@ -189,6 +166,29 @@ static int map_color_spaces_to_profiles(int cs) {
                         return OAPV_PROFILE_444_12;
                 default:
                         return -1;
+        }
+}
+
+static const char *oapv_err_str(int err) {
+        switch (err) {
+                case OAPV_OK:                         return "ok";
+                case OAPV_ERR_INVALID_ARGUMENT:       return "invalid argument";
+                case OAPV_ERR_OUT_OF_MEMORY:          return "out of memory";
+                case OAPV_ERR_REACHED_MAX:            return "reached max";
+                case OAPV_ERR_UNSUPPORTED:            return "unsupported";
+                case OAPV_ERR_UNEXPECTED:             return "unexpected";
+                case OAPV_ERR_UNSUPPORTED_COLORSPACE: return "unsupported color space";
+                case OAPV_ERR_MALFORMED_BITSTREAM:    return "malformed bitstream";
+                case OAPV_ERR_OUT_OF_BS_BUF:          return "bitstream buffer too small";
+                case OAPV_ERR_NOT_FOUND:              return "not found";
+                case OAPV_ERR_FAILED_SYSCALL:         return "failed syscall";
+                case OAPV_ERR_INVALID_PROFILE:        return "invalid profile";
+                case OAPV_ERR_INVALID_LEVEL:          return "invalid level";
+                case OAPV_ERR_INVALID_WIDTH:          return "invalid width (odd width is not allowed for 4:2:2)";
+                case OAPV_ERR_INVALID_HEIGHT:         return "invalid height";
+                case OAPV_ERR_INVALID_QP:             return "invalid QP (encoder accepts 0~63 only, regardless of bit depth)";
+                case OAPV_ERR_INVALID_FAMILY:         return "invalid family";
+                default:                              return "unknown error";
         }
 }
 
@@ -381,6 +381,29 @@ static bool configure_with(struct state_video_compress_oapv *s, struct video_des
 
         s->cdsc.param[FRM_INDEX].profile_idc = map_color_spaces_to_profiles(conv_struct->dst_color_format);
 
+        if (!input_buffer_setup(&s->cdsc, &s->imgb, conv_struct->dst_color_format)) {
+                printf("Failed to set up input buffer\n");
+                return false;
+        }
+
+        int raw_bytes = 0;
+        for (int i = 0; i < s->imgb.np; i++) {
+                raw_bytes += s->imgb.bsize[i];
+        }
+        // allocate bitstream buffer with size based on raw input size * 2 for safe upper bound
+        const int new_buf_size = raw_bytes * 2;
+
+        if (new_buf_size != s->cdsc.max_bs_buf_size || s->bitb.addr == nullptr) {
+                free(s->bitb.addr);
+                s->bitb.addr = malloc(new_buf_size);
+                if (s->bitb.addr == nullptr) {
+                        printf("Failed to allocate bitstream buffer (%d bytes)\n", new_buf_size);
+                        return false;
+                }
+                s->bitb.bsize = new_buf_size;
+                s->cdsc.max_bs_buf_size = new_buf_size;
+        }
+
         if (s->id != nullptr) {
                 oapve_delete(s->id);
                 s->id = nullptr;
@@ -401,13 +424,6 @@ static bool configure_with(struct state_video_compress_oapv *s, struct video_des
                 return false;
         }
 
-        if (!input_buffer_setup(&s->cdsc, &s->imgb, conv_struct->dst_color_format)) {
-                printf("Failed to set up input buffer\n");
-                oapve_delete(s->id);
-                s->id = nullptr;
-                return false;
-        }
-
         struct video_desc compressed_desc = desc;
         compressed_desc.color_spec  = APV;
 
@@ -419,14 +435,14 @@ static bool configure_with(struct state_video_compress_oapv *s, struct video_des
         return true;
 }
 
-static shared_ptr<video_frame> openapv_compress_tile(void *state, shared_ptr<video_frame> tx) {
+static shared_ptr<video_frame> openapv_compress_tile(void *state, shared_ptr<video_frame> tile) {
         auto *s = (state_video_compress_oapv *) state;
 
-        if (!tx) {
+        if (!tile) {
                 return {};
         }
 
-        const auto desc = video_desc_from_frame(tx.get());
+        const auto desc = video_desc_from_frame(tile.get());
         if (!s->configured || !video_desc_eq_excl_param(desc, s->saved_desc, PARAM_INTERLACING)) {
                 if (!configure_with(s, desc)) {
                         MSG(ERROR, "Failed to configure OpenAPV encoder with new video description\n");
@@ -434,12 +450,13 @@ static shared_ptr<video_frame> openapv_compress_tile(void *state, shared_ptr<vid
                 }
         }
 
-        struct tile *in_tile = vf_get_tile(tx.get(), 0);
+        struct tile *in_tile = vf_get_tile(tile.get(), 0);
         s->convert_to_planar((const uint8_t *) in_tile->data, desc.width, desc.height, &s->imgb);
 
         s->bitb.ssize = 0;
-        int ret = oapve_encode(s->id, &s->input_frm, s->mid, &s->bitb, &s->stat, NULL);
+        int ret = oapve_encode(s->id, &s->input_frm, NULL, &s->bitb, &s->stat, NULL);
         if (OAPV_FAILED(ret)) {
+                MSG(ERROR, "oapve_encode failed: %s (%d) (frame dropped)\n", oapv_err_str(ret), ret);
                 return {};
         }
 
@@ -448,7 +465,7 @@ static shared_ptr<video_frame> openapv_compress_tile(void *state, shared_ptr<vid
         memcpy(out_tile->data, s->bitb.addr, s->stat.write);
         out_tile->data_len = s->stat.write;
 
-        vf_copy_metadata(out.get(), tx.get());
+        vf_copy_metadata(out.get(), tile.get());
 
         return out;
 }

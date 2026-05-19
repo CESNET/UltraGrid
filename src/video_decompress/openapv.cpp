@@ -21,7 +21,6 @@ struct state_video_decompress_openapv {
         ~state_video_decompress_openapv();
         
         oapvd_t decoder_handle{};
-        oapvm_t metadata_handle{};
         oapvd_cdesc_t cdesc{};
 
         oapv_frms_t decoded_frames{};
@@ -34,7 +33,6 @@ struct state_video_decompress_openapv {
         struct video_desc desc{};
         int pitch;
         codec_t out_codec = VIDEO_CODEC_NONE;
-        int rgb_shift[3] = { 0, 8, 16 };
 };
 
 state_video_decompress_openapv::state_video_decompress_openapv() {
@@ -47,30 +45,14 @@ state_video_decompress_openapv::state_video_decompress_openapv() {
                 throw 1;
         }
 
-        metadata_handle = oapvm_create(&ret);
-        if (OAPV_FAILED(ret)) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "oapvm_create failed (ret=%d).\n", ret);
-                oapvd_delete(decoder_handle);
-                throw 1;
-        }
-
         decoded_frames.num_frms = MAX_NUM_FRMS;
         decoded_frames.frm[FRM_INDEX].imgb = new oapv_imgb_t();
-        if (!decoded_frames.frm[FRM_INDEX].imgb) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to allocate oapv_imgb_t for decoded frame.\n");
-                oapvm_delete(metadata_handle);
-                oapvd_delete(decoder_handle);
-                throw 1;
-        }
         memset(decoded_frames.frm[FRM_INDEX].imgb, 0, sizeof(oapv_imgb_t));
 }
 
 state_video_decompress_openapv::~state_video_decompress_openapv() {
         if (decoder_handle) {
                 oapvd_delete(decoder_handle);
-        }
-        if (metadata_handle) {
-                oapvm_delete(metadata_handle);
         }
         for (int i = 0; i < decoded_frames.num_frms; ++i) {
                 if (decoded_frames.frm[i].imgb) {
@@ -83,6 +65,9 @@ state_video_decompress_openapv::~state_video_decompress_openapv() {
 }
 
 static bool output_buffer_setup(oapv_imgb_t *imgb, const oapv_frm_info_t *frm_info) {
+        for (int i = 0; i < OAPV_MAX_CC; ++i) {
+                free(imgb->baddr[i]);
+        }
         memset(imgb, 0, sizeof(*imgb));
         imgb->cs = frm_info->cs;
         imgb->w[0] = frm_info->w;
@@ -190,9 +175,6 @@ static void openapv_to_uv_convert(struct state_video_decompress_openapv *s,
         d.in_linesize[3] = src->s[3];
         d.in_depth = OAPV_CS_GET_BIT_DEPTH(src->cs);
         d.log2_chroma_h = 0;
-        d.rgb_shift[0] = s->rgb_shift[0];
-        d.rgb_shift[1] = s->rgb_shift[1];
-        d.rgb_shift[2] = s->rgb_shift[2];
         decode_planar_parallel(s->convert_from_planar->convert, d, FROM_PLANAR_THREADS_AUTO);
 }
 
@@ -204,6 +186,7 @@ static void *openapv_decompress_init(void) {
 static int openapv_decompress_reconfigure(void *state, struct video_desc desc,
         int rshift, int gshift, int bshift, int pitch, codec_t out_codec) {
         state_video_decompress_openapv *s = (state_video_decompress_openapv *) state;
+        (void) rshift; (void) gshift; (void) bshift;
 
         if (s->out_codec == out_codec &&
                 s->pitch == pitch &&
@@ -214,42 +197,45 @@ static int openapv_decompress_reconfigure(void *state, struct video_desc desc,
         s->desc = desc;
         s->pitch = pitch;
         s->out_codec = out_codec;
-        s->rgb_shift[0] = rshift;
-        s->rgb_shift[1] = gshift;
-        s->rgb_shift[2] = bshift;
         s->configured = false;
         s->convert_from_planar = nullptr;
 
         return true;
 }
 
-static decompress_status openapv_decompress(void *state, unsigned char *dst, unsigned char *buffer, 
+static decompress_status openapv_probe_internal_codec(struct pixfmt_desc *internal_prop,
+        unsigned char *buffer, size_t buffer_size) {
+        oapv_au_info_t aui{};
+        if (OAPV_FAILED(oapvd_info(buffer, buffer_size, &aui)) || aui.num_frms < 1) {
+                return DECODER_NO_FRAME;
+        }
+        int frm_idx = 0;
+        for (int i = 0; i < aui.num_frms; ++i) {
+                if (aui.frm_info[i].pbu_type == OAPV_PBU_TYPE_PRIMARY_FRAME) {
+                        frm_idx = i;
+                        break;
+                }
+        }
+        *internal_prop = {};
+        internal_prop->depth = aui.frm_info[frm_idx].bit_depth;
+        switch (OAPV_CS_GET_FORMAT(aui.frm_info[frm_idx].cs)) {
+                case OAPV_CF_YCBCR444:  internal_prop->subsampling = SUBS_444;  break;
+                case OAPV_CF_YCBCR4444: internal_prop->subsampling = SUBS_4444; break;
+                case OAPV_CF_YCBCR422:
+                default:                internal_prop->subsampling = SUBS_422;  break;
+        }
+        internal_prop->rgb = false;
+        return DECODER_GOT_CODEC;
+}
+
+static decompress_status openapv_decompress(void *state, unsigned char *dst, unsigned char *buffer,
         unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, struct pixfmt_desc *internal_prop) {
-        int ret = -1;
+        UNUSED(frame_seq);
+        UNUSED(callbacks);
         state_video_decompress_openapv *s = (state_video_decompress_openapv *) state;
 
         if (s->out_codec == VIDEO_CODEC_NONE) {
-                oapv_au_info_t aui{};
-                if (OAPV_FAILED(oapvd_info(buffer, src_len, &aui)) || aui.num_frms < 1) {
-                        return DECODER_NO_FRAME;
-                }
-                int frm_idx = 0;
-                for (int i = 0; i < aui.num_frms; ++i) {
-                        if (aui.frm_info[i].pbu_type == OAPV_PBU_TYPE_PRIMARY_FRAME) {
-                                frm_idx = i;
-                                break;
-                        }
-                }
-                *internal_prop = {};
-                internal_prop->depth = aui.frm_info[frm_idx].bit_depth;
-                switch (OAPV_CS_GET_FORMAT(aui.frm_info[frm_idx].cs)) {
-                        case OAPV_CF_YCBCR444:  internal_prop->subsampling = SUBS_444;  break;
-                        case OAPV_CF_YCBCR4444: internal_prop->subsampling = SUBS_4444; break;
-                        case OAPV_CF_YCBCR422:
-                        default:                internal_prop->subsampling = SUBS_422;  break;
-                }
-                internal_prop->rgb = false;
-                return DECODER_GOT_CODEC;
+                return openapv_probe_internal_codec(internal_prop, buffer, src_len);
         }
 
         if (!s->configured) {
@@ -258,18 +244,12 @@ static decompress_status openapv_decompress(void *state, unsigned char *dst, uns
                 }
         }
 
-        if (s->convert_from_planar == nullptr) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unsupported out_codec=%s.\n", get_codec_name(s->out_codec));
-                return DECODER_UNSUPP_PIXFMT;
-        }
-
         s->input_buffer.addr = buffer;
         s->input_buffer.ssize = src_len;
         s->input_buffer.bsize = src_len;
 
         oapvd_stat_t stat{};
-        oapvm_rem_all(s->metadata_handle);
-        ret = oapvd_decode(s->decoder_handle, &s->input_buffer, &s->decoded_frames, s->metadata_handle, &stat);
+        int ret = oapvd_decode(s->decoder_handle, &s->input_buffer, &s->decoded_frames, NULL, &stat);
         if (OAPV_FAILED(ret)) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "oapvd_decode failed ret=%d src_len=%u.\n", ret, src_len);
                 return DECODER_NO_FRAME;
