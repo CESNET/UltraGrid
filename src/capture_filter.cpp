@@ -106,8 +106,11 @@ int capture_filter_init(struct module *parent, const char *cfg, struct capture_f
                 printf("Available capture filters:\n");
                 list_modules(LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION, strcasecmp(cfg, "fullhelp") == 0);
                 if (strcasecmp(cfg, "fullhelp") != 0) {
-                        printf("(use \"fullhelp\" to show hidden filters)\n");
+                        printf("\n(use \"fullhelp\" to show hidden filters)\n");
                 }
+                printf("\nSee "
+                       "<https://github.com/CESNET/UltraGrid/wiki/"
+                       "Video-Filters> for overview.\n");
                 return 1;
         }
 

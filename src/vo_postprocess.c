@@ -85,8 +85,11 @@ void show_vo_postprocess_help(bool full)
         printf("Usage:\n");
         color_printf(TERM_BOLD "\t-p <postprocess_module>[:<args>] | help\n" TERM_RESET);
         printf("\n");
-        printf("Possible postprocess modules:\n");
+        printf("Available postprocess modules:\n");
         list_modules(LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION, full);
+        printf("\nSee "
+               "<https://github.com/CESNET/UltraGrid/wiki/"
+               "Video-Filters> for overview.\n");
 }
 
 static bool
