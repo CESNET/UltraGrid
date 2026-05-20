@@ -132,7 +132,20 @@ install_omt() (
                 libext=dylib
                 printf "MACOS_BUNDLE_EXTRA_LIBS=%s /usr/local/lib/libvmx.dylib\n"\
                         "${MACOS_BUNDLE_EXTRA_LIBS-}" >> "$GITHUB_ENV"
-        else
+        else # Linux
+                # if [ "$(uname -m)" = aarch64 ]; then
+                #         # https://learn.microsoft.com/en-us/dotnet/core/install/linux-scripted-manual#scripted-install
+                #         curl -LO https://dot.net/v1/dotnet-install.sh
+                #         chmod +x dotnet-install.sh
+                #         ./dotnet-install.sh --channel 8.0
+                #         sudo apt -y install clang zlib1g-dev
+                #         # shellcheck disable=SC2031 # no problem
+                #         PATH=$PATH:$HOME/.dotnet
+                #         build=buildlinuxarm64.sh
+                #         omtdir=linux-arm64
+                if is_arm; then
+                        return # do not build for ARM
+                fi
                 sudo apt install dotnet8
                 build=buildlinuxx64.sh
                 omtdir=linux-x64

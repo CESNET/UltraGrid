@@ -24,6 +24,7 @@ export CFLAGS CXXFLAGS
 set -- $FEATURES
 set -- "$@" --enable-sdl=2  # use SDL2 (environment.sh sets sdl=3)
 set -- "$@" --enable-drm_disp
+set -- "$@" --disable-omt
 
 ./autogen.sh "$@"
 make -j "$(nproc)"
