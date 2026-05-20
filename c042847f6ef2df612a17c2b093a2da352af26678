@@ -1,0 +1,24 @@
+the error produced:
+````
+C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\type_traits(1256): error: static assertion failed with "You've instantiated std::aligned_storage<Len, Align> with an extended alignment (in other words, Align > alignof(max_align_t)). Before VS 2017 15.8, the member "type" would non-conformingly have an alignment of only alignof(max_align_t). VS 2017 15.8 was fixed to handle this correctly, but the fix inherently changes layout and breaks binary compatibility (*only* for uses of aligned_storage with extended alignments). To suppress this error, please define either (1) _ENABLE_EXTENDED_ALIGNED_STORAGE to confirm that you want a type with an extended alignment, or (2) _DISABLE_EXTENDED_ALIGNED_STORAGE to get the old non-conforming behavior."
+
+C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\type_traits(1946): error: static assertion failed with "result_of<CallableType> is invalid; use result_of<CallableType(zero or more argument types)> instead."
+
+C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\type_traits(2470): error: operator may not be a static member function
+
+C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\type_traits(2498): error: operator may not be a static member function
+
+C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\type_traits(2507): error: operator may not be a static member function
+
+C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\type_traits(2516): error: operator may not be a static member function
+
+C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\type_traits(2525): error: operator may not be a static member function
+
+7 errors detected in the compilation of "cuda_dxt/cuda_dxt.cu".
+nvcc warning : The 'compute_35', 'compute_37', 'sm_35', and 'sm_37' architectures are deprecated, and may be removed in a future release (Use -Wno-deprecated-gpu-targets to suppress warning).
+cuda_dxt.cu
+make: *** [Makefile:293: cuda_dxt/cuda_dxt.o] Error 1
+make: *** Waiting for unfinished jobs....
+```
+
+(almost the same for ldgm/src/gpu.cu and likely all other CUDA sources)
