@@ -246,7 +246,7 @@ jobs:
   Windows:
     name: run Windows
     needs: prepare
-    runs-on: windows-latest
+    runs-on: windows-2022
     defaults:
       run:
         shell: C:\shells\msys2bash.cmd {0}
