@@ -303,7 +303,7 @@ usage(bool full = false)
         if (full) {
                 printf("\n");
                 color_printf("Environment variables: "
-                             TBOLD("NDILIB_REDIST_FOLDER")
+                             TBOLD("NDILIB_REDIST_FOLDER") ", " TBOLD("ULTRAGRID_ERRORS_FATAL")
 #ifdef _WIN32
                               ", " TBOLD("NV_OPTIMUS_ENABLEMENT")
 #endif
