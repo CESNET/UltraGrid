@@ -1301,7 +1301,7 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
 
 static void gl_render(struct state_gl *s, char *data)
 {
-        gl_check_error();
+        gl_check_error_nonfatal();
 
         if (s->current_program) {
                 gl_render_glsl(s, data);
@@ -1309,7 +1309,7 @@ static void gl_render(struct state_gl *s, char *data)
                 upload_texture(s, data);
         }
 
-        gl_check_error();
+        gl_check_error_nonfatal();
 }
 
 /// draw pause symbol (2 vertical bars) to the lefttop part of the frame
@@ -1349,7 +1349,7 @@ draw_pause()
         glPopMatrix();
         glMatrixMode(GL_MODELVIEW);
         glPopMatrix();
-        gl_check_error();
+        gl_check_error_nonfatal();
 }
 
 static void gl_process_frames(struct state_gl *s)
@@ -2156,7 +2156,7 @@ static void gl_render_glsl(struct state_gl *s, char *data)
         int status;
         glBindTexture(GL_TEXTURE_2D, 0);
         glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, s->fbo_id);
-        gl_check_error();
+        gl_check_error_nonfatal();
         glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, s->texture_display, 0);
         status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
         assert(status == GL_FRAMEBUFFER_COMPLETE_EXT);
@@ -2176,12 +2176,12 @@ static void gl_render_glsl(struct state_gl *s, char *data)
         glViewport( 0, 0, s->current_display_desc.width, s->current_display_desc.height);
 
         upload_texture(s, data);
-        gl_check_error();
+        gl_check_error_nonfatal();
 
         glUseProgram(s->current_program);
 
         glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
-        gl_check_error();
+        gl_check_error_nonfatal();
 
         glBegin(GL_QUADS);
         glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
@@ -2206,7 +2206,7 @@ static void gl_render_glsl(struct state_gl *s, char *data)
 static void gl_draw(double ratio, double bottom_offset, bool double_buf)
 {
         float bottom;
-        gl_check_error();
+        gl_check_error_nonfatal();
 
         glDrawBuffer(double_buf ? GL_BACK : GL_FRONT);
         if (double_buf) {
@@ -2222,7 +2222,7 @@ static void gl_draw(double ratio, double bottom_offset, bool double_buf)
          * In normal case, there would be 1.0 */
         bottom = 1.0f - bottom_offset;
 
-        gl_check_error();
+        gl_check_error_nonfatal();
         glBegin(GL_QUADS);
         /* Front Face */
         /* Bottom Left Of The Texture and Quad */
@@ -2235,7 +2235,7 @@ static void gl_draw(double ratio, double bottom_offset, bool double_buf)
         glTexCoord2f( 0.0f, 0.0f ); glVertex2f( -1.0f,  1/ratio);
         glEnd( );
 
-        gl_check_error();
+        gl_check_error_nonfatal();
 }
 
 static void glfw_close_callback(GLFWwindow *win)

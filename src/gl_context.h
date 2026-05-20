@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2025 CESNET
+ * Copyright (c) 2012-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -57,6 +57,8 @@
 #include <stdlib.h>   // for abort
 #endif
 
+#include "host.h"  // for handle_eror
+
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
@@ -88,7 +90,11 @@ bool init_gl_context(struct gl_context *context, int which);
 void gl_context_make_current(struct gl_context *context);
 void destroy_gl_context(struct gl_context *context);
 
-#define gl_check_error() do { \
+/**
+ * @param fatal  whether abort on error, if false, exit just if
+ *               user requires so (handle_error() callback)
+ */
+#define gl_check_error_impl(fatal) do { \
         GLenum msg = glGetError(); \
         int flag = 1; \
         switch(msg){ \
@@ -122,9 +128,16 @@ void destroy_gl_context(struct gl_context *context);
         } \
         if(flag) { \
                 fprintf(stderr, "\tat %s:%d: %s\n", __FILE__, __LINE__, __func__); \
-                abort(); \
+                if (fatal) { \
+                        abort(); \
+                } else { \
+                        handle_error(1); \
+                } \
         } \
 } while(0)
+
+#define gl_check_error()          gl_check_error_impl(1)
+#define gl_check_error_nonfatal() gl_check_error_impl(0)
 
 /**
  * compiles and links specified program shaders

@@ -1254,8 +1254,9 @@ ADD_TO_PARAM("errors-fatal", "* errors-fatal\n"
                 "  This allows less severe errors to be caught (which should not occur under normal circumstances).\n"
                 "  An environment variable ULTRAGRID_ERRORS_FATAL with the same effect can also be used.\n");
 /**
- * Soft version of exit_uv() checks errors-fatal command-line parameters and
- * if set, exit UltraGrid. Otherwise error is ignored.
+ * Soft version of exit_uv() that checks ULTRAGRID_ERRORS_FATAL environment
+ * variable or `--param errors-fatal` presence and if set, exit UltraGrid.
+ * Otherwise error is ignored.
  *
  * Caller code normally continues after this function so the error must not
  * have been fatal and UltraGrid must remain in a consistent state.
