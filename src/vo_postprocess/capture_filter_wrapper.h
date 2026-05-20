@@ -45,6 +45,7 @@
 
 #include <assert.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "capture_filter.h"
@@ -101,7 +102,16 @@ static struct video_frame *CF_WRAPPER_MERGE(vo_pp_getf_, name)(void *state) {\
 \
 static bool CF_WRAPPER_MERGE(vo_pp_postprocess_, name)(void *state, struct video_frame *in, struct video_frame *out, int req_out_pitch) {\
         struct vo_pp_capture_filter_wrapper *s = (struct vo_pp_capture_filter_wrapper *) state;\
-        assert(req_out_pitch == vc_get_linesize(out->tiles[0].width, out->color_spec));\
+        int dst_linesize =                                                     \
+               vc_get_linesize(out->tiles[0].width, out->color_spec);          \
+        if (req_out_pitch != dst_linesize) {                                   \
+               fprintf(stderr, "required pitch %d doesn't match the filter out"\
+                               " line size %d B!\n", req_out_pitch,            \
+                               dst_linesize);                                  \
+               fprintf(stderr, "append vo_pp/dummy to vo_pp chain to adjust "  \
+                                "the pitch\n");                                \
+               abort();                                                        \
+        }                                                                      \
         set_out_buf(s->state, out->tiles[0].data);\
         struct video_frame *dst = filter(s->state, in);\
         VIDEO_FRAME_DISPOSE(dst);\

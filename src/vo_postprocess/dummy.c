@@ -16,6 +16,7 @@
 #include "lib_common.h"                   // for REGISTER_MODULE, library_c...
 #include "types.h"                        // for tile, video_frame, video_desc
 #include "utils/color_out.h"              // for color_printf, TBOLD
+#include "utils/text.h"                   // for color_printf_wrapped
 #include "utils/macros.h"                 // for to_fourcc
 #include "video_codec.h"                  // for vc_get_linesize
 #include "video_display.h"                // for display_prop_vid_mode
@@ -42,8 +43,16 @@ dummy_get_property(void * /* state */, int /* property */, void * /* val */,
 static void
 usage()
 {
-        color_printf(TBOLD("dummy")
-                     " postprocessor/capture filter\n");
+        color_printf(
+            TBOLD("dummy")
+            " postprocessor/capture filter that mostly copies the data\n");
+        color_printf("\n");
+        color_printf_wrapped(
+            TBOLD("Note:")
+            " There is actually one useful use case. When the vo_pp doesn't "
+            "accept the pitch, dummy can be appended to adjust. This is "
+            "notably needed for filters that are normally used as sender "
+            "capture filters but adapted as video postprocessors.\n");
         color_printf("\n");
 }
 
@@ -52,7 +61,7 @@ dummy_init(const char *config)
 {
         if (strlen(config) != 0) {
                 usage();
-                return strcmp(config, "help") == 0 ? nullptr : INIT_NOERR;
+                return strcmp(config, "help") == 0 ? INIT_NOERR : nullptr;
         }
 
         struct state_dummy *s = calloc(1, sizeof *s);
