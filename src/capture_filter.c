@@ -37,18 +37,16 @@
 
 #include "capture_filter.h"
 
-#include <cassert>            // for assert
-#include <cstdio>             // for printf, fprintf, stderr
-#include <cstdlib>            // for free, NULL, atoi, calloc, malloc
-#include <cstring>            // for strcasecmp, strchr, strcmp, strdup...
+#include <assert.h>           // for assert
+#include <stdio.h>            // for printf, fprintf, stderr
+#include <stdlib.h>           // for free, NULL, atoi, calloc, malloc
+#include <string.h>           // for strcasecmp, strchr, strcmp, strdup...
 
 #include "lib_common.h"       // for get_libraries_for_class, library_class
 #include "messaging.h"        // for msg_universal, new_response, RESPONSE_I...
 #include "module.h"           // for module, module_done, module_init_default
 #include "utils/color_out.h"  // for color_printf, TERM_BOLD, TERM_RESET
 #include "utils/list.h"       // for simple_linked_list_pop, simple_linked_l...
-
-using namespace std;
 
 struct capture_filter {
         struct module mod;
@@ -72,9 +70,8 @@ static int create_filter(struct capture_filter *s, char *cfg)
         struct class_modules capture_filters = get_libraries_for_class(
             LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
         for (unsigned i = 0; i< capture_filters.count; i++) {
-                auto capture_filter_info =
-                    static_cast<const struct capture_filter_info *>(
-                        capture_filters.item[i].info);
+                const struct capture_filter_info *capture_filter_info =
+                    capture_filters.item[i].info;
                 if (strcasecmp(capture_filters.item[i].name, filter_name) ==
                     0) {
                         struct capture_filter_instance *instance = (struct capture_filter_instance *)
