@@ -49,7 +49,7 @@
 
 #include "compat/c23.h"    // for size_t, NULL, countof, nullptr, ptrdiff_t
 #include "types.h"         // for depth
-#include "utils/macros.h"  // for ALWAYS_INLINE, OPTIMIZED_FOR
+#include "utils/macros.h"  // for OPTIMIZED_FOR
 #include "utils/misc.h"    // for get_cpu_core_count
 #include "utils/worker.h"  // for task_run_parallel
 
@@ -58,7 +58,7 @@
 #define G G_SHIFT_IDX
 #define B B_SHIFT_IDX
 
-ALWAYS_INLINE static inline  void
+[[gnu::always_inline]] static inline  void
 gbrpXXle_to_r12l(struct from_planar_data d, const int in_depth, int rind, int gind, int bind)
 {
         assert((uintptr_t) d.in_linesize[0] % 2 == 0);
@@ -200,7 +200,7 @@ rgbpXXle_to_rg48(struct from_planar_data d)
         rgbpXXle_to_rg48_int(d, d.in_depth, 0, 1, 2);
 }
 
-ALWAYS_INLINE static inline void
+[[gnu::always_inline]] static inline void
 gbrpXXle_to_r10k(struct from_planar_data d, const unsigned int in_depth,
                  int rind, int gind, int bind)
 {

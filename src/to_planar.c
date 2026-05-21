@@ -50,7 +50,7 @@
 
 #include "compat/c23.h"
 #include "types.h"         // for depth, v210, R12L, RGBA, UYVY, Y216
-#include "utils/macros.h"  // for OPTIMIZED_FOR, ALWAYS_INLINE
+#include "utils/macros.h"  // for OPTIMIZED_FOR
 #include "utils/misc.h"    // for get_cpu_core_count
 #include "utils/worker.h"  // for task_run_parallel
 #include "video_codec.h"   // for vc_get_linesize
