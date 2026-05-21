@@ -1420,6 +1420,7 @@ static void gl_process_frames(struct state_gl *s)
 
                 glfwMakeContextCurrent(s->window);
 
+                CHECK_RC(pthread_mutex_lock(&s->lock));
                 if (s->current_frame) {
                         if (s->paused) {
                                 SWAP_PTR(frame, s->current_frame);
