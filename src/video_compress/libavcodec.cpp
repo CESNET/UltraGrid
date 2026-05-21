@@ -43,6 +43,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>                        // for strcmp, strlen, strstr, strchr
+#include <functional>                     // for function
 #include <libavutil/rational.h>           // for av_inv_q
 #include <list>
 #include <map>
@@ -96,7 +97,6 @@ extern "C"{
 #define MAGIC to_fourcc('l', 'a', 'v', 'c')
 
 using std::array;
-using std::clamp;
 using std::cout;
 using std::function;
 using std::list;
@@ -300,7 +300,9 @@ struct state_video_compress_libav {
         AVFrame *sws_frame = nullptr;
 #endif
 
-        int conv_thread_count = clamp<unsigned int>(thread::hardware_concurrency(), 1, INT_MAX); ///< number of threads used for UG conversions
+        int conv_thread_count =
+            CLAMP(thread::hardware_concurrency(), 1,
+                  INT_MAX); ///< number of threads used for UG conversions
 
         double    mov_avg_comp_duration = 0;
         long      mov_avg_frames        = 0;

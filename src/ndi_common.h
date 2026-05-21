@@ -158,6 +158,7 @@ static void close_ndi_library(LIB_HANDLE hNDILib) {
         dlclose(hNDILib);
 }
 
+// casting to (const char *) is OK - we use/assume UTF-8 terminal
 #define NDI_PRINT_COPYRIGHT \
         color_printf(TERM_BOLD TERM_FG_BLUE "%s\n\n" TERM_RESET, \
                      (const char *) u8"This application uses NDI® available " \

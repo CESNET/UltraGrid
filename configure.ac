@@ -35,7 +35,7 @@ fi
 
 # -------------------------------------------------------------------------------------------------
 POST_COMPILE_MSG=""
-CXXFLAGS="${CXXFLAGS:+$CXXFLAGS }-std=gnu++17"
+CXXFLAGS="-std=gnu++23${CXXFLAGS:+ $CXXFLAGS}"
 CUDA_FLAGS="$CUDA_FLAGS${CUDA_FLAGS:+${CUDAFLAGS:+ }}$CUDAFLAGS"
 INC="${INC-}"
 LDFLAGS="${LDFLAGS-}"
@@ -195,7 +195,7 @@ fi
 clang_ver_major=$($CC --version | sed -n \
  '/clang version/ s/.*version \(@<:@0-9@:>@*\).*/\1/p')
 if test "${clang_ver_major:-17}" -lt 17; then
-        CFLAGS="${CFLAGS:+$CFLAGS }-std=gnu2x"
+        CFLAGS="-std=gnu2x${CFLAGS:+ $CFLAGS}"
 fi
 
 LINKER=$CXX
@@ -299,7 +299,7 @@ m4_if(m4_version_compare(m4_defn([AC_AUTOCONF_VERSION]), [2.73]), [-1],
         else
                 for c23_fl in -std=gnu23 -std=gnu2x; do
                         CFLAGS_S=$CFLAGS
-                        CFLAGS="${CFLAGS:+$CFLAGS }$c23_fl"
+                        CFLAGS="$c23_fl${CFLAGS:+ $CFLAGS}"
                         AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],
                                            [[ ${c23_program?} ]])],
                         c23_w_flags=yes, c23_w_flags=)

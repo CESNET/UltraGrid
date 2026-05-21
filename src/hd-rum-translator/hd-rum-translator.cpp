@@ -61,6 +61,7 @@
 #include <stdexcept>                              // for invalid_argument
 #include <string>
 #include <thread>
+#include <type_traits>                            // for std::alignment_of
 #include <unistd.h>                               // for optarg, optind, ssi...
 #include <utility>                                // for swap, move
 #include <vector>

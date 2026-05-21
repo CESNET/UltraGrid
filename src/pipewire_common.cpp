@@ -17,7 +17,7 @@ static void on_core_error(void * /*data*/, uint32_t id, int seq, int res, const 
 }
 
 static const struct pw_core_events core_events = {
-        PW_VERSION_CORE_EVENTS,
+        .version = PW_VERSION_CORE_EVENTS,
         .info = nullptr,
         .done = on_core_done,
         .ping = nullptr,
@@ -88,7 +88,7 @@ std::vector<Pipewire_device> get_pw_device_list(){
         pw_registry_uniq registry(pw_core_get_registry(s.pipewire_core.get(), PW_VERSION_REGISTRY, 0));
 
         const static pw_registry_events registry_events = {
-                PW_VERSION_REGISTRY_EVENTS,
+                .version = PW_VERSION_REGISTRY_EVENTS,
                 .global = on_registry_event_global,
                 .global_remove = nullptr
         };
