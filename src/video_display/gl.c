@@ -911,7 +911,7 @@ display_gl_parse_fmt(struct state_gl *s, char *ptr)
                 } else if (strstr(tok, "gamma=") == tok) {
                         s->gamma = strtod(strchr(tok, '=') + 1, nullptr);
                         if (strchr(tok, '/')) {
-                                s->gamma /= strtod(strchr(tok, '=') + 1, nullptr);
+                                s->gamma /= strtod(strchr(tok, '/') + 1, nullptr);
                         }
                 } else if (!strcasecmp(tok, "hide-window")) {
                         dictionary_insert(s->window_hints,
