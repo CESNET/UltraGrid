@@ -471,7 +471,7 @@ struct state_gl {
 
         enum modeset modeset; ///< positive vals force framerate
         struct dictionary *window_hints;
-        int use_pbo;
+        int use_pbo;          ///< -1 means default
         char req_monitor_id[STR_LEN];
         struct state_vdpau *vdp;
         bool         vdp_interop;
@@ -706,40 +706,33 @@ static void gl_load_splashscreen(struct state_gl *s)
         simple_linked_list_append(s->frame_queue, frame);
 }
 
-static bool set_size(struct state_gl *s, const char *tok)
+static bool set_size(struct state_gl *s, const char *val)
 {
-        if (strstr(tok, "fixed_size=") == tok) {
-                log_msg(LOG_LEVEL_WARNING,
-                        MOD_NAME "fixed_size with dimensions is"
-                                 " deprecated, use size"
-                                 " instead\n");
-        }
-        tok = strchr(tok, '=') + 1;
-        if (strchr(tok, '%') != NULL) {
-                s->window_size_factor = atof(tok) / 100.0;
-        } else if (strpbrk(tok, "x+-") == NULL) {
-                struct video_desc desc = get_video_desc_from_string(tok);
+        if (strchr(val, '%') != NULL) {
+                s->window_size_factor = atof(val) / 100.0;
+        } else if (strpbrk(val, "x+-") == NULL) {
+                struct video_desc desc = get_video_desc_from_string(val);
                 if (desc.width != 0) {
                         s->fixed_size = true;
                         s->fixed_w = desc.width;
                         s->fixed_h = desc.height;
                         return true;
                 }
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong size spec: %s\n", tok);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong size spec: %s\n", val);
                 return false;
         }
-        if (strchr(tok, 'x') != NULL) {
+        if (strchr(val, 'x') != NULL) {
                 s->fixed_size = true;
-                s->fixed_w = atoi(tok);
-                s->fixed_h = atoi(strchr(tok, 'x') + 1);
+                s->fixed_w = atoi(val);
+                s->fixed_h = atoi(strchr(val, 'x') + 1);
         }
-        tok = strpbrk(tok, "+-");
-        if (tok != NULL) {
-                s->pos_x = atoi(tok);
-                tok = strpbrk(tok + 1, "+-");
+        val = strpbrk(val, "+-");
+        if (val != NULL) {
+                s->pos_x = atoi(val);
+                val = strpbrk(val + 1, "+-");
         }
-        if (tok != NULL) {
-                s->pos_y = atoi(tok);
+        if (val != NULL) {
+                s->pos_y = atoi(val);
         }
         return true;
 }
@@ -850,6 +843,7 @@ display_gl_parse_fmt(struct state_gl *s, char *ptr)
         char *tok, *save_ptr = NULL;
 
         while((tok = strtok_r(ptr, ":", &save_ptr)) != NULL) {
+                char *val = strchr(tok, '=') ? strchr(tok, '=') + 1 : nullptr;
                 if (strcmp(tok, "help") == 0 || strcmp(tok, "fullhelp") == 0) {
                         gl_show_help(strcmp(tok, "fullhelp") == 0);
                         if (strtok_r(nullptr, ":", &save_ptr) != nullptr) {
@@ -860,89 +854,93 @@ display_gl_parse_fmt(struct state_gl *s, char *ptr)
                 }
                 if (!strcmp(tok, "d") || !strcmp(tok, "dforce")) {
                         s->deinterlace = !strcmp(tok, "d") ? DEINT_ON : DEINT_FORCE;
-                } else if(!strncmp(tok, "fs", 2)) {
+                } else if (IS_PREFIX(tok, "fs")) {
                         s->fs = true;
-                        const char *delim = strchr(tok, '=');
-                        if (delim != nullptr) {
-                                strcpy_ch(s->req_monitor_id, delim + 1);
+                        if (val != nullptr) {
+                                strcpy_ch(s->req_monitor_id, val);
                         }
-                } else if(strstr(tok, "modeset") != nullptr) {
-                        if (strcmp(tok, "nomodeset") != 0) {
-                                const char *val = strchr(tok, '=');
-                                if (val != nullptr) {
-                                        val += 1;
-                                        s->modeset = (enum modeset) (strcmp(val, "size") == 0 ? MODESET_SIZE_ONLY : atoi(val));
-                                } else {
-                                        s->modeset = MODESET;
-                                }
-                        }
-                } else if(!strncmp(tok, "aspect=", strlen("aspect="))) {
-                        s->video_aspect = atof(tok + strlen("aspect="));
-                        char *pos = strchr(tok,'/');
-                        if(pos) s->video_aspect /= atof(pos + 1);
-                } else if(!strcasecmp(tok, "nodecorate")) {
+                } else if (IS_KEY_PREFIX(tok, "size")) {
+                        ret = set_size(s, val);
+                } else if (IS_PREFIX_WO_VAL(tok, "nodecorate")) {
                         dictionary_insert(s->window_hints,
                                           TOSTRING(GLFW_DECORATED),
                                           TOSTRING(GLFW_FALSE));
-                } else if(!strcasecmp(tok, "novsync")) {
+                } else if (IS_PREFIX_WO_VAL(tok, "novsync")) {
                         s->vsync = 0;
-                } else if(!strcasecmp(tok, "single")) {
+                } else if (IS_PREFIX_WO_VAL(tok, "nomodeset")) {
+                        s->modeset = NOMODESET; // default anyways
+                } else if (IS_PREFIX(tok, "modeset")) {
+                        if (val != nullptr) {
+                                s->modeset = (enum modeset)(
+                                    strcmp(val, "size") == 0 ? MODESET_SIZE_ONLY
+                                                             : atoi(val));
+                        } else {
+                                s->modeset = MODESET;
+                        }
+                } else if (IS_KEY_PREFIX(tok, "aspect")) {
+                        s->video_aspect = atof(val);
+                        char *pos = strchr(tok,'/');
+                        if(pos) s->video_aspect /= atof(pos + 1);
+                } else if (!strcasecmp(tok, "single")) {
                         MSG(WARNING,
                             "Single-buffering is not recommended and may not "
                             "work, also GLFW discourages its use.\n");
                         s->vsync = SINGLE_BUF;
-                } else if (!strncmp(tok, "vsync=", strlen("vsync="))) {
+                } else if (IS_PREFIX(tok, "vsync")) {
                         if (toupper((tok + strlen("vsync="))[0]) == 'D') {
                                 s->vsync = SYSTEM_VSYNC;
                         } else {
                                 s->vsync = atoi(tok + strlen("vsync="));
                         }
-                } else if (!strcasecmp(tok, "cursor")) {
+                } else if (IS_PREFIX_WO_VAL(tok, "cursor")) {
                         s->show_cursor = SC_TRUE;
-                } else if (strstr(tok, "syphon") == tok || strstr(tok, "spout") == tok) {
+                } else if (IS_PREFIX(tok, "syphon") ||
+                           IS_PREFIX(tok, "spout")) {
 #if defined HAVE_SYPHON || defined HAVE_SPOUT
-                        if (strchr(tok, '=')) {
-                                snprintf_ch(s->syphon_spout_srv_name, "%s", strchr(tok, '=') + 1);
+                        if (val) {
+                                strcpy_ch(s->syphon_spout_srv_name, val);
                         }
 #else
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Syphon/Spout support not compiled in.\n");
                         return false;
 #endif
-                } else if (strstr(tok, "gamma=") == tok) {
-                        s->gamma = strtod(strchr(tok, '=') + 1, nullptr);
-                        if (strchr(tok, '/')) {
+                } else if (IS_KEY_PREFIX(tok, "gamma")) {
+                        s->gamma = strtod(val, nullptr);
+                        if (strchr(val, '/')) {
                                 s->gamma /= strtod(strchr(tok, '/') + 1, nullptr);
                         }
-                } else if (!strcasecmp(tok, "hide-window")) {
+                } else if (IS_PREFIX_WO_VAL(tok, "hide-window")) {
                         dictionary_insert(s->window_hints,
                                           TOSTRING(GLFW_VISIBLE),
                                           TOSTRING(GLFW_FALSE));
-                } else if (strcasecmp(tok, "pbo") == 0 || strcasecmp(tok, "nopbo") == 0) {
-                        s->use_pbo = strcasecmp(tok, "pbo") == 0 ? 1 : 0;
-                } else if (strstr(tok, "size=") == tok ||
-                           strstr(tok, "fixed_size=") == tok) {
-                        ret = ret && set_size(s, tok);
-                } else if (strcmp(tok, "fixed_size") == 0) {
+                } else if (IS_PREFIX_WO_VAL(tok, "pbo")) {
+                        s->use_pbo = true;
+                } else if (IS_PREFIX_WO_VAL(tok, "nopbo")) {
+                        s->use_pbo = false;
+                } else if (IS_PREFIX_WO_VAL(tok, "fixed_size")) {
                         s->fixed_size = true;
-                } else if (strcmp(tok, "noresizable") == 0) {
+                } else if (IS_PREFIX_WO_VAL(tok, "noresizable")) {
                         s->noresizable = true;
-                } else if (strstr(tok, "window_hint=") == tok) {
-                        set_hints(s, true, strchr(tok, '=') + 1);
-                } else if (strstr(tok, "init_hint=") == tok) {
-                        set_hints(s, false, strchr(tok, '=') + 1);
+                } else if (IS_KEY_PREFIX(tok, "window_hint")) {
+                        set_hints(s, true, val);
+                } else if (IS_KEY_PREFIX(tok, "init_hint")) {
+                        set_hints(s, false, val);
                 } else if (IS_KEY_PREFIX(tok, "platform")) {
-                        ret = ret && set_platform(strchr(tok, '=') + 1);
-                } else if (strcmp(tok, "list_hints") == 0) {
+                        ret = set_platform(val);
+                } else if (IS_PREFIX_WO_VAL(tok, "list_hints")) {
                         list_hints();
                         return false;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s\n", tok);
                         return false;
                 }
+                if (!ret) {
+                        return ret;
+                }
                 ptr = NULL;
         }
 
-        return ret;
+        return true;
 }
 
 static void *

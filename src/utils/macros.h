@@ -180,13 +180,16 @@ enum {
         STR_LEN       = 2048, ///< "standard" string length placeholder
 };
 
+/// prefix of option without a value
+#define IS_PREFIX_WO_VAL(tok, key)                                             \
+        ((strncmp(tok, key, strlen(tok)) == 0) && strchr((tok), '=') == NULL)
 /// expands to true value if <k> from tok in format <k>=<v> is prefix of key
 #define IS_KEY_PREFIX(tok, key) \
-        (strchr((tok), '=') != 0 && \
+        (strchr((tok), '=') != NULL && \
          strncmp(key, tok, strchr((tok), '=') - (tok)) == 0)
-/// similar as above, but also key without a value is accepted (value optional)
+/// combines the 2 above - prefix with optional value
 #define IS_PREFIX(tok, key) \
-        (IS_KEY_PREFIX(tok, key) || strncmp(tok, key, strlen(tok)) == 0)
+        (IS_PREFIX_WO_VAL(tok, key) || IS_KEY_PREFIX(tok, key))
 
 #endif // !defined UTILS_MACROS_H_1982D373_8862_4453_ADFB_33AECC853E48
 

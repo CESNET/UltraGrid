@@ -3,7 +3,7 @@ name: Continuous build semi-weekly tests
 on:
   push:
     branches:
-      - run_tests
+      - scheduled_tests
   schedule:
    - cron:  '00 13 * * 1,5' # Mo,Fr at 13:00 UTC
 

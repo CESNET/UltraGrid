@@ -96,6 +96,24 @@ add_test() {
         eval "test_${test_count}_opts=\${2-}"
         test_count=$((test_count + 1))
 }
+## checks options for unknown keyword (to avoid typo)
+validate_opts() {
+        n_opts=$(echo "${1?}" | sed 's/,/ /g')
+        # shellcheck disable=SC2086 # intentional
+        set -- $n_opts
+        while [ $# -gt 0 ]; do
+                if [ "$1" != run_reflector ] &&
+                   [ "$1" != should_fail ] &&
+                   [ "$1" != should_timeout ] &&
+                   [ "$1" != Linux_only ] &&
+                   [ "$1" != Windows_only ] &&
+                   [ "$1" != macOS_only ]; then
+                        echo "Wrong option $1!" 1>&2
+                        exit 10
+                fi
+                shift
+        done
+}
 
 test_count=0
 . "$(dirname "$0")"/run_scheduled_tests_data.sh
@@ -106,11 +124,13 @@ while [ $i -lt $test_count ]; do
         eval "args=\$test_${i}_args"
         eval "opts=\$test_${i}_opts"
 
+        # shellcheck disable=SC2154 # set by eval
+        validate_opts "$opts"
+
         i=$((i + 1))
 
         exec=$run_uv
         tool=uv
-        # shellcheck disable=SC2154 # set by eval
         if expr -- "$opts" : '.*run_reflector' >/dev/null; then
                 tool=reflector
                 exec=$run_reflector
