@@ -8,14 +8,28 @@
  * using sleep with timeout in relative time - pthread_cond_timedwait()
  * (duration).
  */
-#include "utils/pthread_cond.h"
+#include "utils/pthread.h"
 
+#include <assert.h>  // for assert
 #include <errno.h>   // for ETIMEDOUT
 #include <stdio.h>   // for perror
 #include <stdlib.h>  // for abort
 #include <time.h>    // for timespec, CLOCK_MONOTONIC, clock_gettime
 
 #include "tv.h"      // for NS_IN_SEC
+
+void
+ug_pthread_mutex_init(pthread_mutex_t *mutex)
+{
+        pthread_mutexattr_t attr;
+        pthread_mutexattr_init(&attr);
+#ifdef DEBUG
+        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK);
+#endif
+        pthread_mutexattr_destroy(&attr);
+        int rc = pthread_mutex_init(mutex, &attr);
+        assert(rc == 0);
+}
 
 /**
  * initialize condition variable to be used with ug_pthread_cond_timedwait()

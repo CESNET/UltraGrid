@@ -8,6 +8,7 @@
 
 #include "tv.h"  // for time_ns_t
 
+void ug_pthread_mutex_init(pthread_mutex_t *mutex);
 void ug_pthread_cond_init(pthread_cond_t *cv);
 int  ug_pthread_cond_timedwait(pthread_cond_t *cv, pthread_mutex_t *lock,
                                time_ns_t *timeout_ns);

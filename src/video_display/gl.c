@@ -70,6 +70,7 @@
 #endif
 #include "debug.h"
 #include "gl_context.h"
+#include "gl_vdpau.hpp"
 #include "host.h"
 #include "keyboard_control.h"
 #include "lib_common.h"
@@ -82,7 +83,8 @@
 #include "utils/dictionary.h"
 #include "utils/list.h"          // for simple_linked_list
 #include "utils/macros.h"        // for OPTIMIZED_FOR, STRINGIFY
-#include "utils/pthread_cond.h"  // for ug_pthread_cond_[init,timedwait]
+#include "utils/misc.h"          // for ug_strerror
+#include "utils/pthread.h"       // for ug_pthread_*
 #include "video.h"
 #include "video_display.h"
 
@@ -96,7 +98,14 @@
 #define SYSTEM_VSYNC 0xFE
 #define SINGLE_BUF 0xFF // use single buffering instead of double
 
-#include "gl_vdpau.hpp"
+#define CHECK_RC(cmd)                                                          \
+        do {                                                                   \
+                int rc = cmd;                                                  \
+                if (rc != 0) {                                                 \
+                        MSG(ERROR, "%s:%d: " #cmd ": %s\n", __func__,          \
+                            __LINE__, ug_strerror(rc));                        \
+                }                                                              \
+        } while (0)
 
 static const char * deinterlace_fp = STRINGIFY(
 \043version 110\n
@@ -962,7 +971,7 @@ display_gl_init(struct module *parent, const char *fmt,
         dictionary_insert(s->window_hints, TOSTRING(GLFW_AUTO_ICONIFY),
                           TOSTRING(GLFW_FALSE));
         snprintf_ch(s->syphon_spout_srv_name, "UltraGrid");
-        pthread_mutex_init(&s->lock, nullptr);
+        ug_pthread_mutex_init(&s->lock);
         ug_pthread_cond_init(&s->new_frame_ready_cv);
         ug_pthread_cond_init(&s->frame_consumed_cv);
         s->frame_queue      = simple_linked_list_init();
@@ -1390,20 +1399,20 @@ static void gl_process_frames(struct state_gl *s)
         }
 
         {
-                pthread_mutex_lock(&s->lock);
+                CHECK_RC(pthread_mutex_lock(&s->lock));
                 time_ns_t timeout_ns =
                     MIN(2.0 / s->current_display_desc.fps, 0.1) * NS_IN_SEC;
                 while (simple_linked_list_size(s->frame_queue) == 0) {
                         int rc = ug_pthread_cond_timedwait(&s->new_frame_ready_cv,
                                                         &s->lock, &timeout_ns);
                         if (rc != 0) {
-                                pthread_mutex_unlock(&s->lock);
+                                CHECK_RC(pthread_mutex_unlock(&s->lock));
                                 return;
                         }
                 }
                 frame = (struct video_frame *) simple_linked_list_pop(s->frame_queue);
-                pthread_mutex_unlock(&s->lock);
-                pthread_cond_signal(&s->frame_consumed_cv);
+                CHECK_RC(pthread_mutex_unlock(&s->lock));
+                CHECK_RC(pthread_cond_signal(&s->frame_consumed_cv));
 
                 if (!frame) {
                         return;
@@ -1420,7 +1429,7 @@ static void gl_process_frames(struct state_gl *s)
                                                   s->current_frame);
                 }
                 s->current_frame = frame;
-                pthread_mutex_unlock(&s->lock);
+                CHECK_RC(pthread_mutex_unlock(&s->lock));
         }
 
         if (!video_desc_eq(video_desc_from_frame(frame), s->current_display_desc)) {
@@ -1618,10 +1627,10 @@ display_gl_print_depth(GLFWmonitor *monitor)
 
 static void display_gl_render_last(GLFWwindow *win) {
         struct state_gl *s = glfwGetWindowUserPointer(win);
-        pthread_mutex_lock(&s->lock);
+        CHECK_RC(pthread_mutex_lock(&s->lock));
         struct video_frame *f = s->current_frame;
         s->current_frame = nullptr;
-        pthread_mutex_unlock(&s->lock);
+        CHECK_RC(pthread_mutex_unlock(&s->lock));
         if (!f) {
                 return;
         }
@@ -2329,9 +2338,9 @@ static void display_gl_done(void *state)
         simple_linked_list_destroy(s->frame_queue);
         simple_linked_list_destroy(s->free_frame_queue);
 
-        pthread_cond_destroy(&s->new_frame_ready_cv);
-        pthread_cond_destroy(&s->frame_consumed_cv);
-        pthread_mutex_destroy(&s->lock);
+        CHECK_RC(pthread_cond_destroy(&s->new_frame_ready_cv));
+        CHECK_RC(pthread_cond_destroy(&s->frame_consumed_cv));
+        CHECK_RC(pthread_mutex_destroy(&s->lock));
 
         free(s);
 }
@@ -2341,7 +2350,7 @@ static struct video_frame * display_gl_getf(void *state)
         struct state_gl *s = (struct state_gl *) state;
         assert(s->magic == MAGIC_GL);
 
-        pthread_mutex_lock(&s->lock);
+        CHECK_RC(pthread_mutex_lock(&s->lock));
         while (simple_linked_list_size(s->free_frame_queue) > 0) {
                 struct video_frame *buffer =
                     simple_linked_list_pop(s->free_frame_queue);
@@ -2351,7 +2360,7 @@ static struct video_frame * display_gl_getf(void *state)
                 }
                 vf_free(buffer);
         }
-        pthread_mutex_unlock(&s->lock);
+        CHECK_RC(pthread_mutex_unlock(&s->lock));
 
         struct video_frame *buffer = vf_alloc_desc_data(s->current_desc);
         vf_clear(buffer);
@@ -2366,24 +2375,25 @@ static bool display_gl_putf(void *state, struct video_frame *frame, long long ti
 
         if(!frame) {
                 glfwSetWindowShouldClose(s->window, GLFW_TRUE);
-                pthread_mutex_lock(&s->lock);
+                CHECK_RC(pthread_mutex_lock(&s->lock));
                 simple_linked_list_append(s->frame_queue, frame);
-                pthread_mutex_unlock(&s->lock);
-                pthread_cond_signal(&s->new_frame_ready_cv);
+                CHECK_RC(pthread_mutex_unlock(&s->lock));
+                CHECK_RC(pthread_cond_signal(&s->new_frame_ready_cv));
                 return true;
         }
 
-        pthread_mutex_lock(&s->lock);
+        CHECK_RC(pthread_mutex_lock(&s->lock));
         switch (timeout_ns) {
                 case PUTF_DISCARD:
                         vf_recycle(frame);
                         simple_linked_list_append(s->free_frame_queue, frame);
-                        pthread_mutex_unlock(&s->lock);
+                        CHECK_RC(pthread_mutex_unlock(&s->lock));
                         return 0;
                 case PUTF_BLOCKING:
                         while (simple_linked_list_size(s->frame_queue) >=
                                MAX_BUFFER_SIZE) {
-                                pthread_cond_wait(&s->frame_consumed_cv, &s->lock);
+                                CHECK_RC(pthread_cond_wait(
+                                    &s->frame_consumed_cv, &s->lock));
                         }
                         break;
                 case PUTF_NONBLOCK:
@@ -2404,13 +2414,13 @@ static bool display_gl_putf(void *state, struct video_frame *frame, long long ti
                 MSG(VERBOSE, "1 frame(s) dropped!\n");
                 vf_recycle(frame);
                 simple_linked_list_append(s->free_frame_queue, frame);
-                pthread_mutex_unlock(&s->lock);
+                CHECK_RC(pthread_mutex_unlock(&s->lock));
                 return false;
         }
         simple_linked_list_append(s->frame_queue, frame);
 
-        pthread_mutex_unlock(&s->lock);
-        pthread_cond_signal(&s->new_frame_ready_cv);
+        CHECK_RC(pthread_mutex_unlock(&s->lock));
+        CHECK_RC(pthread_cond_signal(&s->new_frame_ready_cv));
 
         return !s->paused;
 }
