@@ -2698,7 +2698,7 @@ if test $sage_req != no; then
         fi
 
         AC_LANG_PUSH(C++)
-        AC_CHECK_HEADERS(${SAGE_INC}/sail.h, FOUND_SAGE_H=yes, FOUND_SAGE_H=no)
+        AC_CHECK_HEADER(${SAGE_INC}/sail.h, FOUND_SAGE_H=yes, FOUND_SAGE_H=no)
         AC_LANG_POP(C++)
 
         if test $FOUND_SAGE_L = yes && test $FOUND_SAGE_H = yes
