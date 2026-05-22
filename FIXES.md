@@ -1,3 +1,9 @@
+#### 1.10.5
+
+* fix seldom audio corruption
+* fix presentation of portaudio devices in help
+* add configure (user doesn't need autoconf/automake)
+
 #### 1.10.4
 
 * fix default VP9 on x86-64 pre v3 (wo AVX2). But the libvpx-vp9
