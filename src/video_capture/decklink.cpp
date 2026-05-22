@@ -166,7 +166,68 @@ using std::vector;
 
 #define CALL_AND_CHECK(cmd, ...) CALL_AND_CHECK_CHOOSER(__VA_ARGS__)(cmd, __VA_ARGS__)
 
-class VideoDelegate;
+class VideoDelegate final : public IDeckLinkInputCallback
+{
+      private:
+        int32_t                                           mRefCount{};
+        static constexpr BMDDetectedVideoInputFormatFlags csMask{
+                bmdDetectedVideoInputYCbCr422 | bmdDetectedVideoInputRGB444
+        };
+        static constexpr BMDDetectedVideoInputFormatFlags bitDepthMask{
+                bmdDetectedVideoInput8BitDepth |
+                bmdDetectedVideoInput10BitDepth |
+                bmdDetectedVideoInput12BitDepth
+        };
+        BMDDetectedVideoInputFormatFlags configuredCsBitDepth{};
+
+      public:
+        int                           newFrameReady{}; // -1 == timeout
+        BMDTimeValue                  frameTime{};
+        IDeckLinkVideoFrame          *rightEyeFrame{};
+        void                         *pixelFrame{};
+        void                         *pixelFrameRight{};
+        IDeckLinkVideoInputFrame     *lastFrame{ nullptr };
+        uint32_t                      timecode{};
+        struct vidcap_decklink_state *s;
+        struct device_state          &device;
+
+        VideoDelegate(struct vidcap_decklink_state *state,
+                      struct device_state          &device_)
+            : s(state), device(device_)
+        {
+        }
+
+        ~VideoDelegate()
+        {
+                RELEASE_IF_NOT_NULL(rightEyeFrame);
+                RELEASE_IF_NOT_NULL(lastFrame);
+        }
+
+        HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, LPVOID *) override
+        {
+                return E_NOINTERFACE;
+        }
+        ULONG STDMETHODCALLTYPE AddRef() override { return mRefCount++; }
+        ULONG STDMETHODCALLTYPE Release() override
+        {
+                int32_t newRefValue = mRefCount--;
+                if (newRefValue == 0) {
+                        delete this;
+                        return 0;
+                }
+                return newRefValue;
+        }
+        static string getNotificationEventsStr(
+            BMDVideoInputFormatChangedEvents notificationEvents,
+            BMDDetectedVideoInputFormatFlags flags) noexcept;
+        HRESULT STDMETHODCALLTYPE VideoInputFormatChanged(
+            BMDVideoInputFormatChangedEvents notificationEvents,
+            IDeckLinkDisplayMode            *mode,
+            BMDDetectedVideoInputFormatFlags flags) noexcept override;
+        HRESULT STDMETHODCALLTYPE
+        VideoInputFrameArrived(IDeckLinkVideoInputFrame  *videoFrame,
+                               IDeckLinkAudioInputPacket *audioPacket) override;
+};
 
 struct device_state {
         IDeckLink                  *deckLink              = nullptr;
@@ -232,164 +293,146 @@ static list<tuple<int, string, string, string>> get_input_modes (IDeckLink* deck
 static void print_input_modes (IDeckLink* deckLink);
 static string display_mode_get_name(IDeckLinkDisplayMode *displayMode);
 
-class VideoDelegate : public IDeckLinkInputCallback {
-private:
-	int32_t                       mRefCount{};
-        static constexpr BMDDetectedVideoInputFormatFlags csMask{bmdDetectedVideoInputYCbCr422 | bmdDetectedVideoInputRGB444};
-        static constexpr BMDDetectedVideoInputFormatFlags bitDepthMask{bmdDetectedVideoInput8BitDepth | bmdDetectedVideoInput10BitDepth | bmdDetectedVideoInput12BitDepth};
-        BMDDetectedVideoInputFormatFlags configuredCsBitDepth{};
 
-public:
-        int	                      newFrameReady{}; // -1 == timeout
-        BMDTimeValue                  frameTime{};
-        IDeckLinkVideoFrame          *rightEyeFrame{};
-        void                         *pixelFrame{};
-        void                         *pixelFrameRight{};
-        IDeckLinkVideoInputFrame     *lastFrame{nullptr};
-        uint32_t                      timecode{};
-        struct vidcap_decklink_state *s;
-        struct device_state          &device;
-	
-        VideoDelegate(struct vidcap_decklink_state *state, struct device_state &device_) : s(state), device(device_) {
+string
+VideoDelegate::getNotificationEventsStr(
+    BMDVideoInputFormatChangedEvents notificationEvents,
+    BMDDetectedVideoInputFormatFlags flags) noexcept
+{
+        string                                        status{};
+        map<BMDDetectedVideoInputFormatFlags, string> change_map{
+                { bmdVideoInputDisplayModeChanged,    "display mode"s    },
+                { bmdVideoInputFieldDominanceChanged, "field dominance"s },
+                { bmdVideoInputColorspaceChanged,     "color space"s     },
+        };
+        for (auto &i : change_map) {
+                if ((notificationEvents & i.first) != 0U) {
+                        if (!status.empty()) {
+                                status += ", "s;
+                        }
+                        status += i.second;
+                }
         }
-	
-        virtual ~VideoDelegate () {
-                RELEASE_IF_NOT_NULL(rightEyeFrame);
-                RELEASE_IF_NOT_NULL(lastFrame);
-	}
+        if (status.empty()) {
+                status = "unknown"s;
+        }
+        status += " - ";
+        map<BMDDetectedVideoInputFormatFlags, string> flag_map{
+                { bmdDetectedVideoInputYCbCr422,     "YCbCr422"s     },
+                { bmdDetectedVideoInputRGB444,       "RGB444"s       },
+                { bmdDetectedVideoInputDualStream3D, "DualStream3D"s },
+                { bmdDetectedVideoInput12BitDepth,   "12bit"s        },
+                { bmdDetectedVideoInput10BitDepth,   "10bit"s        },
+                { bmdDetectedVideoInput8BitDepth,    "8bit"s         },
+        };
+        bool first = true;
+        for (auto &i : flag_map) {
+                if ((flags & i.first) != 0U) {
+                        if (!first) {
+                                status += ", "s;
+                        }
+                        status += i.second;
+                        first = false;
+                }
+        }
+        return status;
+}
 
-	virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, LPVOID *) override { return E_NOINTERFACE; }
-	virtual ULONG STDMETHODCALLTYPE  AddRef(void) override {
-		return mRefCount++;
-	}
-	virtual ULONG STDMETHODCALLTYPE  Release(void) override {
-		int32_t newRefValue = mRefCount--;
-		if (newRefValue == 0)
-		{
-			delete this;
-			return 0;
-		}
-        	return newRefValue;
-	}
-        static auto getNotificationEventsStr(BMDVideoInputFormatChangedEvents notificationEvents, BMDDetectedVideoInputFormatFlags flags) noexcept {
-                string status{};
-                map<BMDDetectedVideoInputFormatFlags, string> change_map {
-                        { bmdVideoInputDisplayModeChanged, "display mode"s },
-                        { bmdVideoInputFieldDominanceChanged, "field dominance"s },
-                        { bmdVideoInputColorspaceChanged, "color space"s },
-                };
-                for (auto &i : change_map) {
-                        if ((notificationEvents & i.first) != 0U) {
-                                if (!status.empty()) {
-                                        status += ", "s;
-                                }
-                                status += i.second;
-                        }
-                }
-                if (status.empty()) {
-                        status = "unknown"s;
-                }
-                status += " - ";
-                map<BMDDetectedVideoInputFormatFlags, string> flag_map {
-                        { bmdDetectedVideoInputYCbCr422, "YCbCr422"s },
-                        { bmdDetectedVideoInputRGB444, "RGB444"s },
-                        { bmdDetectedVideoInputDualStream3D, "DualStream3D"s },
-                        { bmdDetectedVideoInput12BitDepth, "12bit"s },
-                        { bmdDetectedVideoInput10BitDepth, "10bit"s },
-                        { bmdDetectedVideoInput8BitDepth, "8bit"s },
-                };
-                bool first = true;
-                for (auto &i : flag_map) {
-                        if ((flags & i.first) != 0U) {
-                                if (!first) {
-                                        status += ", "s;
-                                }
-                                status += i.second;
-                                first = false;
-                        }
-                }
-                return status;
+HRESULT STDMETHODCALLTYPE
+VideoDelegate::VideoInputFormatChanged(
+    BMDVideoInputFormatChangedEvents notificationEvents,
+    IDeckLinkDisplayMode *mode, BMDDetectedVideoInputFormatFlags flags) noexcept
+{
+        LOG(LOG_LEVEL_NOTICE)
+            << MOD_NAME << "Format change detected ("
+            << getNotificationEventsStr(notificationEvents, flags) << ").\n";
+
+        bool detected_3d = (flags & bmdDetectedVideoInputDualStream3D) != 0U;
+        if (detected_3d != s->stereo) {
+                LOG(LOG_LEVEL_WARNING)
+                    << MOD_NAME << "Stereoscopic 3D "
+                    << (detected_3d ? "" : "not ") << "detected but "
+                    << (s->stereo ? "" : "not ")
+                    << "enabled! "
+                       "Switching automatically. This behavior is "
+                       "experimental so please report any problems. "
+                       "You can also specify `3D` option explicitly.\n";
+                s->stereo = detected_3d;
+                s->enable_flags ^= bmdVideoInputDualStream3D;
         }
 
-	virtual HRESULT STDMETHODCALLTYPE VideoInputFormatChanged(
-                        BMDVideoInputFormatChangedEvents notificationEvents,
-                        IDeckLinkDisplayMode* mode,
-                        BMDDetectedVideoInputFormatFlags flags) noexcept override {
-                LOG(LOG_LEVEL_NOTICE)
-                    << MOD_NAME << "Format change detected ("
-                    << getNotificationEventsStr(notificationEvents, flags)
-                    << ").\n";
-
-                bool detected_3d = (flags & bmdDetectedVideoInputDualStream3D) != 0U;
-                if (detected_3d != s->stereo) {
-                        LOG(LOG_LEVEL_WARNING)
-                            << MOD_NAME << "Stereoscopic 3D "
-                            << (detected_3d ? "" : "not ") << "detected but "
-                            << (s->stereo ? "" : "not ")
-                            << "enabled! "
-                               "Switching automatically. This behavior is "
-                               "experimental so please report any problems. "
-                               "You can also specify `3D` option explicitly.\n";
-                        s->stereo = detected_3d;
-                        s->enable_flags ^= bmdVideoInputDualStream3D;
-                }
-
-                IDeckLinkInput *deckLinkInput = device.deckLinkInput;
-                // set the codec but only if has changed
-                BMDDetectedVideoInputFormatFlags csBitDepth = flags & (csMask | bitDepthMask);
-                if (notificationEvents == bmdVideoInputColorspaceChanged && csBitDepth == configuredCsBitDepth) {
-                        return S_OK;
-                }
-                configuredCsBitDepth = csBitDepth;
-                if ((csBitDepth & bitDepthMask) == 0U) { // if no bit depth, assume 8-bit
-                        csBitDepth |= bmdDetectedVideoInput8BitDepth;
-                }
-                if (s->requested_bit_depth != 0) {
-                        csBitDepth = (flags & csMask) | s->requested_bit_depth;
-                }
-                unordered_map<BMDDetectedVideoInputFormatFlags, codec_t> m = {
-                        {bmdDetectedVideoInputYCbCr422 | bmdDetectedVideoInput8BitDepth, UYVY},
-                        {bmdDetectedVideoInputYCbCr422 | bmdDetectedVideoInput10BitDepth, v210},
-                        {bmdDetectedVideoInputYCbCr422 | bmdDetectedVideoInput12BitDepth, v210}, // weird
-                        {bmdDetectedVideoInputRGB444 | bmdDetectedVideoInput8BitDepth, RGBA},
-                        {bmdDetectedVideoInputRGB444 | bmdDetectedVideoInput10BitDepth, R10k},
-                        {bmdDetectedVideoInputRGB444 | bmdDetectedVideoInput12BitDepth, R12L},
-                };
-                if (s->requested_bit_depth == 0 && (csBitDepth & bmdDetectedVideoInput8BitDepth) == 0) {
-                        const int depth = (flags & bmdDetectedVideoInput10BitDepth) != 0U ? 10 : 12;
-                        if (depth == 12 && !decklink_supports_codec(deckLinkInput, bmdFormat12BitRGBLE)) {
-                                MSG(WARNING, "12-bit input detected but not supported "
-                                    "by the device! Using 10-bit.\n");
-                                csBitDepth = (flags & csMask) |
-                                             bmdDetectedVideoInput10BitDepth;
-                        }
-                        MSG(WARNING,
-                            "Detected %d-bit signal, use \":codec=UYVY\" to "
-                            "enforce 8-bit capture (old behavior).\n",
-                            depth);
-                }
-
-                unique_lock<mutex> lk(s->lock);
-                s->set_codec(m.at(csBitDepth));
-
-                deckLinkInput->PauseStreams();
-                BMDPixelFormat pf{};
-                if (HRESULT result = set_display_mode_properties(s, device.tile, mode, /* out */ &pf); FAILED(result)) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME << "set_display_mode_properties: " << bmd_hresult_to_string(result) << "\n";
-                        return result;
-                }
-                CALL_AND_CHECK(deckLinkInput->EnableVideoInput(mode->GetDisplayMode(), pf, s->enable_flags), "EnableVideoInput");
-                deckLinkInput->FlushStreams();
-                deckLinkInput->StartStreams();
-
-                if (s->autodetect_once) {
-                        s->enable_flags ^= bmdVideoInputEnableFormatDetection;
-                }
-
+        IDeckLinkInput *deckLinkInput = device.deckLinkInput;
+        // set the codec but only if has changed
+        BMDDetectedVideoInputFormatFlags csBitDepth =
+            flags & (csMask | bitDepthMask);
+        if (notificationEvents == bmdVideoInputColorspaceChanged &&
+            csBitDepth == configuredCsBitDepth) {
                 return S_OK;
-	}
-	virtual HRESULT STDMETHODCALLTYPE VideoInputFrameArrived(IDeckLinkVideoInputFrame*, IDeckLinkAudioInputPacket*) override;
-};
+        }
+        configuredCsBitDepth = csBitDepth;
+        if ((csBitDepth & bitDepthMask) ==
+            0U) { // if no bit depth, assume 8-bit
+                csBitDepth |= bmdDetectedVideoInput8BitDepth;
+        }
+        if (s->requested_bit_depth != 0) {
+                csBitDepth = (flags & csMask) | s->requested_bit_depth;
+        }
+        unordered_map<BMDDetectedVideoInputFormatFlags, codec_t> m = {
+                { bmdDetectedVideoInputYCbCr422 |
+                      bmdDetectedVideoInput8BitDepth,           UYVY },
+                { bmdDetectedVideoInputYCbCr422 |
+                      bmdDetectedVideoInput10BitDepth,          v210 },
+                { bmdDetectedVideoInputYCbCr422 |
+                      bmdDetectedVideoInput12BitDepth,          v210 }, // weird
+                { bmdDetectedVideoInputRGB444 | bmdDetectedVideoInput8BitDepth,
+                 RGBA                                                                 },
+                { bmdDetectedVideoInputRGB444 | bmdDetectedVideoInput10BitDepth,
+                 R10k                                                                 },
+                { bmdDetectedVideoInputRGB444 | bmdDetectedVideoInput12BitDepth,
+                 R12L                                                                 },
+        };
+        if (s->requested_bit_depth == 0 &&
+            (csBitDepth & bmdDetectedVideoInput8BitDepth) == 0) {
+                const int depth =
+                    (flags & bmdDetectedVideoInput10BitDepth) != 0U ? 10 : 12;
+                if (depth == 12 && !decklink_supports_codec(
+                                       deckLinkInput, bmdFormat12BitRGBLE)) {
+                        MSG(WARNING, "12-bit input detected but not supported "
+                                     "by the device! Using 10-bit.\n");
+                        csBitDepth =
+                            (flags & csMask) | bmdDetectedVideoInput10BitDepth;
+                }
+                MSG(WARNING,
+                    "Detected %d-bit signal, use \":codec=UYVY\" to "
+                    "enforce 8-bit capture (old behavior).\n",
+                    depth);
+        }
+
+        unique_lock<mutex> lk(s->lock);
+        s->set_codec(m.at(csBitDepth));
+
+        deckLinkInput->PauseStreams();
+        BMDPixelFormat pf{};
+        if (HRESULT result = set_display_mode_properties(s, device.tile, mode,
+                                                         /* out */ &pf);
+            FAILED(result)) {
+                LOG(LOG_LEVEL_ERROR)
+                    << MOD_NAME << "set_display_mode_properties: "
+                    << bmd_hresult_to_string(result) << "\n";
+                return result;
+        }
+        CALL_AND_CHECK(deckLinkInput->EnableVideoInput(mode->GetDisplayMode(),
+                                                       pf, s->enable_flags),
+                       "EnableVideoInput");
+        deckLinkInput->FlushStreams();
+        deckLinkInput->StartStreams();
+
+        if (s->autodetect_once) {
+                s->enable_flags ^= bmdVideoInputEnableFormatDetection;
+        }
+
+        return S_OK;
+}
 
 HRESULT	
 VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDeckLinkAudioInputPacket *audioPacket)
