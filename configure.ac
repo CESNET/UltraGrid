@@ -197,6 +197,9 @@ clang_ver_major=$($CC --version | sed -n \
 if test "${clang_ver_major:-17}" -lt 17; then
         CFLAGS="-std=gnu2x${CFLAGS:+ $CFLAGS}"
 fi
+if test "${clang_ver_major:-16}" -lt 16; then
+        CXXFLAGS=$(echo "$CXXFLAGS" | sed 's/-std=[^ ]*/-std=gnu++2b/')
+fi
 
 LINKER=$CXX
 
