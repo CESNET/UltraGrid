@@ -64,6 +64,7 @@ struct module;
 #include "lib_common.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
+#include "utils/pthread.h" // for CHK_PTHR
 #include "utils/ring_buffer.h"
 
 /* default variables for sender */
@@ -333,7 +334,7 @@ static void audio_cap_portaudio_done(void *state)
         struct state_portaudio_capture *s = (struct state_portaudio_capture *) state;
         portaudio_close(s->stream);
         free(s->frame.data);
-        pthread_mutex_destroy(&s->lock);
+        CHK_PTHR(pthread_mutex_destroy(&s->lock));
         pthread_cond_destroy(&s->cv);
         ring_buffer_destroy(s->buffer);
         free(s);

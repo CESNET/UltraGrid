@@ -7,7 +7,7 @@
  * when thread, where it is created, exits.
  */
 /*
- * Copyright (c) 2013-2014 CESNET z.s.p.o.
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,8 +48,11 @@
 #include <pthread.h>
 
 #include "debug.h"
+#include "utils/pthread.h" // for CHK_PTHR
 #include "utils/windows.h"
 #include "win32_gl_common.h"
+
+#define MOD_NAME "[win32_gl] "
 
 #define VERSION_GET_MAJOR(version) (version >> 8u)
 #define VERSION_GET_MINOR(version) (version & 0xFF)
@@ -328,7 +331,7 @@ void win32_context_make_current(void *arg)
 static void win32_context_cleanup_common(struct state_win32_gl_context
                 *context)
 {
-        pthread_mutex_destroy(&context->lock);
+        CHK_PTHR(pthread_mutex_destroy(&context->lock));
         pthread_cond_destroy(&context->status_cv);
         pthread_cond_destroy(&context->loop_cv);
 

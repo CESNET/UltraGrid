@@ -58,6 +58,7 @@
 #include "utils/fs.h" // MAX_PATH_SIZE
 #include "utils/macros.h"     // for STR_LEN
 #include "utils/misc.h"
+#include "utils/pthread.h"    // for CHK_PTHR
 #include "video_export.h"
 
 #define MOD_NAME "[export] "
@@ -309,7 +310,7 @@ static void disable_export(struct exporter *s) {
 void export_destroy(struct exporter *s) {
         disable_export(s);
 
-        pthread_mutex_destroy(&s->lock);
+        CHK_PTHR(pthread_mutex_destroy(&s->lock));
         module_done(&s->mod);
         free(s->dir);
         free(s);

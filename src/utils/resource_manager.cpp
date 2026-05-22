@@ -8,7 +8,7 @@
  * library compiled with that file defining the var).
  */
 /*
- * Copyright (c) 2013 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -50,7 +50,9 @@
 #include <utility>
 
 #include "utils/lock_guard.h"
+#include "utils/pthread.h" // for CHK_PTHR
 
+#define MOD_NAME "[resource_manager] "
 #define TYPE_LOCK 0
 #define TYPE_SHM 1
 #define TYPE_SINGLETON 2
@@ -104,7 +106,7 @@ class lock : public resource {
                 }
 
                 ~lock() {
-                        pthread_mutex_destroy(&m_lock);
+                        CHK_PTHR(pthread_mutex_destroy(&m_lock));
                 }
 
                 pthread_mutex_t *get() {

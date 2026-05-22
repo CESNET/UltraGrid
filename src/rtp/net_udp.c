@@ -71,6 +71,7 @@
 #include "utils/macros.h"
 #include "utils/misc.h"
 #include "utils/net.h"
+#include "utils/pthread.h"        // for CHK_PTHR
 #include "utils/thread.h"
 #include "utils/windows.h"
 
@@ -1234,7 +1235,7 @@ void udp_exit(socket_udp * s)
                         CLOSESOCKET(s->local->tx_fd);
                 }
                 simple_linked_list_destroy(s->local->packets);
-                pthread_mutex_destroy(&s->local->lock);
+                CHK_PTHR(pthread_mutex_destroy(&s->local->lock));
                 pthread_cond_destroy(&s->local->boss_cv);
                 pthread_cond_destroy(&s->local->reader_cv);
                 free(s->local);

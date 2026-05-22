@@ -54,7 +54,7 @@
 #include "messaging.h"
 #include "module.h"
 #include "utils/macros.h"    // for snprintf_ch
-#include "utils/pthread.h"   // for PTHREAD_NULL
+#include "utils/pthread.h"   // for CHK_PTHR, PTHREAD_NULL
 #include "utils/thread.h"
 #include "video.h"
 #include "video_codec.h"     // for get_codec_name
@@ -183,7 +183,7 @@ video_rxtx::~video_rxtx() noexcept
         module_done(&m_receiver_mod);
         module_done(&m_sender_mod);
 
-        pthread_mutex_destroy(&m_lock);
+        CHK_PTHR(pthread_mutex_destroy(&m_lock));
 }
 
 void

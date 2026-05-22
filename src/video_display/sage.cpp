@@ -56,6 +56,7 @@
 #include "host.h"
 #include "lib_common.h"
 #include "types.h"          // for tile, video_desc, device_info, DXT1, codec_t
+#include "utils/pthread.h"  // for CHK_PTHR
 #include "video_frame.h"    // for vf_alloc, vf_free, vf_get_tile
 #include "video.h"
 #include "video_display.h"
@@ -79,6 +80,7 @@
 #include <video_codec.h>
 
 #define MAGIC_SAGE	0x3e960c47
+#define MOD_NAME "[vdisp/sage] "
 
 struct state_sage {
         struct video_frame *frame;
@@ -309,7 +311,7 @@ static void display_sage_done(void *state)
         pthread_join(s->thread_id, NULL);
         sem_destroy(&s->semaphore);
         pthread_cond_destroy(&s->buffer_writable_cond);
-        pthread_mutex_destroy(&s->buffer_writable_lock);
+        CHK_PTHR(pthread_mutex_destroy(&s->buffer_writable_lock));
         vf_free(s->frame);
         if (s->sage_state)
                 s->sage_state->shutdown();

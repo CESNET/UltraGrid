@@ -53,6 +53,7 @@
 #include "types.h"            // for tile, video_desc, video_frame, codec_t
 #include "utils/color_out.h"
 #include "utils/list.h"
+#include "utils/pthread.h"    // for CHK_PTHR
 #include "utils/text.h"
 #include "video.h"
 #include "video_codec.h"
@@ -213,7 +214,7 @@ static void done(void *state)
         pthread_join(s->thread_id, NULL);
         display_join(s->d);
         display_done(s->d);
-        pthread_mutex_destroy(&s->lock);
+        CHK_PTHR(pthread_mutex_destroy(&s->lock));
         pthread_cond_destroy(&s->cv);
         simple_linked_list_destroy(s->frame_queue);
         free(s);

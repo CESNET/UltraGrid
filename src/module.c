@@ -52,6 +52,7 @@
 #include "messaging.h"      // for check_message, free_message, ...
 #include "utils/list.h"
 #include "utils/macros.h"   // for countof, to_fourcc
+#include "utils/pthread.h"  // for CHK_PTHR
 
 #define MOD_NAME "[module] "
 #define MODULE_MAGIC to_fourcc('M', 'O', 'D', ' ')
@@ -170,7 +171,7 @@ module_del_ref(struct module_priv_state *module_priv)
         }
         simple_linked_list_destroy(module_priv->msg_queue_children);
 
-        pthread_mutex_destroy(&module_priv->lock);
+        CHK_PTHR(pthread_mutex_destroy(&module_priv->lock));
         free(module_priv);
         return true;
 }

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2023 CESNET, z. s. p. o.
+ * Copyright (c) 2023-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -62,6 +62,7 @@
 #include "utils/fs.h"
 #include "utils/macros.h"
 #include "utils/misc.h"
+#include "utils/pthread.h" // for CHK_PTHR
 #include "utils/text.h"
 #include "video.h"
 #include "video_display.h"
@@ -120,7 +121,7 @@ display_file_done(void *state)
         struct state_file *s = state;
         if (s->should_exit) { // thread started
                 pthread_join(s->thread_id, NULL);
-                pthread_mutex_destroy(&s->lock);
+                CHK_PTHR(pthread_mutex_destroy(&s->lock));
                 pthread_cond_destroy(&s->cv);
         }
         if (s->initialized) {

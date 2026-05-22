@@ -79,6 +79,7 @@
 #include "utils/dictionary.h" // for dictionary
 #include "utils/list.h"       // for simple_linked_list_append, simple_lin...
 #include "utils/macros.h"     // for STR_LEN
+#include "utils/pthread.h"    // for CHK_PTHR
 #include "video.h"            // for get_video_desc_from_string
 #include "video_codec.h"      // for get_codec_name, codec_is_planar, vc_d...
 #include "video_display.h"    // for display_property, get_splashscreen
@@ -1196,7 +1197,7 @@ display_sdl3_done(void *state)
 
         simple_linked_list_destroy(s->free_frame_queue);
 
-        pthread_mutex_destroy(&s->lock);
+        CHK_PTHR(pthread_mutex_destroy(&s->lock));
         pthread_cond_destroy(&s->frame_consumed_cv);
         pthread_cond_destroy(&s->reconfigured_cv);
 

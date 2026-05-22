@@ -80,6 +80,7 @@
 #include "utils/list.h"
 #include "utils/macros.h"
 #include "utils/math.h"
+#include "utils/pthread.h" // for CHK_PTHR
 #include "utils/ring_buffer.h"
 #include "utils/thread.h"
 #include "utils/time.h"
@@ -207,8 +208,8 @@ static void vidcap_file_common_cleanup(struct vidcap_state_lavf_decoder *s) {
         flush_captured_data(s);
         ring_buffer_destroy(s->audio_data);
 
-        pthread_mutex_destroy(&s->audio_frame_lock);
-        pthread_mutex_destroy(&s->lock);
+        CHK_PTHR(pthread_mutex_destroy(&s->audio_frame_lock));
+        CHK_PTHR(pthread_mutex_destroy(&s->lock));
         pthread_cond_destroy(&s->frame_consumed);
         pthread_cond_destroy(&s->new_frame_ready);
         free(s->src_filename);

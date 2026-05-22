@@ -78,6 +78,7 @@ enum {
 #include "utils/list.h"
 #include "utils/macros.h"
 #include "utils/misc.h" // ug_strerror
+#include "utils/pthread.h"         // for CHK_PTHR
 #include "v4l2_common.h"
 #include "video_capture.h"
 #include "video_capture_params.h"  // for vidcap_params_get_fmt, vidcap_para...
@@ -157,7 +158,7 @@ static void vidcap_v4l2_common_cleanup(struct vidcap_v4l2_state *s) {
         }
 
         pthread_cond_destroy(&s->cv);
-        pthread_mutex_destroy(&s->lock);
+        CHK_PTHR(pthread_mutex_destroy(&s->lock));
         simple_linked_list_destroy(s->buffers_to_enqueue);
 
         if (s->fd != -1)

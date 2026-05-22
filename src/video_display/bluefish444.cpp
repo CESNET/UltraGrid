@@ -70,6 +70,7 @@
 #include "lib_common.h"
 #include "tv.h"
 #include "types.h"               // for video_desc, device_info, tile, inter...
+#include "utils/pthread.h"       // for CHK_PTHR
 #include "utils/ring_buffer.h"
 #include "video.h"
 #include "video_display.h"
@@ -79,6 +80,7 @@
 #define BUFFER_COUNT 4
 
 #define MAX_BLUE_OUT_CHANNELS 4
+#define MOD_NAME "[disp/blue444] "
 
 using namespace std;
 
@@ -243,7 +245,7 @@ display_bluefish444_state::~display_bluefish444_state() noexcept
 
         cleanup();
 
-        pthread_mutex_destroy(&m_lock);
+        CHK_PTHR(pthread_mutex_destroy(&m_lock));
         pthread_cond_destroy(&m_WorkerCv);
         pthread_cond_destroy(&m_BossCv);
 

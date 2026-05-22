@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2023-2024 CESNET, z. s. p. o.
+ * Copyright (c) 2023-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,8 +45,9 @@
 
 #include "debug.h"
 #include "lib_common.h"
-#include "utils/color_out.h"
 #include "tv.h"
+#include "utils/color_out.h"
+#include "utils/pthread.h"    // for CHK_PTHR
 #include "video.h"
 #include "video_display.h"
 
@@ -105,7 +106,7 @@ static void display_caca_done(void *state)
                 log_level = s->log_level_stored;
         }
         vf_free(s->f);
-        pthread_mutex_destroy(&s->lock);
+        CHK_PTHR(pthread_mutex_destroy(&s->lock));
         pthread_cond_destroy(&s->frame_ready_cv);
         pthread_cond_destroy(&s->frame_consumed_cv);
         free(s);

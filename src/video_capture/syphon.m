@@ -59,6 +59,7 @@
 #include "utils/color_out.h"
 #include "utils/list.h"
 #include "utils/misc.h"
+#include "utils/pthread.h"              // for CHK_PTHR
 #include "video.h"
 #include "video_capture.h"
 
@@ -502,7 +503,7 @@ static void vidcap_syphon_done(void *state)
         }
         simple_linked_list_destroy(s->q);
 
-        pthread_mutex_destroy(&s->lock);
+        CHK_PTHR(pthread_mutex_destroy(&s->lock));
         pthread_cond_destroy(&s->frame_ready_cv);
         free(s);
 }

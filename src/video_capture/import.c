@@ -81,6 +81,7 @@
 #include "utils/color_out.h"
 #include "utils/fs.h"
 #include "utils/macros.h"
+#include "utils/pthread.h"              // for CHK_PTHR
 #include "utils/ring_buffer.h"
 #include "utils/worker.h"
 #include "video.h"
@@ -625,13 +626,13 @@ static void cleanup_common(struct vidcap_import_state *s) {
                 fclose(s->audio_state.file);
                 pthread_cond_destroy(&s->audio_state.worker_cv);
                 pthread_cond_destroy(&s->audio_state.boss_cv);
-                pthread_mutex_destroy(&s->audio_state.lock);
+                CHK_PTHR(pthread_mutex_destroy(&s->audio_state.lock));
         }
 
         module_done(&s->mod);
         pthread_cond_destroy(&s->worker_cv);
         pthread_cond_destroy(&s->boss_cv);
-        pthread_mutex_destroy(&s->lock);
+        CHK_PTHR(pthread_mutex_destroy(&s->lock));
         free(s);
 }
 

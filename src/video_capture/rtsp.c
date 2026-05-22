@@ -80,7 +80,7 @@
 #include "utils/color_out.h"       // for color_printf, TBOLD
 #include "utils/fs.h"              // for get_temp_file
 #include "utils/macros.h"          // for MIN, STR_LEN
-#include "utils/pthread.h"         // for PTHREAD_NULL
+#include "utils/pthread.h"         // for CHK_PTHR, PTHREAD_NULL
 #include "utils/sdp.h"             // for get_video_codec_from_pt_rtpmap
 #include "utils/text.h" // base64_decode
 #include "video_decompress.h"
@@ -1236,9 +1236,9 @@ vidcap_rtsp_done(void *state) {
         s->curl = NULL;
     }
 
-    pthread_mutex_destroy(&s->lock);
+    CHK_PTHR(pthread_mutex_destroy(&s->lock));
     pthread_cond_destroy(&s->keepalive_cv);
-    pthread_mutex_destroy(&s->vrtsp_state.lock);
+    CHK_PTHR(pthread_mutex_destroy(&s->vrtsp_state.lock));
     pthread_cond_destroy(&s->vrtsp_state.boss_cv);
     pthread_cond_destroy(&s->vrtsp_state.worker_cv);
 

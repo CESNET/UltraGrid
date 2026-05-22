@@ -66,7 +66,7 @@
 #include <utility>                                // for swap, move
 #include <vector>
 
-#include "compat/alarm.h"                         // IWYU pragma: keep for alarm
+#include "compat/alarm.h" // IWYU pragma: keep for alarm
 #include "control_socket.h"
 #include "debug.h"
 #include "hd-rum-translator/hd-rum-decompress.h"
@@ -81,6 +81,7 @@
 #include "utils/color_out.h"
 #include "utils/misc.h" // format_in_si_units, unit_evaluate
 #include "utils/net.h"
+#include "utils/pthread.h" // for CHK_PTHR
 
 using std::invalid_argument;
 using std::stoi;
@@ -160,8 +161,8 @@ struct hd_rum_translator_state {
         pthread_cond_init(&qfull_cond, NULL);
     }
     ~hd_rum_translator_state() {
-        pthread_mutex_destroy(&qempty_mtx);
-        pthread_mutex_destroy(&qfull_mtx);
+        CHK_PTHR(pthread_mutex_destroy(&qempty_mtx));
+        CHK_PTHR(pthread_mutex_destroy(&qfull_mtx));
         pthread_cond_destroy(&qempty_cond);
         pthread_cond_destroy(&qfull_cond);
         module_done(&mod);

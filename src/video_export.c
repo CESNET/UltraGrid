@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2024 CESNET, z. s. p. o.
+ * Copyright (c) 2012-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,11 +45,13 @@
 
 #include "types.h"                      // for tile, video_frame, video_desc
 #include "utils/fs.h"                   // for MAX_PATH_SIZE
+#include "utils/pthread.h"              // for CHK_PTHR
 #include "video_codec.h"
 #include "video_export.h"
 #include "video_frame.h"                // for video_desc_from_frame, video_...
 
 #define MAX_QUEUE_SIZE 300
+#define MOD_NAME "[vexport] "
 
 /*
  * we do not need to have possible stalls, so IO is performend in a separate thread
@@ -194,7 +196,7 @@ void video_export_destroy(struct video_export *s)
                 platform_sem_post(&s->semaphore);
 
                 pthread_join(s->thread_id, NULL);
-                pthread_mutex_destroy(&s->lock);
+                CHK_PTHR(pthread_mutex_destroy(&s->lock));
 
                 // write summary
                 if(s->total > 0) {

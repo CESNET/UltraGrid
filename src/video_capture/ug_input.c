@@ -53,6 +53,7 @@
 #include "utils/color_out.h"       // for TBOLD, color_printf, TRED
 #include "utils/list.h"            // for simple_linked_list
 #include "utils/macros.h"          // for to_fourcc, IS_KEY_PREFIX, snprintf_ch
+#include "utils/pthread.h"         // for CHK_PTHR
 #include "video_capture.h"         // for VIDCAP_INIT_FAIL, VIDCAP_INIT_NOERR
 #include "video_capture_params.h"  // for vidcap_params_get_fmt, vidcap_para...
 #include "video_codec.h"           // for get_codec_from_name, get_codec_name
@@ -246,7 +247,7 @@ static void vidcap_ug_input_done(void *state)
         audio_done(s->audio);
         vrxtx_destroy(s->video_rxtx);
 
-        pthread_mutex_destroy(&s->lock);
+        CHK_PTHR(pthread_mutex_destroy(&s->lock));
         simple_linked_list_destroy(s->frame_queue);
 
         free(s);

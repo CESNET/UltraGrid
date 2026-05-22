@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2024 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,8 +42,9 @@
 #include <set>
 #include <vector>
 
-#include "utils/macros.h" // for MAX_CPU_CORES
-#include "utils/misc.h"   // get_cpu_core_count
+#include "utils/macros.h"  // for MAX_CPU_CORES
+#include "utils/misc.h"    // get_cpu_core_count
+#include "utils/pthread.h" // for CHK_PTHR
 #include "utils/thread.h"
 #include "utils/worker.h"
 
@@ -53,6 +54,8 @@ using std::set;
 using std::vector;
 
 struct wp_worker;
+
+#define MOD_NAME "[worker] "
 
 struct worker_state_observer {
         virtual ~worker_state_observer() {}
@@ -96,7 +99,7 @@ struct wp_worker {
                 this->push(poisoned);
 
                 pthread_join(m_thread_id, NULL);
-                pthread_mutex_destroy(&m_lock);
+                CHK_PTHR(pthread_mutex_destroy(&m_lock));
                 pthread_cond_destroy(&m_task_ready_cv);
                 pthread_cond_destroy(&m_task_completed_cv);
         }
@@ -198,7 +201,7 @@ class worker_pool : public worker_state_observer
                         for_each(m_empty_workers.begin(),
                                         m_empty_workers.end(), func_delete);
                         pthread_cond_destroy(&m_worker_finished);
-                        pthread_mutex_destroy(&m_lock);
+                        CHK_PTHR(pthread_mutex_destroy(&m_lock));
                 }
 
                 void notify(wp_worker *w) {

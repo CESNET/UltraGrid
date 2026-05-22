@@ -60,10 +60,12 @@
 #include "utils/fs.h"
 #include "utils/list.h"
 #include "utils/macros.h"
+#include "utils/pthread.h" // for CHK_PTHR
 #include "video.h"
 #include "video_capture.h"
 
 #define MAX_AUDIO_LEN (1024*1024)
+#define MOD_NAME "[swmix] "
 
 typedef enum {
         BICUBIC,
@@ -1254,7 +1256,7 @@ vidcap_swmix_done(void *state)
 
         if (s->slaves) {
                 for (int i = 0; i < s->devices_cnt; ++i) {
-                        pthread_mutex_destroy(&s->slaves[i].lock);
+                        CHK_PTHR(pthread_mutex_destroy(&s->slaves[i].lock));
                         VIDEO_FRAME_DISPOSE(s->slaves[i].captured_frame);
                         VIDEO_FRAME_DISPOSE(s->slaves[i].done_frame);
                         free(s->slaves[i].audio_frame.data);

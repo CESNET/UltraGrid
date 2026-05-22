@@ -47,10 +47,11 @@
 #include "audio/wav_writer.h"
 #include "export.h"
 #include "utils/misc.h" // ug_strerror
-#include "utils/pthread.h"      // for PTHREAD_NULL
+#include "utils/pthread.h"      // for CHK_PTHR, PTHREAD_NULL
 #include "utils/ring_buffer.h"
 
 #define CACHE_SECONDS                   10
+#define MOD_NAME "[aexport] "
 
 /*
  * we do not need to have possible stalls, so IO is performend in a separate thread
@@ -198,7 +199,7 @@ void audio_export_destroy(struct audio_export *s)
                 ring_buffer_destroy(s->ring);
         }
         pthread_cond_destroy(&s->worker_cv);
-        pthread_mutex_destroy(&s->lock);
+        CHK_PTHR(pthread_mutex_destroy(&s->lock));
         free(s->filename);
         free(s);
 }

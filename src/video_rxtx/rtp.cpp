@@ -55,6 +55,7 @@
 #include "ug_runtime_error.hpp"
 #include "utils/lock_guard.h"    // for ultragrid::pthread_mutex_guard
 #include "utils/net.h" // IN6_BLACKHOLE_STR
+#include "utils/pthread.h" // for CHK_PTHR
 #include "video.h"
 #include "video_compress.h"
 #include "video_decompress.h"
@@ -276,7 +277,7 @@ rtp_rxtx_common_done(struct rtp_rxtx_common *s)
         free(s->priv->requested_receiver);
         module_done(&priv->m_rtp_sender_mod);
 
-        pthread_mutex_destroy(&s->network_devices_lock);
+        CHK_PTHR(pthread_mutex_destroy(&s->network_devices_lock));
 
         free(priv);
 }

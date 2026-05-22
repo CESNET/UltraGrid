@@ -8,7 +8,7 @@
  * @sa deltacast_common.hpp for common DELTACAST information
  */
 /*
- * Copyright (c) 2012-2025 CESNET, zájnové sdružení právnických osob
+ * Copyright (c) 2012-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -64,6 +64,7 @@
 #include "audio/utils.h"
 #include "utils/color_out.h"          // for color_printf
 #include "utils/macros.h"             // for IS_KEY_PREFIX
+#include "utils/pthread.h"            // for CHK_PTHR
 #include "utils/ring_buffer.h"
 
 #define DELTACAST_MAGIC to_fourcc('v', 'd', 'D', 'C')
@@ -457,7 +458,7 @@ static void display_deltacast_done(void *state)
                 VHD_CloseBoardHandle(s->BoardHandle);
         }
 
-        pthread_mutex_destroy(&s->lock);
+        CHK_PTHR(pthread_mutex_destroy(&s->lock));
         vf_free(s->frame);
         free(s);
 }

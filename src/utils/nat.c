@@ -64,12 +64,13 @@
         #include <pcpnatpmp.h>
 #endif // defined HAVE_PCP
 
+#include "compat/net.h" // for inet_ntop, htons, ntohs, ine...
 #include "debug.h"
-#include "compat/net.h"                  // for inet_ntop, htons, ntohs, ine...
 #include "rtp/net_udp.h" // socket_error
 #include "utils/color_out.h"
 #include "utils/nat.h"
 #include "utils/net.h"
+#include "utils/pthread.h" // for CHK_PTHR
 
 #define DEFAULT_ALLOCATION_TIMEOUT_S 1800
 #define DEFAULT_NAT_PMP_TIMEOUT 5
@@ -590,7 +591,7 @@ void stop_nat_traverse(struct ug_nat_traverse *s)
         pthread_cond_signal(&s->keepalive_cv);
         pthread_join(s->keepalive_thread, NULL);
 
-        pthread_mutex_destroy(&s->keepalive_mutex);
+        CHK_PTHR(pthread_mutex_destroy(&s->keepalive_mutex));
         pthread_cond_destroy(&s->keepalive_cv);
 
         if (nat_traverse_info[s->traverse].done) {

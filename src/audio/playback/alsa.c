@@ -69,6 +69,7 @@
 #include "types.h"                 // for device_info
 #include "utils/color_out.h"
 #include "utils/macros.h"          // for STR_LEN, snprintf_ch
+#include "utils/pthread.h"         // for CHK_PTHR
 
 #define BUF_LEN_DEFAULT_MS      60
 #define BUF_LEN_DEFAULT_SYNC_MS 200 // default buffer len for sync API
@@ -1090,7 +1091,7 @@ static void audio_play_alsa_done(void *state)
 #endif
         }
 
-        pthread_mutex_destroy(&s->lock);
+        CHK_PTHR(pthread_mutex_destroy(&s->lock));
 
         free(s->scratchpad);
         free(s);

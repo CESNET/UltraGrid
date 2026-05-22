@@ -55,6 +55,7 @@
 #include "utils/color_out.h"
 #include "utils/macos.h"
 #include "utils/macros.h"
+#include "utils/pthread.h"              // for CHK_PTHR
 #include "utils/ring_buffer.h"
 
 #define MOD_NAME "[CoreAudio cap.] "
@@ -395,7 +396,7 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
         }
 
         // error accured
-        pthread_mutex_destroy(&s->lock);
+        CHK_PTHR(pthread_mutex_destroy(&s->lock));
         pthread_cond_destroy(&s->cv);
         DestroyAudioBufferList(s->theBufferList);
         free(s->frame.data);
@@ -435,7 +436,7 @@ static void audio_cap_ca_done(void *state)
         if(!s)
                 return;
 
-        pthread_mutex_destroy(&s->lock);
+        CHK_PTHR(pthread_mutex_destroy(&s->lock));
         pthread_cond_destroy(&s->cv);
         DestroyAudioBufferList(s->theBufferList);
         free(s->frame.data);

@@ -81,7 +81,7 @@
 #include "utils/bitmap_font.h"          // for font, FONT_H, FONT_W_SPACE
 #include "utils/fs.h"                   // for MAX_PATH_SIZE
 #include "utils/macros.h"               // for IS_KEY_PREFIX, MIN, IF_NOT_NU...
-#include "utils/pthread.h"              // for PTHREAD_NULL
+#include "utils/pthread.h"              // for CHK_PTHR, PTHREAD_NULL
 #include "utils/random.h"               // for ug_rand
 #include "utils/text.h"                 // for get_font_candidates
 #include "utils/thread.h"               // for set_thread_name
@@ -423,7 +423,7 @@ static void vidcap_testcard2_done(void *state)
                 pthread_join(s->thread_id, NULL);
         }
 
-        pthread_mutex_destroy(&s->lock);
+        CHK_PTHR(pthread_mutex_destroy(&s->lock));
         pthread_cond_destroy(&s->data_consumed_cv);
         free(s->audio_tone);
         free(s->audio_silence);
