@@ -8,6 +8,11 @@
 
 #include "tv.h"  // for time_ns_t
 
+// PTHREAD_NULL compat
+#ifndef PTHREAD_NULL // defined by POSIX v8
+        #define PTHREAD_NULL ((pthread_t) { 0 })
+#endif
+
 void ug_pthread_mutex_init(pthread_mutex_t *mutex);
 void ug_pthread_cond_init(pthread_cond_t *cv);
 int  ug_pthread_cond_timedwait(pthread_cond_t *cv, pthread_mutex_t *lock,

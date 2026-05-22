@@ -62,11 +62,9 @@
 #include <unistd.h>                // for unlink
 #endif // defined _WIN32
 
-#define WANT_PTHREAD_NULL
 #include "audio/types.h"
 #include "config.h"                // for PACKAGE_BUGREPORT
 #include "compat/aligned_malloc.h" // for alignde_free, aligned_alloc
-#include "compat/misc.h"           // for PTHREAD_NULL
 #include "compat/strings.h"        // for strncasecmp
 #include "debug.h"
 #include "host.h"
@@ -82,6 +80,7 @@
 #include "utils/color_out.h"       // for color_printf, TBOLD
 #include "utils/fs.h"              // for get_temp_file
 #include "utils/macros.h"          // for MIN, STR_LEN
+#include "utils/pthread.h"         // for PTHREAD_NULL
 #include "utils/sdp.h"             // for get_video_codec_from_pt_rtpmap
 #include "utils/text.h" // base64_decode
 #include "video_decompress.h"

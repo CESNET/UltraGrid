@@ -59,7 +59,6 @@
 #include <sstream>
 #include <string>
 
-#define WANT_PTHREAD_NULL
 #include "../export.h" // not audio/export.h
 #include "audio/audio.h"
 #include "audio/audio_capture.h"
@@ -73,7 +72,6 @@
 #include "audio/playback/sdi.h"
 #include "audio/resampler.hpp"
 #include "audio/utils.h"
-#include "compat/misc.h"                // for PTHREAD_NULL
 #include "config.h"                     // for HAVE_SPEEXDSP
 #include "debug.h"
 #include "host.h"
@@ -94,6 +92,7 @@
 #include "utils/net.h"
 #include "utils/macros.h"               // for STR_LEN, snprintf_ch
 #include "utils/misc.h"                 // for get_stat_color
+#include "utils/pthread.h"              // for PTHREAD_NULL
 #include "utils/sdp.h"
 #include "utils/string_view_utils.hpp"
 #include "utils/thread.h"

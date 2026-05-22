@@ -47,8 +47,6 @@
 #include <string>
 #include <utility>
 
-#define WANT_PTHREAD_NULL
-#include "compat/misc.h" // for PTHREAD_NULL
 #include "debug.h"
 #include "export.h"
 #include "host.h"
@@ -56,6 +54,7 @@
 #include "messaging.h"
 #include "module.h"
 #include "utils/macros.h"    // for snprintf_ch
+#include "utils/pthread.h"   // for PTHREAD_NULL
 #include "utils/thread.h"
 #include "video.h"
 #include "video_codec.h"     // for get_codec_name

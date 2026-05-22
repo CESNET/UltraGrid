@@ -83,7 +83,6 @@
 #include <unordered_map>                // for unordered_map
 #include <utility>                      // for move
 
-#define WANT_PTHREAD_NULL
 #include "audio/audio.h"                // for audio_options, additional_aud...
 #include "audio/audio_capture.h"        // for audio_capture_get_vidcap_flags
 #include "audio/audio_playback.h"       // for audio_playback_help
@@ -107,6 +106,7 @@
 #include "utils/misc.h"
 #include "utils/nat.h"
 #include "utils/net.h"
+#include "utils/pthread.h"              // for PTHREAD_NULL
 #include "utils/string.h"
 #include "utils/string_view_utils.hpp"
 #include "utils/thread.h"

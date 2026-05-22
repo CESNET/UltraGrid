@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2025 CESNET, zájmové sdružení právnických osob
+ * Copyright (c) 2012-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,13 +42,12 @@
 #include <unistd.h>
 #include <string.h>             // for memcpy, strdup
 
-#define WANT_PTHREAD_NULL
 #include "audio/types.h"        // for audio_desc, audio_frame, AC_PCM
 #include "audio/utils.h"
 #include "audio/wav_writer.h"
-#include "compat/misc.h"        // for PTHREAD_NULL
 #include "export.h"
 #include "utils/misc.h" // ug_strerror
+#include "utils/pthread.h"      // for PTHREAD_NULL
 #include "utils/ring_buffer.h"
 
 #define CACHE_SECONDS                   10

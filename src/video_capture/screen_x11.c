@@ -57,8 +57,6 @@
 #include <string.h>                // for strchr, strstr, strcat, strdup
 #include <sys/time.h>              // for gettimeofday, timeval
 
-#define WANT_PTHREAD_NULL
-#include "compat/misc.h"           // for PTHRAD_NLLL
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -67,6 +65,7 @@
 #include "utils/macros.h"
 #include "utils/misc.h" // get_cpu_core_count
 #include "utils/parallel_conv.h"
+#include "utils/pthread.h"         // for PTHREAD_NULL
 #include "video.h"
 #include "video_capture.h"
 #include "video_capture_params.h"  // for vidcap_params_get_flags, vidcap_pa...

@@ -68,10 +68,8 @@
 #        endif // defined HAVE_SDL3
 #endif
 
-#define WANT_PTHREAD_NULL
 #include "audio/types.h"                // for audio_frame
 #include "compat/c23.h"                 // IWYU pragma: keep
-#include "compat/misc.h"                // for PTHREAD_NULL
 #include "compat/platform_semaphore.h"  // for platform_sem_post, platform_s...
 #include "debug.h"                      // for log_msg, LOG_LEVEL_ERROR, LOG...
 #include "host.h"                       // for exit_uv, audio_capture_channels
@@ -83,6 +81,7 @@
 #include "utils/bitmap_font.h"          // for font, FONT_H, FONT_W_SPACE
 #include "utils/fs.h"                   // for MAX_PATH_SIZE
 #include "utils/macros.h"               // for IS_KEY_PREFIX, MIN, IF_NOT_NU...
+#include "utils/pthread.h"              // for PTHREAD_NULL
 #include "utils/random.h"               // for ug_rand
 #include "utils/text.h"                 // for get_font_candidates
 #include "utils/thread.h"               // for set_thread_name
