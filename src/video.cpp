@@ -271,7 +271,7 @@ parse_fps(const char *string, interlacing_t *interlacing)
         }
         char      *endptr = nullptr;
         double fps = strtod(fps_str, &endptr);
-        if (fps <= 0 || fps > FPS_MAX) {
+        if (fps <= 0 || fps > (double) FPS_MAX) {
                 MSG(ERROR, "Wrong mode FPS specification: %s\n", string);
                 return -1;
         }

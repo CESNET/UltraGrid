@@ -103,10 +103,8 @@ unit_evaluate(const char *str, const char **endptr)
 double
 unit_evaluate_dbl(const char *str, bool case_sensitive, const char **endptr)
 {
-        enum {
-                SI  = 1000,
-                BIN = 1024,
-        };
+        constexpr double SI  = 1000;
+        constexpr double BIN = 1024;
 
         if (endptr != nullptr) {
                 *endptr = str;
@@ -158,7 +156,7 @@ unit_evaluate_dbl(const char *str, bool case_sensitive, const char **endptr)
                 default:
                         endptr_tmp = prefix_start;
         }
-        if (unit == BIN) { // sanity chwecks
+        if (unit == BIN) { // sanity checks
                 if ((case_sensitive && isupper(unit_prefix)) // eg. GI
                     || mult < 1) { // binary prefixes <1 undefined
                         mult       = 1;

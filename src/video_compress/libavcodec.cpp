@@ -118,11 +118,9 @@ using namespace std::string_literals;
 #define DEFAULT_NVENC_RC_BUF_SIZE_FACTOR 1.5 // NOLINT: ditto
 
 namespace {
-enum {
-        FLW_THRESH = 1920 * 1080 * 30, //< in px/sec
-        FLW_UHD_60 = 3840 * 2160 * 60,
-        HOUSEKEEP_INTERVAL = 100, //< for metadata_storage
-};
+constexpr double  FLW_THRESH         = 1920 * 1080 * 30; //< in px/sec
+constexpr double  FLW_UHD_60         = 3840 * 2160 * 60;
+constexpr int64_t HOUSEKEEP_INTERVAL = 100; //< for metadata_storage
 
 constexpr const codec_t DEFAULT_CODEC       = JPEG;
 constexpr const int     DEFAULT_GOP_SIZE    = 20;

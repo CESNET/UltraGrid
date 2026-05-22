@@ -16,7 +16,7 @@
  * <https://www.ventuz.com/support/help/latest/MachineConfigurationVendors.html#SupportedModelsasofVentuz6.08.00>
  */
 /*
- * Copyright (c) 2014-2025 CESNET, zájmové sdružení právnických osob
+ * Copyright (c) 2014-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -166,9 +166,7 @@
         #define VHD_CHNTYPE_12GSDI VHD_CHNTYPE_DISABLE
 #endif
 
-enum {
-        DELTA_DROP_WARN_INT_SEC = 20,
-};
+constexpr double DELTA_DROP_WARN_INT_SEC = 20;
 
 struct deltacast_frame_mode_t {
 	unsigned int     width;
