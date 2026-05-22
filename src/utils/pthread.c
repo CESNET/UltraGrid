@@ -26,9 +26,9 @@ ug_pthread_mutex_init(pthread_mutex_t *mutex)
 #ifdef DEBUG
         pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK);
 #endif
-        pthread_mutexattr_destroy(&attr);
         int rc = pthread_mutex_init(mutex, &attr);
         assert(rc == 0);
+        pthread_mutexattr_destroy(&attr);
 }
 
 /**
