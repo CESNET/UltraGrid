@@ -800,8 +800,8 @@ static int vidcap_avfoundation_init(const struct vidcap_params *params, void **s
         if (!ret) {
                 return VIDCAP_INIT_FAIL;
         }
-        color_printf("🔴 " MOD_NAME TBOLD(TYELLOW("This application is capturing"
-                     " computer video.")) "\n");
+        color_printf((const char *) u8"🔴 " MOD_NAME TBOLD(TYELLOW("This"
+                     " application is capturing computer video.")) "\n");
         *state = ret;
         return VIDCAP_INIT_OK;
 }

@@ -389,8 +389,8 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
         } while(0);
 
         if (!failed) {
-                color_printf("🔴 " MOD_NAME TBOLD(TYELLOW("This application is capturing"
-                     " computer audio.")) "\n");
+                color_printf((const char *) u8"🔴 " MOD_NAME TBOLD(TYELLOW("This application"
+                             " is capturing computer audio.")) "\n");
                 return s;
         }
 

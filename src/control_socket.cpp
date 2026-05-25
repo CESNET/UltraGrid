@@ -1070,8 +1070,8 @@ static void print_control_help() {
                         TBOLD("\tfec {audio|video} <fec-string>") "\n"
                         TBOLD("\tcompress <new-compress>") "\n"
                         TBOLD("\tcompress param <new-compress-param>") "\n"
-                        TBOLD("\tvolume {up|down}") u8"¹\n"
-                        TBOLD("\tav-delay <ms>") u8"¹\n"
+                        TBOLD("\tvolume {up|down}") " [1]\n"
+                        TBOLD("\tav-delay <ms>") " [1]\n"
                         TBOLD("\tmute") " - toggles receiver mute\n"
                         TBOLD("\t[un]mute-{receiver,sender}")
                                 " - (un)mutes audio sender or receiver\n"
@@ -1081,6 +1081,6 @@ static void print_control_help() {
                         "modules (see \"" TBOLD("dump-tree") "\"), eg.:\n"
                         "\t" TBOLD("capture.filter mirror") "\n"
                         "\nSometimes those modules support help (eg. \"" TBOLD("capture.filter help") "\")\n\n");
-        color_printf(TBOLD(u8"¹") " audio commands applying to receiver\n\n");
+        color_printf((const char *) TBOLD("[1]")
+                                    " audio commands applying to receiver\n\n");
 }
-

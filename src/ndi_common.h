@@ -3,7 +3,7 @@
  * @author Martin Pulec      <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2022-2024 CESNET
+ * Copyright (c) 2022-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Using sample code from NDI.
@@ -160,7 +160,7 @@ static void close_ndi_library(LIB_HANDLE hNDILib) {
 
 #define NDI_PRINT_COPYRIGHT \
         color_printf(TERM_BOLD TERM_FG_BLUE "%s\n\n" TERM_RESET, \
-                     u8"This application uses NDI® available " \
+                     (const char *) u8"This application uses NDI® available " \
                      u8"from https://ndi.video/\n" \
                      u8"NDI® is a registered trademark of " \
                      u8"Vizrt NDI AB."); \
