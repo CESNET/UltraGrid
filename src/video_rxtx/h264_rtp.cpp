@@ -335,14 +335,14 @@ h264_rtp_ctl_property(void *state, enum rxtx_property p,
 }
 
 static const struct video_rxtx_info h264_video_rxtx_info = {
-        .long_name        = "RTP standard (using RTSP)",
-        .create           = create_video_rxtx_h264_std,
-        .done             = done,
-        .send_video_frame = send_frame,
-        .join_sender      = join,
-        .send_audio_frame = h264_rtp_send_audio_frame,
-        .receiver_routine = nullptr,
-        .ctl_property     = h264_rtp_ctl_property,
+        .long_name          = "RTP standard (using RTSP)",
+        .create             = create_video_rxtx_h264_std,
+        .done               = done,
+        .send_audio_frame   = h264_rtp_send_audio_frame,
+        .send_video_frame   = send_frame,
+        .video_recv_routine = nullptr,
+        .ctl_property       = h264_rtp_ctl_property,
+        .join_sender        = join,
 };
 
 REGISTER_MODULE(rtsp, &h264_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);

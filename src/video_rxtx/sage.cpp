@@ -129,14 +129,14 @@ send_frame(void *state, std::shared_ptr<video_frame> f)
 }
 
 static const struct video_rxtx_info sage_video_rxtx_info = {
-        .long_name              = "SAGE",
-        .create                 = create_video_rxtx_sage,
-        .done                   = done,
-        .send_frame             = send_frame,
-        .join_sender            = nullptr,
-        .set_sender_audio_spec  = nullptr,
-        .process_sender_message = nullptr,
-        .receiver_routine       = nullptr,
+        .long_name          = "SAGE",
+        .create             = create_video_rxtx_sage,
+        .done               = done,
+        .send_audio_frame   = nullptr,
+        .send_video_frame   = send_frame,
+        .video_recv_routine = nullptr,
+        .ctl_property       = nullptr,
+        .join_sender        = nullptr,
 };
 
 REGISTER_MODULE(sage, &sage_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);

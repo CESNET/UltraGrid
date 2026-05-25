@@ -336,14 +336,14 @@ video_rxtx::create(string const &proto, const struct vrxtx_params *params,
         }
 
         if ((params_video->rxtx_mode & MODE_RECEIVER) != 0U) {
-                if (ret->m_impl_funcs->receiver_routine == nullptr) {
+                if (ret->m_impl_funcs->video_recv_routine == nullptr) {
                         MSG(ERROR,
                             "Selected RX/TX mode doesn't support receiving.\n");
                         delete ret;
                         throw -1;
                 }
                 int rc = pthread_create(&ret->m_receiver_thread_id, nullptr,
-                                        ret->m_impl_funcs->receiver_routine,
+                                        ret->m_impl_funcs->video_recv_routine,
                                         ret->m_impl_state);
                 assert(rc == 0);
         }

@@ -202,15 +202,14 @@ void *omt_rxtx_recv_worker(void *state){
 }
 
 constexpr video_rxtx_info omt_video_rxtx_info = {
-        "Open media transport",
-        omt_rxtx_create,
-        omt_rxtx_done,
-        omt_rxtx_send_frame,
-        nullptr,
-        nullptr,
-        omt_rxtx_recv_worker,
-        nullptr,
+        .long_name          = "Open media transport",
+        .create             = omt_rxtx_create,
+        .done               = omt_rxtx_done,
+        .send_audio_frame   = nullptr,
+        .send_video_frame   = omt_rxtx_send_frame,
+        .video_recv_routine = omt_rxtx_recv_worker,
+        .ctl_property       = nullptr,
+        .join_sender        = nullptr,
 };
-
 
 REGISTER_MODULE(omt, &omt_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);

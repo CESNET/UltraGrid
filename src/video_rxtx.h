@@ -103,6 +103,9 @@ enum rxtx_property {
 };
 
 #ifdef __cplusplus
+//
+// API for modules
+//
 /**
  * @note
  * function can throw but the actual exception type/value is not currently
@@ -110,25 +113,29 @@ enum rxtx_property {
  * vrxtx_params.protocol_opts is "help"). If unsure, throw 1 on help and -1 on
  * error.
  */
-typedef void *rxtx_create_t(const struct vrxtx_params *params,
-                            const struct common_opts  *common);
-typedef bool rxtx_ctl_property_t(void *state, enum rxtx_property p, void *val,
-                               size_t *len);
-typedef void send_shr_ptr_video_frame_t(void *state,
-                                        std::shared_ptr<video_frame>);
+typedef void *rxtx_create_fn(const struct vrxtx_params *params,
+                             const struct common_opts  *common);
+typedef void  rxtx_done_fn(void *state);
+typedef void  rxtx_send_audio_frame_fn(void                      *state,
+                                       const struct audio_frame2 *frame);
+typedef void  rxtx_send_shr_ptr_video_frame_fn(void *state,
+                                               std::shared_ptr<video_frame>);
+typedef void *rxtx_vrecv_routine_fn(void *state);
+typedef bool  rxtx_ctl_property_fn(void *state, enum rxtx_property p, void *val,
+                                   size_t *len);
+typedef void  rxtx_join_sender_fn(void *state);
 
 struct video_rxtx_info {
-        const char *long_name;
-        rxtx_create_t *create;
-        void (*done)(void *state);
+        const char     *long_name;
+        rxtx_create_fn *create;
+        rxtx_done_fn   *done;
 
         // following callbacks are optional
-        send_shr_ptr_video_frame_t *send_video_frame;
-        void (*join_sender)(void *state);
-
-        void (*send_audio_frame)(void *state, const struct audio_frame2 *frame);
-        void *(*receiver_routine)(void *state);
-        rxtx_ctl_property_t *ctl_property;
+        rxtx_send_audio_frame_fn         *send_audio_frame;
+        rxtx_send_shr_ptr_video_frame_fn *send_video_frame;
+        rxtx_vrecv_routine_fn            *video_recv_routine;
+        rxtx_ctl_property_fn             *ctl_property;
+        rxtx_join_sender_fn              *join_sender;
 };
 #endif // defined __cplusplus
 

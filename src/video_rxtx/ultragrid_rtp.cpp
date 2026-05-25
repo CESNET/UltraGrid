@@ -613,14 +613,14 @@ ultragrid_rtp_ctl_property(void *state, enum rxtx_property p,
 }
 
 static const struct video_rxtx_info ultragrid_rtp_video_rxtx_info = {
-        .long_name        = "UltraGrid RTP",
-        .create           = create_video_rxtx_ultragrid_rtp,
-        .done             = done,
-        .send_video_frame = send_frame,
-        .join_sender      = join,
-        .send_audio_frame = send_audio_frame,
-        .receiver_routine = ultragrid_rtp_video_rxtx::receiver_thread,
-        .ctl_property     = ultragrid_rtp_ctl_property,
+        .long_name          = "UltraGrid RTP",
+        .create             = create_video_rxtx_ultragrid_rtp,
+        .done               = done,
+        .send_audio_frame   = send_audio_frame,
+        .send_video_frame   = send_frame,
+        .video_recv_routine = ultragrid_rtp_video_rxtx::receiver_thread,
+        .ctl_property       = ultragrid_rtp_ctl_property,
+        .join_sender        = join,
 };
 
 REGISTER_MODULE(ultragrid_rtp, &ultragrid_rtp_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);
