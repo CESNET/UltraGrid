@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,10 +41,6 @@
 
 #include "types.h"
 
-#ifdef _MSC_VER
-#define __attribute__(a)
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -53,9 +49,9 @@ struct uv_to_av_pixfmt {
         codec_t uv_codec;
         enum AVPixelFormat av_pixfmt;
 };
-codec_t get_av_to_ug_pixfmt(enum AVPixelFormat av_pixfmt) __attribute__((const));
-enum AVPixelFormat get_ug_to_av_pixfmt(codec_t ug_codec) __attribute__((const));
-const struct uv_to_av_pixfmt *get_av_to_ug_pixfmts(void) __attribute__((const));
+[[gnu::const]] codec_t get_av_to_ug_pixfmt(enum AVPixelFormat av_pixfmt);
+[[gnu::const]] enum AVPixelFormat get_ug_to_av_pixfmt(codec_t ug_codec);
+[[gnu::const]] const struct uv_to_av_pixfmt *get_av_to_ug_pixfmts(void);
 
 #ifdef __cplusplus
 }

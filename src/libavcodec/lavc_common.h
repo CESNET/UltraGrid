@@ -60,10 +60,6 @@ extern "C" {
 
 #include "libavcodec/utils.h"
 
-#ifdef _MSC_VER
-#define __attribute__(a)
-#endif
-
 // component indices to rgb_shift[] (@ref av_to_uv_convert)
 enum {
         R_SHIFT_IDX = 0,
@@ -117,7 +113,8 @@ extern "C" {
 void print_decoder_error(const char *mod_name, int rc);
 
 void print_libav_error(int verbosity, const char *msg, int rc);
-void printf_libav_error(int verbosity, int rc, const char *msg, ...) __attribute__((format (printf, 3, 4)));
+[[gnu::format(printf, 3, 4)]] void printf_libav_error(int verbosity, int rc,
+                                                      const char *msg, ...);
 bool libav_codec_has_extradata(codec_t codec);
 
 codec_t get_av_to_ug_codec(enum AVCodecID av_codec);

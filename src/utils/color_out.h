@@ -99,7 +99,7 @@ extern "C" {
 #endif
 
 bool color_output_init(void);
-int color_printf(const char *format, ...) __attribute__((format (printf, 1, 2)));
+[[gnu::format(printf, 1, 2)]] int color_printf(const char *format, ...);
 
 int prune_ansi_sequences(char *cstr);
 

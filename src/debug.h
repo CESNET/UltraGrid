@@ -97,8 +97,8 @@ void debug_dump(const void*lp, int len);
         __MINGW_GNU_PRINTF(3, 4)
         void log_msg_once(int log_level, uint32_t id, const char *msg, ...);
 #else
-        void log_msg_once(int log_level, uint32_t id, const char *msg, ...)
-             __attribute__((format (printf, 3, 4)));
+        [[gnu::format(printf, 3, 4)]] void
+        log_msg_once(int log_level, uint32_t id, const char *msg, ...);
 #endif
 
 void log_perror(int log_level, const char *msg);
