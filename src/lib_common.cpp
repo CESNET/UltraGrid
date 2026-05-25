@@ -87,7 +87,7 @@ static map<string, string> lib_errors;
 
 static struct class_modules
 get_libraries_for_class_internal(enum library_class cls, int abi_version,
-                                 enum module_flag include_flags);
+                                 unsigned include_flags);
 
 #ifdef BUILD_LIBRARIES
 static void push_basename_entry(char ***binarynames, const char *bnc, size_t * templates) {
@@ -261,11 +261,11 @@ static auto& get_libmap(){
  * @param cls              module class
  * @param name             class-specific metadata structure (with callbacks)
  * @param abi_version      class-specific ABI version
- * @param visibility_flag  usually 0 or flag from @ref enum module_flag
+ * @param visibility_flag
  */
 void
 register_library(const char *name, const void *info, enum library_class cls,
-                 int abi_version, unsigned visibility_flag)
+                 int abi_version, enum mod_visibility_flag visibility_flag)
 {
         auto& map = get_libmap()[cls];
         if (map.find(name) != map.end()) {
@@ -314,9 +314,11 @@ const void *load_library(const char *name, enum library_class cls, int abi_versi
  * @param full  include hidden modules and aliases
  */
 void list_modules(enum library_class cls, int abi_version, bool full) {
+        enum { MODULE_SHOW_ALL = MOD_HIDDEN | MOD_ALIAS };
+
         const auto &class_set = get_libraries_for_class_internal(
             cls, abi_version,
-            full ? MODULE_SHOW_ALL : MODULE_SHOW_VISIBLE_ONLY);
+            full ? (unsigned) MODULE_SHOW_ALL : (unsigned) MOD_VISIBLE);
         for (unsigned i = 0; i < class_set.count; ++i) {
                 col() << "\t" << SBOLD(class_set.item[i].name) << "\n";
         }
@@ -355,7 +357,7 @@ bool list_all_modules() {
 
 static struct class_modules
 get_libraries_for_class_internal(enum library_class cls, int abi_version,
-                                 enum module_flag include_flags)
+                                 unsigned include_flags)
 {
         struct class_modules ret;
         ret.count = 0;
@@ -390,5 +392,5 @@ struct class_modules
 get_libraries_for_class(enum library_class cls, int abi_version)
 {
         return get_libraries_for_class_internal(cls, abi_version,
-                                                MODULE_FLAG_HIDDEN);
+                                                MOD_HIDDEN);
 }

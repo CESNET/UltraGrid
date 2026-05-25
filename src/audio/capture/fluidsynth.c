@@ -362,4 +362,4 @@ static const struct audio_capture_info acap_fluidsynth_info = {
 REGISTER_MODULE(fluidsynth, &acap_fluidsynth_info, LIBRARY_CLASS_AUDIO_CAPTURE,
                 AUDIO_CAPTURE_ABI_VERSION);
 REGISTER_MODULE_WITH_FLAG(sdl_mixer, &acap_fluidsynth_info, LIBRARY_CLASS_AUDIO_CAPTURE,
-                AUDIO_CAPTURE_ABI_VERSION, MODULE_FLAG_ALIAS);
+                AUDIO_CAPTURE_ABI_VERSION, MOD_ALIAS);

@@ -1043,4 +1043,4 @@ const video_display_info display_vulkan_info = {
 REGISTER_MODULE(vulkan, &display_vulkan_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 REGISTER_MODULE_WITH_FLAG(vulkan_sdl3, &display_vulkan_info,
                           LIBRARY_CLASS_VIDEO_DISPLAY,
-                          VIDEO_DISPLAY_ABI_VERSION, MODULE_FLAG_ALIAS);
+                          VIDEO_DISPLAY_ABI_VERSION, MOD_ALIAS);

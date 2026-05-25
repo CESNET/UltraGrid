@@ -85,19 +85,16 @@ enum library_class {
         LIBRARY_CLASS_AUDIO_FILTER,
 };
 const void *load_library(const char *name, enum library_class, int abi_version);
+enum mod_visibility_flag {
+        MOD_VISIBLE = 0,      ///< display only modules w/o flag
+        MOD_HIDDEN  = 1 << 0, ///< flag - do not show in listing
+        MOD_ALIAS   = 1 << 1, ///< ditto + hide for GUI, for explicit init only
+};
 void register_library(const char *name, const void *info, enum library_class,
-                      int abi_version, unsigned visibility_flag);
+                      int abi_version, enum mod_visibility_flag visibility);
 void list_modules(enum library_class, int abi_version, bool full);
 bool list_all_modules();
 
-enum module_flag {
-        MODULE_SHOW_VISIBLE_ONLY = 0,      ///< display only modules w/o flag
-        MODULE_FLAG_HIDDEN       = 1 << 0, ///< flag - do not show in listing
-        MODULE_FLAG_ALIAS =
-            1 << 1, ///< ditto + hide for GUI, for explicit init only
-        MODULE_SHOW_ALL =
-            MODULE_FLAG_HIDDEN | MODULE_FLAG_ALIAS, ///< display all modules
-};
 
 struct class_modules {
         struct {
@@ -158,20 +155,25 @@ struct NOT_DEFINED_STRUCT_THAT_SWALLOWS_SEMICOLON
  * multiple modules (eg. audio playback SDI) and without that, function would
  * be defined multiple times under the same name.
  */
-#define REGISTER_MODULE(name, info, lclass, abi) REGISTER_MODULE_FUNCNAME(name, info, lclass, abi, UNIQUE_LABEL, 0)
+#define REGISTER_MODULE(name, info, lclass, abi)                               \
+        REGISTER_MODULE_FUNCNAME(name, info, lclass, abi, UNIQUE_LABEL,        \
+                                 MOD_VISIBLE)
 
 /**
  * same as REGISTER_MODULE, but a function is called to get the info structure
  * on run-time allowing to run arbitrary code to do some setup
  */
-#define REGISTER_MODULE_WITH_FUNC(name, func, lclass, abi) REGISTER_MODULE_FUNC_FUNCNAME(name, func, lclass, abi, UNIQUE_LABEL, 0)
+#define REGISTER_MODULE_WITH_FUNC(name, func, lclass, abi)                     \
+        REGISTER_MODULE_FUNC_FUNCNAME(name, func, lclass, abi, UNIQUE_LABEL,   \
+                                      MOD_VISIBLE)
 
 /**
  * Similar to @ref REGISTER_MODULE but allow @ref module_flag to be added to limit visibility.
  */
 #define REGISTER_MODULE_WITH_FLAG(name, info, lclass, abi, flag) \
         REGISTER_MODULE_FUNCNAME(name, info, lclass, abi, UNIQUE_LABEL, flag)
-#define REGISTER_HIDDEN_MODULE(name, info, lclass, abi) REGISTER_MODULE_WITH_FLAG(name, info, lclass, abi, MODULE_FLAG_HIDDEN)
+#define REGISTER_HIDDEN_MODULE(name, info, lclass, abi)                        \
+        REGISTER_MODULE_WITH_FLAG(name, info, lclass, abi, MOD_HIDDEN)
 
 #endif // defined LIB_COMMON_H
 
