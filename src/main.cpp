@@ -1505,11 +1505,6 @@ int main(int argc, char *argv[])
 
         opt.rxtx.capture_device = uv.capture_device; // iHDTV
         opt.rxtx.display_device = uv.display_device; // UltraGrid RTP, iHDTV
-        // RTSP + SDP
-        opt.rxtx.send_audio = strcmp("none", opt.audio.send_cfg) != 0;
-        opt.rxtx.send_video =
-            strcmp("none", vidcap_params_get_driver(opt.vidcap_params_head)) !=
-            0;
 
         ret = vrxtx_init(opt.video_protocol, &opt.rxtx, &opt.common,
                         &uv.state_video_rxtx);

@@ -68,8 +68,6 @@ struct vrxtx_params {
         long long       bitrate_limit; ///< rate limiter in bps or RATE_ constantts
         enum video_mode decoder_mode;
         const char     *protocol_opts;
-        bool            send_audio;   ///< RTSP+SDP
-        bool            send_video;   ///< RTSP+SDP
         struct module  *sender_mod;   ///< set by video_rxtx::create
         struct module  *receiver_mod; ///< set by video_rxtx::create
 };
@@ -93,11 +91,12 @@ struct vrxtx_params {
                 .bitrate_limit  = RATE_UNLIMITED, \
                 .decoder_mode   = VIDEO_NORMAL, \
                 .protocol_opts  = "", \
-                .send_audio     = false, \
-                .send_video     = false, \
                 .sender_mod     = nullptr, \
                 .receiver_mod   = nullptr, \
 }
+
+#define SENDS_MEDIUM(params, medium_type)                                      \
+        (((params)->medium[medium_type].rxtx_mode & MODE_SENDER) != 0U)
 
 enum rxtx_property {
         GET_RTP_COMMON_STATE, ///< RTP state - pointer to struct rtp_rxtx_common
@@ -137,7 +136,7 @@ struct video_rxtx_info {
 extern "C" {
 #endif
 
-struct audio_frame2;;
+struct audio_frame2;
 struct video_rxtx;
 
 int  vrxtx_init(const char *proto_name, const struct vrxtx_params *params,
