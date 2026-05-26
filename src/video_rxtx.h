@@ -45,12 +45,14 @@
 #include <stddef.h>   // for size_t
 #endif
 
+#include "compat/c23.h" // IWYU pragma: keep for nullptr
 #include "host.h"
 #include "types.h"    // for codec_t, video_desc, video_frame (ptr only)
 
 #define VIDEO_RXTX_ABI_VERSION 4
 
 struct audio_desc;
+struct audio_frame2;
 
 struct rxtx_medium_params  {
         enum rxtx_mode  rxtx_mode;      ///< sender, receiver or both
@@ -100,9 +102,9 @@ struct vrxtx_params {
 
 enum rxtx_property {
         GET_RTP_COMMON_STATE, ///< RTP state - pointer to struct rtp_rxtx_common
+        SET_ULTRAGRID_RTP_MUTLI_OUT, ///< pointer to bool
 };
 
-#ifdef __cplusplus
 //
 // API for modules
 //
@@ -118,8 +120,25 @@ typedef void *rxtx_create_fn(const struct vrxtx_params *params,
 typedef void  rxtx_done_fn(void *state);
 typedef void  rxtx_send_audio_frame_fn(void                      *state,
                                        const struct audio_frame2 *frame);
+struct rx_audio_frames {
+        struct audio_frame2      *frame;
+        struct sockaddr_storage  *source; // network source address
+        long long int             expected_bytes;
+        long long int             received_bytes;
+        struct rx_audio_frames *next;
+};
+/**
+ * receive one or more audio frames
+ * @note mutiple frames is just a special case, it occurs in case of
+ * ultragrid_rtp and aplay/mixer (@ref AUDIO_PLAYBACK_CTL_MULTIPLE_STREAMS)
+ */
+typedef struct rx_audio_frames *rxtx_recv_audio_frame_fn(void *state);
+#ifdef __cplusplus
 typedef void  rxtx_send_shr_ptr_video_frame_fn(void *state,
                                                std::shared_ptr<video_frame>);
+#else
+typedef nullptr_t rxtx_send_shr_ptr_video_frame_fn;
+#endif // defined __cplusplus
 typedef void *rxtx_vrecv_routine_fn(void *state);
 typedef bool  rxtx_ctl_property_fn(void *state, enum rxtx_property p, void *val,
                                    size_t *len);
@@ -132,12 +151,12 @@ struct video_rxtx_info {
 
         // following callbacks are optional
         rxtx_send_audio_frame_fn         *send_audio_frame;
+        rxtx_recv_audio_frame_fn         *recv_audio_frame;
         rxtx_send_shr_ptr_video_frame_fn *send_video_frame;
         rxtx_vrecv_routine_fn            *video_recv_routine;
         rxtx_ctl_property_fn             *ctl_property;
         rxtx_join_sender_fn              *join_sender;
 };
-#endif // defined __cplusplus
 
 #ifdef __cplusplus
 extern "C" {
@@ -158,6 +177,8 @@ bool        rxtx_ctl_property(struct video_rxtx *state, enum rxtx_property p,
                               void *val, size_t *len);
 void        rxtx_send_audio(struct video_rxtx         *state,
                             const struct audio_frame2 *frame);
+struct rx_audio_frames *rxtx_recv_audio_frame(struct video_rxtx *s);
+void rxtx_free_audio_frames(struct rx_audio_frames *frames);
 
 // utils
 const char *get_tx_name(enum tx_media_type);

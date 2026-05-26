@@ -50,6 +50,8 @@
 
 #include "audio/types.h"
 
+struct audio_frame2;
+
 #ifdef __cplusplus
 double calculate_rms(audio_frame2 *frame, int channel, double *peak);
 double calculate_rms(const audio_frame *frame, int channel, double *peak);
@@ -163,6 +165,9 @@ bool append_audio_frame(struct audio_frame *frame, char *data, size_t data_len);
  *                  original frame. If false, the storage may be shorter.
  */
 struct audio_frame *audio_frame_copy(const struct audio_frame *src, bool keep_size);
+
+void audio_frame2_to_audio_frame(struct audio_frame        *dst,
+                                 const struct audio_frame2 *src);
 
 int parse_audio_format(const char *str, struct audio_desc *ret);
 

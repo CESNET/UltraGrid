@@ -50,6 +50,7 @@
 #include <array>
 #include <cassert>
 #include <cinttypes>
+#include <climits>
 #include <cmath>      // for log10
 #include <cstdio>
 #include <cstdlib>
@@ -547,32 +548,6 @@ static struct response * audio_receiver_process_message(struct state_audio *s, s
         return new_response(RESPONSE_OK, nullptr);
 }
 
-static struct audio_decoder *audio_decoder_state_create(struct state_audio *s) {
-        auto *dec_state = (struct audio_decoder *) calloc(1, sizeof(struct audio_decoder));
-        assert(dec_state != NULL);
-        dec_state->enabled = true;
-        dec_state->pbuf_data.decoder =
-            (struct state_audio_decoder *) audio_decoder_init(
-                s->audio_channel_map, s->audio_scale, s->opts.encryption,
-                (audio_playback_ctl_t) audio_playback_ctl,
-                s->audio_playback_device, s->audio_receiver_module.get());
-        if (!dec_state->pbuf_data.decoder) {
-                free(dec_state);
-                return NULL;
-        }
-        return dec_state;
-}
-
-static void audio_decoder_state_deleter(void *state)
-{
-        struct audio_decoder *s = (struct audio_decoder *) state;
-
-        free(s->pbuf_data.buffer.data);
-        audio_decoder_destroy(s->pbuf_data.decoder);
-
-        free(s);
-}
-
 static void audio_update_recv_buf(struct state_audio *s, size_t curr_frame_len)
 {
         size_t new_size = curr_frame_len * 2;
@@ -595,30 +570,52 @@ change_volume(bool mute, double scale, audio_frame *buffer)
                              (float) scale);
 }
 
+static void
+flush_rtp_samples(struct video_rxtx *rxtx)
+{
+        struct rtp_rxtx_common *rtp_common_state = nullptr;
+        size_t                  len =
+            sizeof rtp_common_state; // NOLINT(bugprone-sizeof-expression)
+        bool ctl_rc = rxtx_ctl_property(rxtx, GET_RTP_COMMON_STATE,
+                                        (void *) &rtp_common_state, &len);
+        if (!ctl_rc) {
+                return;
+        }
+        struct rtp_rxtx_medium *audio =
+            &rtp_common_state->medium[TX_MEDIA_AUDIO];
+        rtp_flush_recv_buf(audio->network_device);
+}
+
 static void *audio_receiver_thread(void *arg)
 {
         set_thread_name(__func__);
         struct state_audio *s = (struct state_audio *) arg;
         // rtp variables
-        struct pdb_e *cp;
         struct audio_desc device_desc{};
-        bool playback_supports_multiple_streams;
-
-        struct pbuf_audio_data *current_pbuf = NULL;
+        struct audio_desc network_desc{};
+        auto *pp = audio_postprocess_init(s->audio_channel_map, s->audio_scale,
+                                          s->audio_receiver_module.get());
+        bool  playback_supports_multiple_streams = false;
+        long long int received_bytes_cum         = 0;
+        long long int expected_bytes_cum         = 0;
 
 #ifdef HAVE_JACK_TRANS
         struct pbuf_audio_data jack_pbuf{};
-        current_pbuf = &jack_pbuf;
+        // current_pbuf = &jack_pbuf;
 #endif
 
         size_t len = sizeof playback_supports_multiple_streams;
-        if (!audio_playback_ctl(s->audio_playback_device, AUDIO_PLAYBACK_CTL_MULTIPLE_STREAMS,
-                        &playback_supports_multiple_streams, &len)) {
-                playback_supports_multiple_streams = false;
-        }
+        audio_playback_ctl(s->audio_playback_device, AUDIO_PLAYBACK_CTL_MULTIPLE_STREAMS,
+                        &playback_supports_multiple_streams, &len);
+        len = sizeof playback_supports_multiple_streams;
+        rxtx_ctl_property(s->rxtx, SET_ULTRAGRID_RTP_MUTLI_OUT,
+                          &playback_supports_multiple_streams, &len);
 
-        time_ns_t last_not_timeout = 0;
         printf("Audio receiving started.\n");
+        struct audio_frame f{};
+#define CONTINUE                                                               \
+        rxtx_free_audio_frames(frames);                                        \
+        continue
         while (!s->should_exit) {
                 struct message *msg;
                 while((msg= check_message(s->audio_receiver_module.get()))) {
@@ -626,146 +623,98 @@ static void *audio_receiver_thread(void *arg)
                         free_message(msg, r);
                 }
 
-                bool decoded = false;
+                struct rx_audio_frames *frames = nullptr;
 
                 if (s->receiver == NET_NATIVE || s->receiver == NET_STANDARD) {
-                        time_ns_t curr_time = get_time_in_ns();
-                        uint32_t ts = (curr_time - s->start_time) / 100'000 * 9; // at 90000 Hz
-                        rtp_update(s->audio_network_device, curr_time);
-                        rtp_send_ctrl(s->audio_network_device, ts, 0, curr_time);
-                        struct timeval timeout;
-                        timeout.tv_sec = 0;
-                        // timeout.tv_usec = 999999 / 59.94; // audio goes almost always at the same rate
-                                                             // as video frames
-                        if ((curr_time - last_not_timeout) > NS_IN_SEC) {
-                                timeout.tv_usec = 100000;
-                        } else {
-                                timeout.tv_usec = 1000; // this stuff really smells !!!
-                        }
-                        bool ret = rtp_recv_r(s->audio_network_device, &timeout, ts);
-                        if (ret) {
-                                last_not_timeout = curr_time;
-                        }
-                        pdb_iter_t it;
-                        cp = pdb_iter_init(s->audio_participants, &it);
-                
-                        while (cp != NULL) {
-                                if (cp->decoder_state == NULL &&
-                                                !pbuf_is_empty(cp->playout_buffer)) { // the second check is need ed because we want to assign display to participant that really sends data
-                                        // disable all previous sources
-                                        if (!playback_supports_multiple_streams) {
-                                                pdb_iter_t it;
-                                                struct pdb_e *cp = pdb_iter_init(s->audio_participants, &it);
-                                                while (cp != NULL) {
-                                                        if(cp->decoder_state) {
-                                                                ((struct audio_decoder *) cp->decoder_state)->enabled = false;
-                                                        }
-                                                        cp = pdb_iter_next(&it);
-                                                }
-                                                pdb_iter_done(&it);
-                                        }
-
-                                        if (get_commandline_param("low-latency-audio")) {
-                                                pbuf_set_playout_delay(cp->playout_buffer, strcmp(get_commandline_param("low-latency-audio"), "ultra") == 0 ? 0.001 :0.005);
-                                        }
-                                        cp->decoder_state = audio_decoder_state_create(s);
-                                        if (!cp->decoder_state) {
-                                                exit_uv(1);
-                                                break;
-                                        }
-                                        cp->decoder_state_deleter = audio_decoder_state_deleter;
-                                }
-
-                                struct audio_decoder *dec_state = (struct audio_decoder *) cp->decoder_state;
-                                if (dec_state && dec_state->enabled) {
-                                        dec_state->decoded = false;
-                                        dec_state->pbuf_data.buffer.data_len = 0;
-                                        dec_state->pbuf_data.buffer.timestamp = -1;
-                                        // We iterate in loop since there can be more than one frmae present in
-                                        // the playout buffer and it would be discarded by following pbuf_remove()
-                                        // call.
-                                        while (pbuf_decode(cp->playout_buffer, curr_time, s->receiver == NET_NATIVE ? decode_audio_frame : decode_audio_frame_mulaw, &dec_state->pbuf_data)) {
-
-                                                current_pbuf = &dec_state->pbuf_data;
-                                                decoded = true;
-                                                dec_state->decoded = true;
-                                        }
-                                }
-
-                                pbuf_remove(cp->playout_buffer, curr_time);
-                                cp = pdb_iter_next(&it);
-                        }
-                        pdb_iter_done(&it);
+                        frames = rxtx_recv_audio_frame(s->rxtx);
                 }else { /* NET_JACK */
 #ifdef HAVE_JACK_TRANS
-                        decoded = jack_receive(s->jack_connection, &jack_pbuf);
+                        // decoded = jack_receive(s->jack_connection, &jack_pbuf);
 #endif
                 }
 
-                if (decoded) {
-                        bool failed = false;
+                if (frames == nullptr) {
+                        continue;
+                }
 
-                        struct audio_desc curr_desc;
-                        curr_desc = audio_desc_from_frame(&current_pbuf->buffer);
+                struct audio_desc curr_desc = frames->frame->get_desc();
 
-                        if(!audio_desc_eq(device_desc, curr_desc)) {
-                                int log_l;
-                                string msg;
-                                if (audio_playback_reconfigure(s->audio_playback_device, curr_desc.bps * 8,
-                                                        curr_desc.ch_count,
-                                                        curr_desc.sample_rate) != true) {
-                                        log_l = LOG_LEVEL_ERROR;
-                                        msg = "Audio reconfiguration failed";
-                                        failed = true;
+                if (!audio_desc_eq(network_desc, curr_desc)) {
+                        size_t len = sizeof device_desc;
+                        int output_channels =  audio_postprocess_reconfigure(pp, curr_desc.ch_count);
+                        device_desc =
+                            audio_desc{ .bps         = curr_desc.bps,
+                                        .sample_rate = curr_desc.sample_rate,
+                                        .ch_count    = output_channels,
+                                        .codec       = AC_PCM };
+                        if (const char *fmt = get_commandline_param("audio-dec-format")) {
+                                if (int ret = parse_audio_format(fmt, &device_desc)) {
+                                        exit_uv(ret > 0 ? 0 : 1);
+                                        CONTINUE;
                                 }
-                                else {
-                                        log_l = LOG_LEVEL_INFO;
-                                        msg = "Audio reconfiguration succeeded";
-                                        device_desc = curr_desc;
-                                        rtp_flush_recv_buf(s->audio_network_device);
-                                }
-                                LOG(log_l) << msg << " (" << curr_desc << ")" << (log_l < LOG_LEVEL_WARNING ? "!" : ".") << "\n";
-                                rtp_flush_recv_buf(s->audio_network_device);
+                        }
+                        if (!audio_playback_ctl(s->audio_playback_device,
+                                                AUDIO_PLAYBACK_CTL_QUERY_FORMAT,
+                                                &device_desc, &len)) {
+                                MSG(ERROR, "Unable to query audio desc!\n");
+                                CONTINUE;
+                        }
+                        if (!audio_playback_reconfigure(
+                                s->audio_playback_device,
+                                device_desc.bps * CHAR_BIT,
+                                device_desc.ch_count,
+                                device_desc.sample_rate)) {
+                                MSG(ERROR,
+                                    "Audio reconfiguration failed (%s)!\n",
+                                    ((string) curr_desc).c_str());
+                                CONTINUE;
+                        }
+                        f.bps            = device_desc.bps;
+                        f.ch_count       = device_desc.ch_count;
+                        f.sample_rate    = device_desc.sample_rate;
+                        network_desc     = curr_desc;
+                        MSG(NOTICE, "Audio reconfiguration succeeded (%s).\n",
+                            ((string) curr_desc).c_str());
+
+                        flush_rtp_samples(s->rxtx);
+                }
+
+
+                struct rx_audio_frames *cur_frame = frames;
+                while (cur_frame != nullptr) {
+                        audio_update_recv_buf(s, cur_frame->frame->get_data_len());
+
+                        expected_bytes_cum += cur_frame->expected_bytes;
+                        received_bytes_cum += cur_frame->received_bytes;
+
+                        if (!decode_audio_frame_postprocess(
+                                pp, cur_frame->frame, &f, &expected_bytes_cum,
+                                &received_bytes_cum)) {
+                                CONTINUE;
                         }
 
-                        if (failed) {
-                                continue;
-                        }
-                        audio_update_recv_buf(s, current_pbuf->frame_size);
-
-                        if (s->muted_receiver|| s->volume != 1) {
-                                change_volume(s->muted_receiver, s->volume,
-                                              &current_pbuf->buffer);
+                        if (s->muted_receiver || s->volume != 1) {
+                                change_volume(s->muted_receiver, s->volume, &f);
                         }
 
-                        if(s->echo_state) {
+                        if (s->echo_state) {
 #ifdef HAVE_SPEEXDSP
-                                echo_play(s->echo_state, &current_pbuf->buffer);
+                                echo_play(s->echo_state, &f);
 #endif
                         }
+                        f.network_source = cur_frame->source;
+                        audio_playback_put_frame(s->audio_playback_device, &f);
 
-                        if (!playback_supports_multiple_streams) {
-                                audio_playback_put_frame(s->audio_playback_device, &current_pbuf->buffer);
-                        } else {
-                                pdb_iter_t it;
-                                cp = pdb_iter_init(s->audio_participants, &it);
-                                while (cp != NULL) {
-                                        struct audio_decoder *dec_state = (struct audio_decoder *) cp->decoder_state;
-                                        if (dec_state && dec_state->enabled && dec_state->decoded) {
-                                                struct audio_frame *f = &dec_state->pbuf_data.buffer;
-                                                f->network_source = &dec_state->pbuf_data.source;
-                                                audio_playback_put_frame(s->audio_playback_device, f);
-                                        }
-                                        cp = pdb_iter_next(&it);
-                                }
-                                pdb_iter_done(&it);
-                        }
+                        cur_frame = cur_frame->next;
                 }
+                rxtx_free_audio_frames(frames);
         }
 
 #ifdef HAVE_JACK_TRANS
         free(jack_pbuf.buffer.data);
 #endif
+        free(f.data);
+        audio_postprocess_done(pp);
 
         return NULL;
 }

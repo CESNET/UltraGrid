@@ -75,6 +75,8 @@ struct rtp_rxtx_common {
         uint32_t magic;
         struct rtp_rxtx_medium medium[NUM_TX_MEDIA];
         struct rtp_rxtx_common_priv_state *priv;
+        char                              *encryption;
+        bool playback_supports_multiple_streams; // set by impl
 };
 
 struct common_opts;
@@ -88,6 +90,13 @@ void rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *pub,
                                      enum tx_media_type      t);
 void rtp_rxtx_set_pbuf_delay(struct rtp_rxtx_medium *s, double delay);
 bool rtp_rxtx_common_is_ipv6(struct rtp_rxtx_common *s);
+
+struct coded_data;
+struct pbuf_stats;
+typedef int decode_audio_frame_fn(struct coded_data *cdata, void *pbuf_data,
+                                  struct pbuf_stats *);
+struct rx_audio_frames *rtp_recv_audio_frame(void                 *state,
+                                             decode_audio_frame_fn decode);
 
 #ifdef __cplusplus
 }

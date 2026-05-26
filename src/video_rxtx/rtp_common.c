@@ -40,21 +40,24 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>            // for strdup, strcmp, strlen, strstr
+#include <sys/time.h>            // for timeval
 
 #include "compat/c23.h"          // IWYU pragma: keep
+#include "compat/net.h"          // for sockaddr_storage
 #include "config.h"              // for PACKAGE_STRING
 #include "debug.h"
 #include "host.h"
 #include "messaging.h"
 #include "module.h"
 #include "pdb.h"
+#include "rtp/audio_decoders.h"
 #include "rtp/fec.h"
 #include "rtp/pbuf.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "transmit.h"
+#include "tv.h"                  // for time_ns_t, get_time_in_ns, NS_IN_SEC
 #include "types.h"
-#include "utils/net.h" // IN6_BLACKHOLE_STR
 #include "utils/pthread.h" // for CHK_PTHR
 #include "utils/string.h"      // for strprintf
 #include "video_rxtx.h"
@@ -96,6 +99,8 @@ struct rtp_medium_priv {
 struct rtp_rxtx_common_priv_state {
         uint32_t magic;
 
+        struct module *parent;
+
         time_ns_t start_time;
         // stored for reconfiguration
         int   force_ip_version;
@@ -106,6 +111,8 @@ struct rtp_rxtx_common_priv_state {
         struct rtp_rxtx_common pub;
 
         bool used;
+        // audio
+        time_ns_t a_last_not_timeout;
 };
 
 static struct rtp *initialize_network(const char *addr, int recv_port,
@@ -183,7 +190,6 @@ rtp_process_sender_message(struct rtp_rxtx_common_priv_state *s,
         case SENDER_MSG_CHANGE_FEC: {
                 struct fec *old_fec_state = medium_pub->fec_state;
                 medium_pub->fec_state     = nullptr;
-                puts(msg->fec_cfg);
                 if (strcmp(msg->fec_cfg, "flush") == 0) {
                         fec_destroy(old_fec_state);
                         break;
@@ -332,7 +338,9 @@ struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
         pub->magic = RTP_COMMON_MAGIC;
 
         pub->priv = s;
-        s->magic = MAGIC;
+        pub->encryption       = strdup(common->encryption);
+        s->magic              = MAGIC;
+        s->parent             = common->parent;
         s->force_ip_version   = common->force_ip_version,
         s->mcast_if           = strdup(common->mcast_if);
         s->ttl                = common->ttl;
@@ -382,6 +390,7 @@ rtp_rxtx_common_done(struct rtp_rxtx_common *pub)
         }
 
         free(pub->priv->mcast_if);
+        free(pub->encryption);
 
         free(s);
 }
@@ -470,4 +479,146 @@ rtp_rxtx_common_is_ipv6(struct rtp_rxtx_common *pub)
                 return rtp_is_ipv6(v_net_dev);
         }
         return false;
+}
+
+struct rtp_audio_decoder {
+        bool enabled;
+        struct acodec_state pbuf_data;
+};
+
+static struct rtp_audio_decoder *
+audio_decoder_state_create(struct rtp_rxtx_common *s)
+{
+        struct rtp_audio_decoder *dec_state =
+            calloc(1, sizeof(struct rtp_audio_decoder));
+        assert(dec_state != nullptr);
+        dec_state->enabled = true;
+        dec_state->pbuf_data.decoder =
+            (struct state_audio_decoder *) audio_decoder_init(s->encryption,
+                                                              s->priv->parent);
+        if (!dec_state->pbuf_data.decoder) {
+                free(dec_state);
+                return nullptr;
+        }
+        return dec_state;
+}
+
+static void audio_decoder_state_deleter(void *state)
+{
+        struct rtp_audio_decoder *s = state;
+
+        audio_decoder_destroy(s->pbuf_data.decoder);
+
+        free(s);
+}
+
+struct rx_audio_frames *
+rtp_recv_audio_frame(void *state, decode_audio_frame_fn decode)
+{
+        struct rtp_rxtx_common            *pub   = state;
+        struct rtp_rxtx_common_priv_state *priv  = pub->priv;
+        struct rtp_rxtx_medium            *audio = &pub->medium[TX_MEDIA_AUDIO];
+
+        time_ns_t curr_time = get_time_in_ns();
+        uint32_t  ts =
+            (curr_time - priv->start_time) / (100*1000) * 9; // at 90000 Hz
+        rtp_update(audio->network_device, curr_time);
+        rtp_send_ctrl(audio->network_device, ts, 0, curr_time);
+        struct timeval timeout;
+        timeout.tv_sec = 0;
+        // timeout.tv_usec = 999999 / 59.94; // audio goes almost always at the
+        // same rate as video frames
+        if ((curr_time - priv->a_last_not_timeout) > NS_IN_SEC) {
+                timeout.tv_usec = 100000;
+        } else {
+                timeout.tv_usec = 1000; // this stuff really smells !!!
+        }
+        bool ret = rtp_recv_r(audio->network_device, &timeout, ts);
+        if (ret) {
+                priv->a_last_not_timeout = curr_time;
+        }
+        pdb_iter_t it;
+        struct pdb_e *cp = pdb_iter_init(audio->participants, &it);
+
+        struct rx_audio_frames *retval = nullptr;
+        struct rx_audio_frames **retval_next = &retval;
+
+        while (cp != nullptr) {
+                if (cp->decoder_state == nullptr &&
+                    !pbuf_is_empty(
+                        cp->playout_buffer)) { // the second check is need ed
+                                               // because we want to assign
+                                               // display to participant that
+                                               // really sends data
+                        // disable all previous sources
+                        if (!pub->playback_supports_multiple_streams) {
+                                pdb_iter_t    it;
+                                struct pdb_e *cp =
+                                    pdb_iter_init(audio->participants, &it);
+                                while (cp != nullptr) {
+                                        if (cp->decoder_state) {
+                                                ((struct rtp_audio_decoder *)
+                                                     cp->decoder_state)
+                                                    ->enabled = false;
+                                        }
+                                        cp = pdb_iter_next(&it);
+                                }
+                                pdb_iter_done(&it);
+                        }
+
+                        if (get_commandline_param("low-latency-audio")) {
+                                pbuf_set_playout_delay(
+                                    cp->playout_buffer,
+                                    strcmp(get_commandline_param(
+                                               "low-latency-audio"),
+                                           "ultra") == 0
+                                        ? 0.001
+                                        : 0.005);
+                        }
+                        cp->decoder_state = audio_decoder_state_create(pub);
+                        if (!cp->decoder_state) {
+                                exit_uv(1);
+                                break;
+                        }
+                        cp->decoder_state_deleter = audio_decoder_state_deleter;
+                }
+
+                struct rtp_audio_decoder *dec_state = cp->decoder_state;
+                if (dec_state && dec_state->enabled) {
+                        dec_state->pbuf_data.decoded = nullptr;
+                        struct rx_audio_frames *decoded_frame = nullptr;
+                        // dec_state->pbuf_data.buffer.data_len  = 0;
+                        // dec_state->pbuf_data.buffer.timestamp = -1;
+
+                        // We iterate in loop since there can be more than one
+                        // frmae present in the playout buffer and it would be
+                        // discarded by following pbuf_remove() call.
+                        while (pbuf_decode(cp->playout_buffer, curr_time,
+                                           decode, &dec_state->pbuf_data)) {
+                                if (!decoded_frame) {
+                                        decoded_frame =
+                                            calloc(1, sizeof *decoded_frame);
+                                        decoded_frame->frame =
+                                            dec_state->pbuf_data.decoded;
+                                        size_t slen =
+                                            sizeof *decoded_frame->source;
+                                        decoded_frame->source = malloc(slen);
+                                        memcpy(decoded_frame->source,
+                                               &dec_state->pbuf_data.source,
+                                               slen);
+                                        *retval_next = decoded_frame;
+                                        retval_next  = &decoded_frame->next;
+                                }
+                                decoded_frame->expected_bytes +=
+                                    dec_state->pbuf_data.expected_bytes;
+                                decoded_frame->received_bytes +=
+                                    dec_state->pbuf_data.received_bytes;
+                        }
+                }
+
+                pbuf_remove(cp->playout_buffer, curr_time);
+                cp = pdb_iter_next(&it);
+        }
+        pdb_iter_done(&it);
+        return retval;
 }

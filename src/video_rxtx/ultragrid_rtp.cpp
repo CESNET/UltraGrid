@@ -61,28 +61,29 @@ typedef SSIZE_T ssize_t;
 
 #include "control_socket.h"
 #include "debug.h"
-#include "rtp/fec.h"             // for fec
 #include "host.h"
 #include "lib_common.h"
 #include "messaging.h"
 #include "pdb.h"
+#include "rtp/audio_decoders.h" // for decode_audio_frame
+#include "rtp/fec.h"            // for fec
+#include "rtp/pbuf.h"
 #include "rtp/rtp.h"
 #include "rtp/video_decoders.h"
-#include "rtp/pbuf.h"
 #include "tfrc.h"
 #include "transmit.h"
 #include "tv.h"
-#include "types.h"             // for video_frame (ptr only), video_mode
-#include "utils/color_out.h"     // for TBOLD, color_printf
-#include "utils/lock_guard.h"    // for ultragrid::pthread_mutex_guard
-#include "utils/macros.h"      // for to_fourcc
-#include "utils/misc.h"          // for format_in_si_units
-#include "utils/text.h"          // for wrap_paragraph
+#include "types.h"            // for video_frame (ptr only), video_mode
+#include "utils/color_out.h"  // for TBOLD, color_printf
+#include "utils/lock_guard.h" // for ultragrid::pthread_mutex_guard
+#include "utils/macros.h"     // for to_fourcc
+#include "utils/misc.h"       // for format_in_si_units
+#include "utils/text.h"       // for wrap_paragraph
 #include "utils/thread.h"
+#include "utils/worker.h"
 #include "video_display.h"
 #include "video_rxtx.h"
-#include "video_rxtx/rtp_common.h"  // for rtp_video_rxtx
-#include "utils/worker.h"
+#include "video_rxtx/rtp_common.h" // for rtp_video_rxtx
 
 constexpr uint32_t MAGIC = to_fourcc('V', 'X', 'u', 'r');
 #define MOD_NAME "[rxtx/ultragrid_rtp] "
@@ -127,9 +128,9 @@ struct ultragrid_rtp_video_rxtx {
         long long int m_send_bytes_total;
         struct control_state *m_control;
         struct module *m_parent;
-        std::string m_encryption;
 
         time_ns_t m_start_time;
+        // video
         long long int m_nano_per_frame_actual_cumul = 0;
         long long int m_nano_per_frame_expected_cumul = 0;
         long long int m_compress_millis_cumul = 0;
@@ -148,7 +149,6 @@ ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(
         m_send_bytes_total(0),
         m_control(get_control_state(common->parent)),
         m_parent(common->parent),
-        m_encryption(common->encryption),
         m_start_time(common->start_time),
         m_receiver_mod(params->receiver_mod)
 {
@@ -305,7 +305,7 @@ struct vcodec_state *ultragrid_rtp_video_rxtx::new_video_decoder(struct display 
 
         if(state) {
                 state->decoder = video_decoder_init(m_receiver_mod, m_decoder_mode,
-                                d, m_encryption.c_str());
+                                d, m_rtp_common->encryption);
 
                 if(!state->decoder) {
                         fprintf(stderr, "Error initializing decoder (incorrect '-M' or '-p' option?).\n");
@@ -607,9 +607,25 @@ ultragrid_rtp_ctl_property(void *state, enum rxtx_property p,
                 memcpy(val, (void *) &s->m_rtp_common, *len);
                 return true;
         }
+        case SET_ULTRAGRID_RTP_MUTLI_OUT: {
+                // NOLINTBEGIN(bugprone-sizeof-expression)
+                assert(*len >= sizeof(bool));
+                // NOLINTEND(bugprone-sizeof-expression)
+                memcpy((void *) &s->m_rtp_common
+                           ->playback_supports_multiple_streams,
+                       val, sizeof(bool));
+                return true;
         }
-        MSG(WARNING, "Unexpected property %d queiried!\n", (int) p);
+        }
+        MSG(WARNING, "Unexpected property %d queried!\n", (int) p);
         return false;
+}
+
+static struct rx_audio_frames *
+ultragrid_rtp_recv_audio_frame(void *state)
+{
+        auto *s = static_cast<ultragrid_rtp_video_rxtx *>(state);
+        return rtp_recv_audio_frame(s->m_rtp_common, decode_audio_frame);
 }
 
 static const struct video_rxtx_info ultragrid_rtp_video_rxtx_info = {
@@ -617,6 +633,7 @@ static const struct video_rxtx_info ultragrid_rtp_video_rxtx_info = {
         .create             = create_video_rxtx_ultragrid_rtp,
         .done               = done,
         .send_audio_frame   = send_audio_frame,
+        .recv_audio_frame   = ultragrid_rtp_recv_audio_frame,
         .send_video_frame   = send_frame,
         .video_recv_routine = ultragrid_rtp_video_rxtx::receiver_thread,
         .ctl_property       = ultragrid_rtp_ctl_property,

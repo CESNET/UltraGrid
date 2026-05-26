@@ -54,6 +54,7 @@
 #if __STDC_VERSION__ < 202311L
         #include <stddef.h>
         #define nullptr NULL
+        typedef void *nullptr_t;
 #endif
 
 // countof

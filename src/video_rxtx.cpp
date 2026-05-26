@@ -48,6 +48,7 @@
 #include <string>
 #include <utility>
 
+#include "audio/types.h"
 #include "debug.h"
 #include "export.h"
 #include "host.h"
@@ -435,6 +436,24 @@ void
 rxtx_send_audio(struct video_rxtx *s, const struct audio_frame2 *frame)
 {
         s->m_impl_funcs->send_audio_frame(s->m_impl_state, frame);
+}
+
+struct rx_audio_frames *
+rxtx_recv_audio_frame(struct video_rxtx *s)
+{
+        return s->m_impl_funcs->recv_audio_frame(s->m_impl_state);
+}
+
+void
+rxtx_free_audio_frames(struct rx_audio_frames *frames)
+{
+        while (frames != nullptr) {
+                free(frames->source);
+                delete frames->frame;
+                struct rx_audio_frames *tmp = frames;
+                frames = frames->next;
+                free(tmp);
+        }
 }
 
 const char *

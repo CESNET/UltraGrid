@@ -669,6 +669,25 @@ struct audio_frame *audio_frame_copy(const struct audio_frame *src, bool keep_si
         return ret;
 }
 
+void
+audio_frame2_to_audio_frame(struct audio_frame        *dst,
+                            const struct audio_frame2 *src)
+{
+        size_t chan_len = src->get_data_len(0);
+        size_t len      = chan_len * src->get_channel_count();
+        assert((size_t) dst->max_size >= len);
+        for (int i = 1; i < src->get_channel_count(); ++i) {
+                size_t cur_len = src->get_data_len(i);
+                assert(cur_len == chan_len);
+                mux_channel(dst->data, src->get_data(i), src->get_bps(),
+                            cur_len, src->get_channel_count(), i, 1.0);
+        }
+        dst->ch_count    = src->get_channel_count();
+        dst->bps         = src->get_bps();
+        dst->data_len    = len;
+        dst->sample_rate = src->get_sample_rate();
+}
+
 const char *audio_desc_to_cstring(struct audio_desc desc) {
         thread_local string str = desc;
         return str.c_str();

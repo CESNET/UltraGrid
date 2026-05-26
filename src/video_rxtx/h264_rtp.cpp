@@ -55,6 +55,7 @@
 #include "host.h"
 #include "lib_common.h"
 #include "messaging.h"
+#include "rtp/audio_decoders.h"  // for decode_audio_frame_mulaw
 #include "rtp/rtp.h"
 #include "rtsp/c_basicRTSPOnlyServer.h"  // for rtsp_server_parameters, c_st...
 #include "rtsp/rtsp_utils.h"  // for rtsp_types_t
@@ -329,9 +330,19 @@ h264_rtp_ctl_property(void *state, enum rxtx_property p,
                 memcpy(val, (void *) &s->m_rtp_common, *len);
                 return true;
         }
+        case SET_ULTRAGRID_RTP_MUTLI_OUT:
+                abort();
         }
         MSG(WARNING, "Unexpected property %d queiried!\n", (int) p);
         return false;
+}
+
+// I don't believe this works (and worked before rework).
+static struct rx_audio_frames *
+h264_rtp_recv_audio_frame(void *state)
+{
+        auto *s = static_cast<h264_rtp_video_rxtx*>(state);
+        return rtp_recv_audio_frame(s->m_rtp_common, decode_audio_frame_mulaw);
 }
 
 static const struct video_rxtx_info h264_video_rxtx_info = {
@@ -339,6 +350,7 @@ static const struct video_rxtx_info h264_video_rxtx_info = {
         .create             = create_video_rxtx_h264_std,
         .done               = done,
         .send_audio_frame   = h264_rtp_send_audio_frame,
+        .recv_audio_frame   = h264_rtp_recv_audio_frame,
         .send_video_frame   = send_frame,
         .video_recv_routine = nullptr,
         .ctl_property       = h264_rtp_ctl_property,

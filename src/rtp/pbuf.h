@@ -12,7 +12,7 @@
  *           Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  * 
  * Copyright (c) 2003-2004 University of Southern California
- * Copyright (c) 2005-2024 CESNET
+ * Copyright (c) 2005-2026 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -103,6 +103,14 @@ struct vcodec_state {
         unsigned int max_frame_size; // maximal frame size
                                      // to be returned to caller by a decoder to allow him adjust buffers accordingly
         unsigned int decoded;
+};
+
+struct acodec_state {
+        struct state_audio_decoder *decoder;
+        struct audio_frame2        *decoded;
+        struct sockaddr_storage     source; // network source address
+        long long int               received_bytes;
+        long long int               expected_bytes;
 };
 
 struct pbuf_audio_data {

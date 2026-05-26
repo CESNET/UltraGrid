@@ -174,6 +174,7 @@ static const struct video_rxtx_info loopback_video_rxtx_info = {
         .create             = create_video_rxtx_loopback,
         .done               = done,
         .send_audio_frame   = nullptr,
+        .recv_audio_frame   = nullptr,
         .send_video_frame   = send_frame,
         .video_recv_routine = loopback_video_rxtx::receiver_thread,
         .ctl_property       = nullptr,

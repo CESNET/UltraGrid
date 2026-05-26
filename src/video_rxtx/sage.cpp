@@ -133,6 +133,7 @@ static const struct video_rxtx_info sage_video_rxtx_info = {
         .create             = create_video_rxtx_sage,
         .done               = done,
         .send_audio_frame   = nullptr,
+        .recv_audio_frame   = nullptr,
         .send_video_frame   = send_frame,
         .video_recv_routine = nullptr,
         .ctl_property       = nullptr,

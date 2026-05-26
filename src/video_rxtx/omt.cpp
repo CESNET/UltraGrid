@@ -206,6 +206,7 @@ constexpr video_rxtx_info omt_video_rxtx_info = {
         .create             = omt_rxtx_create,
         .done               = omt_rxtx_done,
         .send_audio_frame   = nullptr,
+        .recv_audio_frame   = nullptr,
         .send_video_frame   = omt_rxtx_send_frame,
         .video_recv_routine = omt_rxtx_recv_worker,
         .ctl_property       = nullptr,

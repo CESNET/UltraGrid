@@ -48,7 +48,10 @@ extern "C" {
 #include <stdint.h>  // for uint32_t
 #endif
 
+struct acodec_state;
 struct audio_desc;
+struct audio_frame;
+struct audio_frame2;
 struct coded_data;
 struct module;
 struct pbuf_stats;
@@ -57,10 +60,21 @@ typedef bool (*audio_playback_ctl_t)(void *state, int request, void *data, size_
 
 int decode_audio_frame(struct coded_data *cdata, void *data, struct pbuf_stats *stats);
 int decode_audio_frame_mulaw(struct coded_data *cdata, void *data, struct pbuf_stats *stats);
-void *audio_decoder_init(char *audio_channel_map, const char *audio_scale,
-                const char *encryption, audio_playback_ctl_t c, void *ap_state,
-                struct module *parent);
+void *audio_decoder_init(const char *encryption, struct module *parent);
 void audio_decoder_destroy(void *state);
+
+// postprocess API
+struct state_audio_postprocess *audio_postprocess_init(char *audio_channel_map,
+                                                       const char *audio_scale,
+                                                       struct module *parent);
+int  audio_postprocess_reconfigure(struct state_audio_postprocess *postprocess,
+                                   int input_channels);
+void audio_postprocess_done(struct state_audio_postprocess *postprocess);
+bool decode_audio_frame_postprocess(struct state_audio_postprocess *postprocess,
+                                    struct audio_frame2 *decompressed,
+                                    struct audio_frame  *out,
+                                    long long int       *expected_bytes_cum,
+                                    long long int       *received_bytes_cum);
 
 bool parse_audio_hdr(uint32_t *hdr, struct audio_desc *desc);
 

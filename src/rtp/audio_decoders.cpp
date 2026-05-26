@@ -154,31 +154,16 @@ public:
 
 struct state_audio_decoder {
         uint32_t magic;
-        struct module mod;
-
-        struct timeval t0;
 
         struct packet_counter *packet_counter;
-
-        unsigned int channel_remapping:1;
-        struct channel_map channel_map;
-
-        vector<struct scale_data> scale = vector<scale_data>(1); ///< contains scaling metadata if we want to perform audio scaling
-        bool fixed_scale;
 
         struct audio_codec_state *audio_decompress;
 
         struct audio_desc saved_desc; // from network
         uint32_t saved_audio_tag;
 
-        audio_frame2 decoded; ///< buffer that keeps audio samples from last 5 seconds (for statistics)
-
         const struct openssl_decrypt_info *dec_funcs;
         struct openssl_decrypt *decrypt;
-
-        bool muted;
-
-        audio_frame2_resampler resampler;
 
         audio_playback_ctl_t audio_playback_ctl_func;
         void *audio_playback_state;
@@ -189,8 +174,29 @@ struct state_audio_decoder {
 
         struct state_audio_decoder_summary summary;
 
-        audio_frame2 resample_remainder;
-        std::atomic_uint64_t req_resample_to{0}; // hi 32 - numerator; lo 32 - denominator
+};
+
+struct state_audio_postprocess {
+        struct module mod;
+
+        struct timeval t0;
+        struct control_state *control;
+
+        unsigned int channel_remapping:1;
+        struct channel_map channel_map;
+
+        /// contains scaling metadata if we want to perform audio scaling
+        vector<struct scale_data> scale = vector<scale_data>(1);
+        bool fixed_scale;
+
+        bool muted;
+
+        audio_frame2 decoded; ///< buffer that keeps audio samples from last 5
+                              ///< seconds (for statistics)
+        audio_frame2_resampler resampler;
+        audio_frame2           resample_remainder;
+        std::atomic_uint64_t
+            req_resample_to{}; // hi 32 - numerator; lo 32 - denominator
 };
 
 constexpr double VOL_UP = 1.1;
@@ -224,7 +230,7 @@ static void compute_scale(struct scale_data *scale_data, double vol_avg, int sam
 
 static void audio_decoder_process_message(struct module *m)
 {
-        auto *s = static_cast<struct state_audio_decoder *>(m->priv_data);
+        auto *s = static_cast<struct state_audio_postprocess *>(m->priv_data);
 
         while (auto *msg = reinterpret_cast<msg_universal *>(check_message(m))) {
                 struct response *r = nullptr;
@@ -241,25 +247,15 @@ static void audio_decoder_process_message(struct module *m)
 
 ADD_TO_PARAM("soft-resample", "* soft-resample=<num>/<den>\n"
                 "  Resample to specified sampling rate, eg. 12288128/256 for 48000.5 Hz\n");
-
-void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const char *encryption, audio_playback_ctl_t c, void *p_state, struct module *parent)
+struct state_audio_postprocess *
+audio_postprocess_init(char *audio_channel_map, const char *audio_scale,
+                       struct module *parent)
 {
-        struct state_audio_decoder *s = NULL;
-        bool scale_auto = false;
-        double scale_factor = 1.0;
-
         assert(audio_scale != NULL);
 
-        try {
-                s = new struct state_audio_decoder();
-        } catch (ug_runtime_error &e) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "%s\n", e.what());
-                goto error;
-        }
-
-        s->magic = AUDIO_DECODER_MAGIC;
-        s->audio_playback_ctl_func = c;
-        s->audio_playback_state = p_state;
+        bool scale_auto = false;
+        double scale_factor = 1.0;
+        auto *s = new struct state_audio_postprocess();
 
         module_init_default(&s->mod);
         s->mod.cls = MODULE_CLASS_DECODER;
@@ -273,28 +269,13 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         }
 
         gettimeofday(&s->t0, NULL);
-        s->packet_counter = packet_counter_init(0);
 
-        s->audio_decompress = NULL;
         s->control = get_control_state(parent);
-
-        if (strlen(encryption) > 0) {
-                s->dec_funcs = static_cast<const struct openssl_decrypt_info *>(load_library("openssl_decrypt",
-                                        LIBRARY_CLASS_UNDEFINED, OPENSSL_DECRYPT_ABI_VERSION));
-                if (!s->dec_funcs) {
-                        log_msg(LOG_LEVEL_ERROR, "This UltraGrid version was build "
-                                        "without OpenSSL support!\n");
-                        goto error;
-                }
-                if (s->dec_funcs->init(&s->decrypt, encryption) != 0) {
-                        log_msg(LOG_LEVEL_ERROR, "Unable to create decompress!\n");
-                        goto error;
-                }
-        }
 
         if(audio_channel_map) {
                 if (!parse_channel_map_cfg(&s->channel_map, audio_channel_map)) {
-                        goto error;
+                        audio_postprocess_done(s);
+                        return nullptr;
                 }
                 s->channel_remapping = true;
         } else {
@@ -321,12 +302,50 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
                 scale_factor = atof(audio_scale);
                 if(scale_factor <= 0.0) {
                         log_msg(LOG_LEVEL_ERROR, "Invalid audio scaling factor!\n");
-                        goto error;
+                        audio_postprocess_done(s);
+                        return nullptr;
                 }
         }
 
         s->fixed_scale = scale_auto ? false : true;
         s->scale.at(0).scale = scale_factor;
+
+        return s;
+}
+
+void *
+audio_decoder_init(const char *encryption, struct module *parent)
+{
+        struct state_audio_decoder *s = NULL;
+
+        try {
+                s = new struct state_audio_decoder();
+        } catch (ug_runtime_error &e) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "%s\n", e.what());
+                goto error;
+        }
+
+        s->magic = AUDIO_DECODER_MAGIC;
+
+        s->audio_decompress = NULL;
+
+        s->packet_counter = packet_counter_init(0);
+
+        s->control = get_control_state(parent);
+
+        if (strlen(encryption) > 0) {
+                s->dec_funcs = static_cast<const struct openssl_decrypt_info *>(load_library("openssl_decrypt",
+                                        LIBRARY_CLASS_UNDEFINED, OPENSSL_DECRYPT_ABI_VERSION));
+                if (!s->dec_funcs) {
+                        log_msg(LOG_LEVEL_ERROR, "This UltraGrid version was build "
+                                        "without OpenSSL support!\n");
+                        goto error;
+                }
+                if (s->dec_funcs->init(&s->decrypt, encryption) != 0) {
+                        log_msg(LOG_LEVEL_ERROR, "Unable to create decompress!\n");
+                        goto error;
+                }
+        }
 
         return s;
 
@@ -352,8 +371,14 @@ void audio_decoder_destroy(void *state)
         }
 
         delete s->fec_state;
-        module_done(&s->mod);
         delete s;
+}
+
+void
+audio_postprocess_done(struct state_audio_postprocess *postprocess)
+{
+        module_done(&postprocess->mod);
+        delete postprocess;
 }
 
 bool parse_audio_hdr(uint32_t *hdr, struct audio_desc *desc)
@@ -411,6 +436,28 @@ static void *adec_compute_and_print_stats(void *arg) {
         return NULL;
 }
 
+int
+audio_postprocess_reconfigure(struct state_audio_postprocess *postprocess,
+                              int                             input_channels)
+{
+        if (postprocess->channel_remapping &&
+            postprocess->channel_map.size > input_channels) {
+                log_msg(LOG_LEVEL_ERROR,
+                        MOD_NAME "Audio channel map references channels with "
+                                 "idx higher than ch. count!\n");
+        }
+        int output_channels = postprocess->channel_remapping ?
+                        postprocess->channel_map.max_output + 1: input_channels;
+
+        if(!postprocess->fixed_scale) {
+                postprocess->scale.clear();
+                int scale_count = postprocess->channel_remapping ? postprocess->channel_map.max_output + 1: input_channels;
+                postprocess->scale.resize(scale_count);
+        }
+        postprocess->resample_remainder = {};
+        postprocess->decoded = {};
+        return output_channels;
+}
 
 ADD_TO_PARAM("audio-dec-format", "* audio-dec-format=<fmt>|help\n"
                 "  Forces specified format playback format.\n");
@@ -418,7 +465,10 @@ ADD_TO_PARAM("audio-dec-format", "* audio-dec-format=<fmt>|help\n"
  * Compares provided parameters with previous configuration and if it differs, reconfigure
  * the decoder, otherwise the reconfiguration is skipped.
  */
-static bool audio_decoder_reconfigure(struct state_audio_decoder *decoder, struct pbuf_audio_data *s, audio_frame2 &received_frame, int input_channels, int bps, int sample_rate, uint32_t audio_tag)
+static bool
+audio_decoder_reconfigure(struct state_audio_decoder *decoder,
+                          audio_frame2 &received_frame, int input_channels,
+                          int bps, int sample_rate, uint32_t audio_tag)
 {
         if(decoder->saved_desc.ch_count == input_channels &&
                         decoder->saved_desc.bps == bps &&
@@ -435,34 +485,6 @@ static bool audio_decoder_reconfigure(struct state_audio_decoder *decoder, struc
         oss << "new incoming audio fmt: " << sample_rate << "Hz " << input_channels << "ch " << get_name_to_audio_codec(get_audio_codec_to_tag(audio_tag));
         control_report_stats(decoder->control, oss.str());
 
-        if(decoder->channel_remapping && decoder->channel_map.size > input_channels){
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Audio channel map references channels with idx higher than ch. count!\n");
-        }
-
-        int output_channels = decoder->channel_remapping ?
-                        decoder->channel_map.max_output + 1: input_channels;
-        audio_desc device_desc = audio_desc{bps, sample_rate, output_channels, AC_PCM};
-        if (const char *fmt = get_commandline_param("audio-dec-format")) {
-                if (int ret = parse_audio_format(fmt, &device_desc)) {
-                        exit_uv(ret > 0 ? 0 : 1);
-                        return false;
-                }
-        }
-        size_t len = sizeof device_desc;
-        if (!decoder->audio_playback_ctl_func(decoder->audio_playback_state, AUDIO_PLAYBACK_CTL_QUERY_FORMAT, &device_desc, &len)) {
-                log_msg(LOG_LEVEL_ERROR, "Unable to query audio desc!\n");
-                return false;
-        }
-
-        s->buffer.bps = device_desc.bps;
-        s->buffer.ch_count = device_desc.ch_count;
-        s->buffer.sample_rate = device_desc.sample_rate;
-
-        if(!decoder->fixed_scale) {
-                decoder->scale.clear();
-                int scale_count = decoder->channel_remapping ? decoder->channel_map.max_output + 1: decoder->saved_desc.ch_count;
-                decoder->scale.resize(scale_count);
-        }
         decoder->saved_desc.ch_count = input_channels;
         decoder->saved_desc.bps = bps;
         decoder->saved_desc.sample_rate = sample_rate;
@@ -470,9 +492,6 @@ static bool audio_decoder_reconfigure(struct state_audio_decoder *decoder, struc
         audio_codec_t audio_codec = get_audio_codec_to_tag(audio_tag);
 
         received_frame.init(input_channels, audio_codec, bps, sample_rate);
-        decoder->decoded.init(input_channels, AC_PCM,
-                        device_desc.bps, device_desc.sample_rate);
-        decoder->decoded.reserve(device_desc.bps * device_desc.sample_rate * 6);
 
         decoder->audio_decompress = audio_codec_reconfigure(decoder->audio_decompress, audio_codec, AUDIO_DECODER);
         if(!decoder->audio_decompress) {
@@ -481,13 +500,14 @@ static bool audio_decoder_reconfigure(struct state_audio_decoder *decoder, struc
                 return false;
         }
 
-        decoder->resample_remainder = {};
         return true;
 }
 
-static bool audio_fec_decode(struct pbuf_audio_data *s, vector<pair<vector<char>, map<int, int>>> &fec_data, uint32_t fec_params, audio_frame2 &received_frame)
+static bool
+audio_fec_decode(struct state_audio_decoder                *decoder,
+                 vector<pair<vector<char>, map<int, int>>> &fec_data,
+                 uint32_t fec_params, audio_frame2 &received_frame)
 {
-        struct state_audio_decoder *decoder = s->decoder;
         fec_desc fec_desc { FEC_RS, fec_params >> 19U, (fec_params >> 6U) & 0x1FFFU, fec_params & 0x3F };
 
         if (decoder->fec_state == NULL || decoder->fec_state_desc.k != fec_desc.k || decoder->fec_state_desc.m != fec_desc.m || decoder->fec_state_desc.c != fec_desc.c) {
@@ -527,7 +547,10 @@ static bool audio_fec_decode(struct pbuf_audio_data *s, vector<pair<vector<char>
                                         std::clog.flags(flags);
                                 }
 
-                                if (!audio_decoder_reconfigure(decoder, s, received_frame, desc.ch_count, desc.bps, desc.sample_rate, audio_tag)) {
+                                if (!audio_decoder_reconfigure(
+                                        decoder, received_frame, desc.ch_count,
+                                        desc.bps, desc.sample_rate,
+                                        audio_tag)) {
                                         return false;
                                 }
                         }
@@ -541,7 +564,7 @@ static bool audio_fec_decode(struct pbuf_audio_data *s, vector<pair<vector<char>
 
 int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_stats *)
 {
-        struct pbuf_audio_data *s = (struct pbuf_audio_data *) pbuf_data;
+        auto *s = (struct acodec_state *) pbuf_data;
         struct state_audio_decoder *decoder = s->decoder;
 
         int input_channels = 0;
@@ -658,7 +681,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         int bps = (ntohl(audio_hdr[3]) >> 26) / 8;
                         uint32_t audio_tag = ntohl(audio_hdr[4]);
 
-                        if (!audio_decoder_reconfigure(decoder, s, received_frame, input_channels, bps, sample_rate, audio_tag)) {
+                        if (!audio_decoder_reconfigure(decoder, received_frame, input_channels, bps, sample_rate, audio_tag)) {
                                 return false;
                         }
 
@@ -681,91 +704,126 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
         }
 
         decoder->summary.update(bufnum);
+        s->expected_bytes =
+            packet_counter_get_all_bytes(decoder->packet_counter);
+        s->received_bytes =
+            packet_counter_get_total_bytes(decoder->packet_counter);
+        packet_counter_clear(decoder->packet_counter);
 
         if (fec_params != 0) {
-                if (!audio_fec_decode(s, fec_data, fec_params, received_frame)) {
+                if (!audio_fec_decode(decoder, fec_data, fec_params, received_frame)) {
                         return false;
                 }
         }
 
-        s->frame_size = received_frame.get_data_len();
         audio_frame2 decompressed = audio_codec_decompress(decoder->audio_decompress, &received_frame);
         if (!decompressed) {
                 return false;
         }
 
+        if (s->decoded == nullptr) {
+                s->decoded = new audio_frame2(std::move(decompressed));
+        } else {
+                s->decoded->append(decompressed);
+        }
+
+        DEBUG_TIMER_STOP(audio_decode);
+        return true;
+}
+
+bool
+decode_audio_frame_postprocess(struct state_audio_postprocess *postprocess,
+                               struct audio_frame2            *decompressed_ptr,
+                               struct audio_frame             *out,
+                               long long int *expected_bytes_cum,
+                               long long int *received_bytes_cum)
+{
+        struct audio_frame2  &decompressed = *decompressed_ptr;
+
         // Perform a variable rate resample if any output device has requested it
-        if (decoder->req_resample_to != 0 || s->buffer.sample_rate != decompressed.get_sample_rate()) {
-                int resampler_bps = decoder->resampler.align_bps(decompressed.get_bps());
+        if (postprocess->req_resample_to != 0 ||
+            out->sample_rate != decompressed.get_sample_rate()) {
+                int resampler_bps =
+                    postprocess->resampler.align_bps(decompressed.get_bps());
                 if (resampler_bps <= 0) {
                         return false;
                 }
                 if (resampler_bps != decompressed.get_bps()) {
                         decompressed.change_bps(resampler_bps);
                 }
-                if (decoder->req_resample_to != 0) {
-                        auto [ret, remainder] = decompressed.resample_fake(decoder->resampler, decoder->req_resample_to >> ADEC_CH_RATE_SHIFT, decoder->req_resample_to & ((1LLU << ADEC_CH_RATE_SHIFT) - 1));
+                if (postprocess->req_resample_to != 0) {
+                        auto [ret, remainder] = decompressed.resample_fake(
+                            postprocess->resampler,
+                            postprocess->req_resample_to >> ADEC_CH_RATE_SHIFT,
+                            postprocess->req_resample_to &
+                                ((1LLU << ADEC_CH_RATE_SHIFT) - 1));
                         if (!ret) {
                                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "You may try to set different sampling on sender.\n";
                                 return false;
                         }
-                        decoder->resample_remainder = std::move(remainder);
+                        postprocess->resample_remainder = std::move(remainder);
                 } else {
-                        if (!decompressed.resample(decoder->resampler, s->buffer.sample_rate)) {
+                        if (!decompressed.resample(postprocess->resampler, out->sample_rate)) {
                                 LOG(LOG_LEVEL_INFO) << MOD_NAME << "You may try to set different sampling on sender.\n";
                                 return false;
                         }
                 }
         }
 
-        if (decompressed.get_bps() != s->buffer.bps) {
-                decompressed.change_bps(s->buffer.bps);
+        if (decompressed.get_bps() != out->bps) {
+                decompressed.change_bps(out->bps);
         }
 
-        size_t new_data_len = s->buffer.data_len + decompressed.get_data_len(0) * s->buffer.ch_count;
-        if ((size_t) s->buffer.max_size < new_data_len) {
-                s->buffer.max_size = new_data_len;
-                s->buffer.data = (char *) realloc(s->buffer.data, new_data_len);
+        out->data_len = decompressed.get_data_len(0) * out->ch_count;
+        if (out->max_size < out->data_len) {
+                out->max_size = out->data_len;
+                out->data = (char *) realloc(out->data, out->data_len);
         }
 
-        memset(s->buffer.data + s->buffer.data_len, 0, new_data_len - s->buffer.data_len);
+        memset(out->data, 0, out->data_len);
 
-        if (!decoder->muted) {
+        if (!postprocess->muted) {
                 // there is a mapping for channel
                 for(int channel = 0; channel < decompressed.get_channel_count(); ++channel) {
-                        if(decoder->channel_remapping) {
-                                if(channel < decoder->channel_map.size) {
-                                        for(int i = 0; i < decoder->channel_map.sizes[channel]; ++i) {
-                                                int new_position = decoder->channel_map.map[channel][i];
-                                                if (new_position >= s->buffer.ch_count)
+                        if (postprocess->channel_remapping) {
+                                if(channel < postprocess->channel_map.size) {
+                                        for(int i = 0; i < postprocess->channel_map.sizes[channel]; ++i) {
+                                                int new_position = postprocess->channel_map.map[channel][i];
+                                                if (new_position >= out->ch_count) {
                                                         continue;
-                                                mux_and_mix_channel(s->buffer.data + s->buffer.data_len,
+                                                }
+                                                mux_and_mix_channel(out->data,
                                                                 decompressed.get_data(channel),
                                                                 decompressed.get_bps(), decompressed.get_data_len(channel),
-                                                                s->buffer.ch_count, new_position,
-                                                                decoder->scale.at(decoder->fixed_scale ? 0 : new_position).scale);
+                                                                out->ch_count, new_position,
+                                                                postprocess->scale.at(postprocess->fixed_scale ? 0 : new_position).scale);
                                         }
                                 }
                         } else {
-                                if (channel >= s->buffer.ch_count)
+                                if (channel >= out->ch_count) {
                                         continue;
-                                mux_and_mix_channel(s->buffer.data + s->buffer.data_len, decompressed.get_data(channel),
+                                }
+                                mux_and_mix_channel(out->data, decompressed.get_data(channel),
                                                 decompressed.get_bps(),
-                                                decompressed.get_data_len(channel), s->buffer.ch_count, channel,
-                                                decoder->scale.at(decoder->fixed_scale ? 0 : input_channels).scale);
+                                                decompressed.get_data_len(channel), out->ch_count, channel,
+                                                postprocess->scale.at(postprocess->fixed_scale ? 0 : decompressed.get_channel_count()).scale);
                         }
                 }
         }
-        s->buffer.data_len = new_data_len;
-        if (s->buffer.timestamp == -1) {
-                s->buffer.timestamp = decompressed.get_timestamp();
+        out->timestamp = decompressed.get_timestamp();
+
+        if (postprocess->decoded.get_channel_count() == 0) {
+                postprocess->decoded.init(decompressed.get_channel_count(), AC_PCM,
+                                      decompressed.get_bps(),
+                                      decompressed.get_sample_rate());
+                postprocess->decoded.reserve(decompressed.get_bps() *
+                                         decompressed.get_channel_count() * 6);
         }
+        postprocess->decoded.append(decompressed);
 
-        decoder->decoded.append(decompressed);
-
-        if (control_stats_enabled(decoder->control)) {
+        if (control_stats_enabled(postprocess->control)) {
                 std::string report = "ARECV";
-                int num_ch = std::min(decompressed.get_channel_count(), control_audio_ch_report_count(decoder->control));
+                int num_ch = std::min(decompressed.get_channel_count(), control_audio_ch_report_count(postprocess->control));
                 for(int i = 0; i < num_ch; i++){
                         double rms, peak;
                         rms = calculate_rms(&decompressed, i, &peak);
@@ -775,56 +833,65 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         report += " volpeak" + std::to_string(i) + " " + std::to_string(peak_dbfs0);
                 }
 
-                control_report_stats(decoder->control, report);
+                control_report_stats(postprocess->control, report);
         }
 
         double seconds;
         struct timeval t;
 
         gettimeofday(&t, 0);
-        seconds = tv_diff(t, decoder->t0);
+        seconds = tv_diff(t, postprocess->t0);
         if(seconds > 5.0) {
                 auto d = new adec_stats_processing_data;
-                d->frame.init(decoder->decoded.get_channel_count(), decoder->decoded.get_codec(), decoder->decoded.get_bps(), decoder->decoded.get_sample_rate());
+                d->frame.init(postprocess->decoded.get_channel_count(),
+                              postprocess->decoded.get_codec(),
+                              postprocess->decoded.get_bps(),
+                              postprocess->decoded.get_sample_rate());
                 /// @todo
-                /// this will certainly result in a syscall, maybe use some pool?
-                d->frame.reserve(decoder->decoded.get_bps() * decoder->decoded.get_sample_rate() * 6);
+                /// this will certainly result in a syscall, maybe use some
+                /// pool?
+                d->frame.reserve(postprocess->decoded.get_bps() *
+                                 postprocess->decoded.get_sample_rate() * 6);
 
-                std::swap(d->frame, decoder->decoded);
+                std::swap(d->frame, postprocess->decoded);
                 d->seconds = seconds;
-                d->bytes_received = packet_counter_get_total_bytes(decoder->packet_counter);
-                d->bytes_expected = packet_counter_get_all_bytes(decoder->packet_counter);
-                d->muted_receiver = decoder->muted;
+                d->bytes_received = *received_bytes_cum;
+                d->bytes_expected = *expected_bytes_cum;
+                d->muted_receiver = postprocess->muted;
 
                 task_run_async_detached(adec_compute_and_print_stats, d);
 
-                decoder->t0 = t;
-                packet_counter_clear(decoder->packet_counter);
+                postprocess->t0 = t;
+                *received_bytes_cum = 0;
+                *expected_bytes_cum = 0;
         }
 
         DEBUG_TIMER_START(audio_decode_compute_autoscale);
-        if(!decoder->fixed_scale) {
-                int output_channels = decoder->channel_remapping ?
-                        decoder->channel_map.max_output + 1: input_channels;
-                for(int i = 0; i <= decoder->channel_map.max_output; ++i) {
-                        if (decoder->channel_map.contributors[i] <= 1) {
+        if(!postprocess->fixed_scale) {
+                int output_channels = postprocess->channel_remapping ?
+                        postprocess->channel_map.max_output + 1: decompressed.get_channel_count();
+                for(int i = 0; i <= postprocess->channel_map.max_output; ++i) {
+                        if (postprocess->channel_map.contributors[i] <= 1) {
                                 continue;
                         }
-                        double avg = get_avg_volume(s->buffer.data, s->buffer.bps,
-                                        s->buffer.data_len / output_channels / s->buffer.bps, output_channels, i);
-                        compute_scale(&decoder->scale.at(i), avg,
-                                        s->buffer.data_len / output_channels / s->buffer.bps, s->buffer.sample_rate);
+                        double avg = get_avg_volume(out->data, out->bps,
+                                        out->data_len / output_channels / out->bps, output_channels, i);
+                        compute_scale(&postprocess->scale.at(i), avg,
+                                        out->data_len / output_channels / out->bps, out->sample_rate);
                 }
         }
         DEBUG_TIMER_STOP(audio_decode_compute_autoscale);
-        DEBUG_TIMER_STOP(audio_decode);
-        
         return true;
 }
-/*
+/**
  * Second version that uses external audio configuration,
  * now it uses a struct state_audio_decoder instead an audio_frame2.
  * It does multi-channel handling.
+*
+ * @todo
+ * This shouldn't perhaps be separate function but decode_audio_frame() should
+ * rather dispatch decoders according to packet type number, which is defined in
+ * this particular case (PCMU has 0).
  */
 int decode_audio_frame_mulaw(struct coded_data *cdata, void *data, struct pbuf_stats *)
 {
