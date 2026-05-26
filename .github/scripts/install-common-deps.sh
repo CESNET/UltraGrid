@@ -142,8 +142,8 @@ install_omt() (
                 #         PATH=$PATH:$HOME/.dotnet
                 #         build=buildlinuxarm64.sh
                 #         omtdir=linux-arm64
-                if is_arm; then
-                        return # do not build for ARM
+                if [ "$ID" != ubuntu ]; then
+                        return # no build for Debian (ARM) and AlmaLinux (alt)
                 fi
                 sudo apt install dotnet8
                 build=buildlinuxx64.sh
