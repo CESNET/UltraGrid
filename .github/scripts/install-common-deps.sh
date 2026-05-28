@@ -35,20 +35,22 @@ cineform-0001-CMakeList.txt-remove-output-lib-name-force-UNIX.patch
         sudo cmake --install build
 )}
 
-download_build_aja() {
+download_build_aja() (
         aja_url=https://github.com/aja-video/libajantv2.git
-        git clone -b release --depth 1 $aja_url
-        # TODO TOREMOVE this workaround when not needed
-        tr -d '\n' < libajantv2/VERSION.txt > ver-fix-no-NL$$.txt &&
-                mv ver-fix-no-NL$$.txt libajantv2/VERSION.txt
-
+        git clone --depth 1 $aja_url
+        cd libajantv2
+        latest_tag=$(git ls-remote --tags origin | awk '{print $2}' | \
+                grep 'refs/tags/ntv2_[0-9]' | grep -Ev 'beta|rc' | sort | \
+                tail -n 1)
+        git fetch --depth=1 origin "$latest_tag"
+        git checkout FETCH_HEAD
         cmake -DAJANTV2_DISABLE_DEMOS=ON  -DAJANTV2_DISABLE_DRIVER=ON \
                 -DAJANTV2_DISABLE_TOOLS=ON  -DAJANTV2_DISABLE_TESTS=ON \
                 -DAJANTV2_DISABLE_PLUGIN_LOAD=ON -DAJANTV2_BUILD_SHARED=ON \
                 -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_SYSROOT=macosx \
-                -Blibajantv2/build -Slibajantv2
-        cmake --build libajantv2/build --config Release -j "$(nproc)"
-}
+                -Bbuild -S.
+        cmake --build build --config Release -j "$(nproc)"
+)
 
 install_aja() {(
         if [ "$(uname -s)" = Linux ]; then
