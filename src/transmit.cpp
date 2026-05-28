@@ -60,6 +60,7 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <ctime>
 #include <iostream>
 #include <sstream>
 #include <vector>
@@ -98,19 +99,9 @@
 
 #define CONTROL_PORT_BANDWIDTH_REPORT_INTERVAL_NS NS_IN_SEC
 
-#ifdef __APPLE__
-#define GET_STARTTIME gettimeofday(&start, NULL)
-#define GET_STOPTIME gettimeofday(&stop, NULL)
-#define GET_DELTA delta = (stop.tv_sec - start.tv_sec) * 1000000000l + (stop.tv_usec - start.tv_usec) * 1000L
-#elif defined __unix__
 #define GET_STARTTIME clock_gettime(CLOCK_REALTIME, &start)
 #define GET_STOPTIME clock_gettime(CLOCK_REALTIME, &stop)
 #define GET_DELTA delta = (stop.tv_sec - start.tv_sec) * 1000000000l + stop.tv_nsec - start.tv_nsec
-#else // Windows
-#define GET_STARTTIME {QueryPerformanceFrequency(&freq); QueryPerformanceCounter(&start); }
-#define GET_STOPTIME { QueryPerformanceCounter(&stop); }
-#define GET_DELTA delta = (long)((double)(stop.QuadPart - start.QuadPart) * 1000 * 1000 * 1000 / freq.QuadPart);
-#endif
 
 using std::array;
 using std::vector;
@@ -680,13 +671,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         uint32_t rtp_hdr[100];
         int rtp_hdr_len;
         int pt = fec_pt_from_fec_type(TX_MEDIA_VIDEO, frame->fec_params.type, tx->encryption);            /* A value specified in our packet format */
-#ifdef __unix__
         struct timespec start, stop;
-#elif defined __APPLE__
-        struct timeval start, stop;
-#else // Windows
-	LARGE_INTEGER start, stop, freq;
-#endif
         long delta, overslept = 0;
         int hdrs_len = get_tx_hdr_len(rtp_is_ipv6(rtp_session));
 
