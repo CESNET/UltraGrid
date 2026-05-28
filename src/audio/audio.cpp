@@ -783,9 +783,6 @@ static void *audio_receiver_thread(void *arg)
 
                                 pbuf_remove(cp->playout_buffer, curr_time);
                                 cp = pdb_iter_next(&it);
-
-                                if (decoded && !playback_supports_multiple_streams)
-                                        break;
                         }
                         pdb_iter_done(&it);
                 }else { /* NET_JACK */
