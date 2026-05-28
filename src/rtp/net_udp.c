@@ -991,7 +991,7 @@ check_already_bound_rx_socket(socket_udp *s, uint16_t rx_port)
                 socket_error("%s: Unable to initialize socket", __func__);
                 return;
         }
-        struct sockaddr_storage s_in;
+        struct sockaddr_storage s_in = { 0 };
         socklen_t               sin_len =
             set_rx_sockaddr(&s_in, rx_port, s->local->mode == IPv6);
         if (bind(sock, (struct sockaddr *) &s_in, sin_len) != 0 &&
