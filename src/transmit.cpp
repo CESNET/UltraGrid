@@ -99,8 +99,8 @@
 
 #define CONTROL_PORT_BANDWIDTH_REPORT_INTERVAL_NS NS_IN_SEC
 
-#define GET_STARTTIME clock_gettime(CLOCK_REALTIME, &start)
-#define GET_STOPTIME clock_gettime(CLOCK_REALTIME, &stop)
+#define GET_STARTTIME clock_gettime(CLOCK_MONOTONIC, &start)
+#define GET_STOPTIME  clock_gettime(CLOCK_MONOTONIC, &stop)
 #define GET_DELTA delta = (stop.tv_sec - start.tv_sec) * 1000000000l + stop.tv_nsec - start.tv_nsec
 
 using std::array;
