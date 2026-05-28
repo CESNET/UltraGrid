@@ -41,7 +41,6 @@
 #include <stdlib.h>               // for free, getenv, malloc, calloc
 #include <string.h>               // for strdup, strlen, strncat, strcmp
 #include <time.h>                 // for nanosleep
-#include <unistd.h>               // for unlink
 
 #include "audio/audio_capture.h"  // for AUDIO_CAPTURE_ABI_VERSION, audio_ca...
 #include "audio/types.h"          // for audio_frame
@@ -75,7 +74,6 @@ struct state_fluidsynth_capture {
         char       *req_filename;
         int         req_song_idx;
         int         req_iterations;
-        const char *tmp_filename;
 
         time_ns_t next_frame_time;
         time_ns_t frame_interval;
@@ -348,9 +346,9 @@ audio_cap_fluidsynth_done(void *state)
         free(s->req_filename);
         free(s->left);
         free(s->right);
-        if (s->tmp_filename) {
-                unlink(s->tmp_filename);
-        }
+        delete_fluid_player(s->player);
+        delete_fluid_synth(s->synth);
+        delete_fluid_settings(s->settings);
         free(s);
 }
 
