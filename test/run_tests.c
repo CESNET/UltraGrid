@@ -47,6 +47,13 @@
 
 #include "test_host.h"
 #include "test_aes.h"
+#include "test_alpha_blend.h"
+#include "test_overlay_config.h"
+#include "test_overlay_layout.h"
+#include "test_overlay_pam.h"
+#include "test_overlay_scale.h"
+#include "test_overlay_soft_edge.h"
+#include "test_overlay_watch.h"
 #include "test_bitstream.h"
 #include "test_des.h"
 #include "test_md5.h"
@@ -90,6 +97,93 @@ DECLARE_TEST(misc_test_net_sockaddr_compare_v4_mapped);
 DECLARE_TEST(misc_test_replace_all);
 DECLARE_TEST(misc_test_unit_evaluate);
 DECLARE_TEST(misc_test_video_desc_io_op_symmetry);
+DECLARE_TEST(alpha_blend_test_rgba_alpha_zero);
+DECLARE_TEST(alpha_blend_test_rgba_alpha_max);
+DECLARE_TEST(alpha_blend_test_rgba_half_alpha);
+DECLARE_TEST(alpha_blend_test_rgb_alpha_zero);
+DECLARE_TEST(alpha_blend_test_rgb_alpha_max);
+DECLARE_TEST(alpha_blend_test_uyvy_alpha_zero);
+DECLARE_TEST(alpha_blend_test_uyvy_alpha_max_white);
+DECLARE_TEST(alpha_blend_test_uyvy_alpha_max_red);
+DECLARE_TEST(alpha_blend_test_yuyv_alpha_zero);
+DECLARE_TEST(alpha_blend_test_yuyv_alpha_max_white);
+DECLARE_TEST(alpha_blend_test_yuyv_alpha_max_red);
+DECLARE_TEST(alpha_blend_test_y416_alpha_zero);
+DECLARE_TEST(alpha_blend_test_y416_alpha_max_white);
+DECLARE_TEST(alpha_blend_test_i420_alpha_zero);
+DECLARE_TEST(alpha_blend_test_i420_alpha_max_white);
+DECLARE_TEST(alpha_blend_test_i420_chroma_alpha_averaging);
+DECLARE_TEST(alpha_blend_test_i420_subregion_strides);
+DECLARE_TEST(alpha_blend_test_rg48_alpha_zero);
+DECLARE_TEST(alpha_blend_test_rg48_alpha_max_white);
+DECLARE_TEST(alpha_blend_test_v210_alpha_zero);
+DECLARE_TEST(alpha_blend_test_v210_alpha_max_white);
+DECLARE_TEST(alpha_blend_test_r10k_alpha_zero);
+DECLARE_TEST(alpha_blend_test_r10k_alpha_max_white);
+DECLARE_TEST(alpha_blend_test_r12l_alpha_zero);
+DECLARE_TEST(alpha_blend_test_r12l_alpha_max_white);
+DECLARE_TEST(overlay_pam_test_load_8bit_rgba);
+DECLARE_TEST(overlay_pam_test_load_8bit_rgb_adds_alpha);
+DECLARE_TEST(overlay_pam_test_load_16bit_rgba);
+DECLARE_TEST(overlay_pam_test_rejects_missing_file);
+DECLARE_TEST(overlay_pam_test_rejects_grayscale);
+DECLARE_TEST(overlay_pam_test_rejects_intermediate_maxval);
+DECLARE_TEST(overlay_layout_test_center);
+DECLARE_TEST(overlay_layout_test_corners);
+DECLARE_TEST(overlay_layout_test_custom_negative_from_edge);
+DECLARE_TEST(overlay_layout_test_block_pixel_alignment);
+DECLARE_TEST(overlay_layout_test_overlay_larger_than_frame);
+DECLARE_TEST(overlay_layout_test_oversized_center);
+DECLARE_TEST(overlay_layout_test_oversized_right);
+DECLARE_TEST(overlay_layout_test_oversized_custom_positive);
+DECLARE_TEST(overlay_layout_test_block_lines_alignment);
+DECLARE_TEST(overlay_scale_test_identity);
+DECLARE_TEST(overlay_scale_test_upscale_solid_colour);
+DECLARE_TEST(overlay_scale_test_downscale_average);
+DECLARE_TEST(overlay_scale_test_returns_null_on_bad_dims);
+DECLARE_TEST(overlay_scale_test_source_buffer_unchanged);
+DECLARE_TEST(overlay_scaler_test_create_destroy);
+DECLARE_TEST(overlay_scaler_test_reuses_context_same_dims);
+DECLARE_TEST(overlay_scaler_test_rebuilds_context_on_dim_change);
+DECLARE_TEST(overlay_scaler_test_scale_into_no_alloc);
+DECLARE_TEST(overlay_scaler_test_filter_nearest);
+DECLARE_TEST(overlay_scaler_test_filter_bilinear);
+DECLARE_TEST(overlay_soft_edge_test_zero_width_is_noop);
+DECLARE_TEST(overlay_soft_edge_test_edge_pixel_zeroed);
+DECLARE_TEST(overlay_soft_edge_test_linear_ramp);
+DECLARE_TEST(overlay_soft_edge_test_centre_untouched);
+DECLARE_TEST(overlay_soft_edge_test_rgb_components_unchanged);
+DECLARE_TEST(overlay_soft_edge_test_oversized_width_clamps);
+DECLARE_TEST(overlay_soft_edge_test_non_square);
+DECLARE_TEST(overlay_soft_edge_test_exact_half_dimension);
+DECLARE_TEST(overlay_soft_edge_test_scales_existing_alpha);
+DECLARE_TEST(overlay_soft_edge_test_degenerate_one_row);
+DECLARE_TEST(overlay_watch_test_init_no_change);
+DECLARE_TEST(overlay_watch_test_detects_size_change);
+DECLARE_TEST(overlay_watch_test_detects_mtime_change);
+DECLARE_TEST(overlay_watch_test_ack_on_missing_file_preserves_baseline);
+DECLARE_TEST(overlay_watch_test_missing_file_no_change);
+DECLARE_TEST(overlay_watch_test_file_appears_after_init);
+DECLARE_TEST(overlay_watch_test_detects_atomic_rename);
+DECLARE_TEST(overlay_watch_test_changed_does_not_consume_baseline);
+DECLARE_TEST(overlay_watch_test_ack_commits_baseline);
+DECLARE_TEST(overlay_config_test_minimal_file_only);
+DECLARE_TEST(overlay_config_test_position_keywords);
+DECLARE_TEST(overlay_config_test_custom_xy);
+DECLARE_TEST(overlay_config_test_help);
+DECLARE_TEST(overlay_config_test_rejects_missing_file);
+DECLARE_TEST(overlay_config_test_rejects_unknown_key);
+DECLARE_TEST(overlay_config_test_rejects_bad_position);
+DECLARE_TEST(overlay_config_test_rejects_non_integer_xy);
+DECLARE_TEST(overlay_config_test_rejects_null_and_empty_value);
+DECLARE_TEST(overlay_config_test_soft_edge);
+DECLARE_TEST(overlay_config_test_scale);
+DECLARE_TEST(overlay_config_test_scale_frame);
+DECLARE_TEST(overlay_config_test_scale_frame_overrides_wxh);
+DECLARE_TEST(overlay_config_test_perf);
+DECLARE_TEST(overlay_config_test_scale_filter);
+DECLARE_TEST(overlay_config_test_blend_threads);
+DECLARE_TEST(overlay_config_test_rejects_oversize_options);
 
 struct {
         const char *name;
@@ -127,6 +221,93 @@ struct {
         DEFINE_TEST(misc_test_unit_evaluate),
         DEFINE_TEST(misc_test_video_desc_io_op_symmetry),
         DEFINE_TEST(test_sdp_parser),
+        DEFINE_TEST(alpha_blend_test_rgba_alpha_zero),
+        DEFINE_TEST(alpha_blend_test_rgba_alpha_max),
+        DEFINE_TEST(alpha_blend_test_rgba_half_alpha),
+        DEFINE_TEST(alpha_blend_test_rgb_alpha_zero),
+        DEFINE_TEST(alpha_blend_test_rgb_alpha_max),
+        DEFINE_TEST(alpha_blend_test_uyvy_alpha_zero),
+        DEFINE_TEST(alpha_blend_test_uyvy_alpha_max_white),
+        DEFINE_TEST(alpha_blend_test_uyvy_alpha_max_red),
+        DEFINE_TEST(alpha_blend_test_yuyv_alpha_zero),
+        DEFINE_TEST(alpha_blend_test_yuyv_alpha_max_white),
+        DEFINE_TEST(alpha_blend_test_yuyv_alpha_max_red),
+        DEFINE_TEST(alpha_blend_test_y416_alpha_zero),
+        DEFINE_TEST(alpha_blend_test_y416_alpha_max_white),
+        DEFINE_TEST(alpha_blend_test_i420_alpha_zero),
+        DEFINE_TEST(alpha_blend_test_i420_alpha_max_white),
+        DEFINE_TEST(alpha_blend_test_i420_chroma_alpha_averaging),
+        DEFINE_TEST(alpha_blend_test_i420_subregion_strides),
+        DEFINE_TEST(alpha_blend_test_rg48_alpha_zero),
+        DEFINE_TEST(alpha_blend_test_rg48_alpha_max_white),
+        DEFINE_TEST(alpha_blend_test_v210_alpha_zero),
+        DEFINE_TEST(alpha_blend_test_v210_alpha_max_white),
+        DEFINE_TEST(alpha_blend_test_r10k_alpha_zero),
+        DEFINE_TEST(alpha_blend_test_r10k_alpha_max_white),
+        DEFINE_TEST(alpha_blend_test_r12l_alpha_zero),
+        DEFINE_TEST(alpha_blend_test_r12l_alpha_max_white),
+        DEFINE_TEST(overlay_pam_test_load_8bit_rgba),
+        DEFINE_TEST(overlay_pam_test_load_8bit_rgb_adds_alpha),
+        DEFINE_TEST(overlay_pam_test_load_16bit_rgba),
+        DEFINE_TEST(overlay_pam_test_rejects_missing_file),
+        DEFINE_TEST(overlay_pam_test_rejects_grayscale),
+        DEFINE_TEST(overlay_pam_test_rejects_intermediate_maxval),
+        DEFINE_TEST(overlay_layout_test_center),
+        DEFINE_TEST(overlay_layout_test_corners),
+        DEFINE_TEST(overlay_layout_test_custom_negative_from_edge),
+        DEFINE_TEST(overlay_layout_test_block_pixel_alignment),
+        DEFINE_TEST(overlay_layout_test_overlay_larger_than_frame),
+        DEFINE_TEST(overlay_layout_test_oversized_center),
+        DEFINE_TEST(overlay_layout_test_oversized_right),
+        DEFINE_TEST(overlay_layout_test_oversized_custom_positive),
+        DEFINE_TEST(overlay_layout_test_block_lines_alignment),
+        DEFINE_TEST(overlay_scale_test_identity),
+        DEFINE_TEST(overlay_scale_test_upscale_solid_colour),
+        DEFINE_TEST(overlay_scale_test_downscale_average),
+        DEFINE_TEST(overlay_scale_test_returns_null_on_bad_dims),
+        DEFINE_TEST(overlay_scale_test_source_buffer_unchanged),
+        DEFINE_TEST(overlay_scaler_test_create_destroy),
+        DEFINE_TEST(overlay_scaler_test_reuses_context_same_dims),
+        DEFINE_TEST(overlay_scaler_test_rebuilds_context_on_dim_change),
+        DEFINE_TEST(overlay_scaler_test_scale_into_no_alloc),
+        DEFINE_TEST(overlay_scaler_test_filter_nearest),
+        DEFINE_TEST(overlay_scaler_test_filter_bilinear),
+        DEFINE_TEST(overlay_soft_edge_test_zero_width_is_noop),
+        DEFINE_TEST(overlay_soft_edge_test_edge_pixel_zeroed),
+        DEFINE_TEST(overlay_soft_edge_test_linear_ramp),
+        DEFINE_TEST(overlay_soft_edge_test_centre_untouched),
+        DEFINE_TEST(overlay_soft_edge_test_rgb_components_unchanged),
+        DEFINE_TEST(overlay_soft_edge_test_oversized_width_clamps),
+        DEFINE_TEST(overlay_soft_edge_test_non_square),
+        DEFINE_TEST(overlay_soft_edge_test_exact_half_dimension),
+        DEFINE_TEST(overlay_soft_edge_test_scales_existing_alpha),
+        DEFINE_TEST(overlay_soft_edge_test_degenerate_one_row),
+        DEFINE_TEST(overlay_watch_test_init_no_change),
+        DEFINE_TEST(overlay_watch_test_detects_size_change),
+        DEFINE_TEST(overlay_watch_test_detects_mtime_change),
+        DEFINE_TEST(overlay_watch_test_ack_on_missing_file_preserves_baseline),
+        DEFINE_TEST(overlay_watch_test_missing_file_no_change),
+        DEFINE_TEST(overlay_watch_test_file_appears_after_init),
+        DEFINE_TEST(overlay_watch_test_detects_atomic_rename),
+        DEFINE_TEST(overlay_watch_test_changed_does_not_consume_baseline),
+        DEFINE_TEST(overlay_watch_test_ack_commits_baseline),
+        DEFINE_TEST(overlay_config_test_minimal_file_only),
+        DEFINE_TEST(overlay_config_test_position_keywords),
+        DEFINE_TEST(overlay_config_test_custom_xy),
+        DEFINE_TEST(overlay_config_test_help),
+        DEFINE_TEST(overlay_config_test_rejects_missing_file),
+        DEFINE_TEST(overlay_config_test_rejects_unknown_key),
+        DEFINE_TEST(overlay_config_test_rejects_bad_position),
+        DEFINE_TEST(overlay_config_test_rejects_non_integer_xy),
+        DEFINE_TEST(overlay_config_test_rejects_null_and_empty_value),
+        DEFINE_TEST(overlay_config_test_soft_edge),
+        DEFINE_TEST(overlay_config_test_scale),
+        DEFINE_TEST(overlay_config_test_scale_frame),
+        DEFINE_TEST(overlay_config_test_scale_frame_overrides_wxh),
+        DEFINE_TEST(overlay_config_test_perf),
+        DEFINE_TEST(overlay_config_test_scale_filter),
+        DEFINE_TEST(overlay_config_test_blend_threads),
+        DEFINE_TEST(overlay_config_test_rejects_oversize_options),
 };
 
 static bool test_helper(const char *name, int (*func)(), bool quiet) {

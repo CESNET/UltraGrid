@@ -1,9 +1,9 @@
 /**
- * @file   utils/worker.h
- * @author Martin Pulec     <martin.pulec@cesnet.cz>
+ * @file   test/test_overlay_scale.h
+ * @author Ben Roeder     <ben@sohonet.com>
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,37 +34,19 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifndef TEST_OVERLAY_SCALE_H_2A1F8C7B_4E5D_4F3A_9B2D_5E8A1F7B4C3D
+#define TEST_OVERLAY_SCALE_H_2A1F8C7B_4E5D_4F3A_9B2D_5E8A1F7B4C3D
 
- 
-#ifndef WORKER_H
-#define WORKER_H
+int overlay_scale_test_identity(void);
+int overlay_scale_test_upscale_solid_colour(void);
+int overlay_scale_test_downscale_average(void);
+int overlay_scale_test_returns_null_on_bad_dims(void);
+int overlay_scale_test_source_buffer_unchanged(void);
+int overlay_scaler_test_create_destroy(void);
+int overlay_scaler_test_reuses_context_same_dims(void);
+int overlay_scaler_test_rebuilds_context_on_dim_change(void);
+int overlay_scaler_test_scale_into_no_alloc(void);
+int overlay_scaler_test_filter_nearest(void);
+int overlay_scaler_test_filter_bilinear(void);
 
-#ifndef __cplusplus
-#include <stddef.h>
-#else
-#include <cstddef>
-extern "C" {
 #endif
-
-typedef void *task_result_handle_t;
-typedef void *(*runnable_t)(void *);
-
-// functions documented at definition
-task_result_handle_t task_run_async(runnable_t task, void *data);
-void task_run_async_detached(runnable_t task, void *data);
-void *wait_task(task_result_handle_t handle);
-int task_is_done(task_result_handle_t handle);
-void task_run_parallel(runnable_t task, int worker_count, void *data, size_t data_size, void **res);
-
-/**
- * @param data_len   in/out processed block length in bytes (multiple of respawn_parallel's size param)
- */
-typedef void (*respawn_parallel_callback_t)(void *in, void *out, size_t data_len, void *udata);
-void respawn_parallel(void *in, void *out, size_t nmemb, size_t size, respawn_parallel_callback_t c, void *udata);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif // defined WORKER_H
-

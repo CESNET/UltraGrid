@@ -2859,6 +2859,40 @@ fi
 ENSURE_FEATURE_PRESENT([$zfec_req], [$found_zfec], [Zfec not found])
 
 # -------------------------------------------------------------------------------------------------
+# RapidCheck — property-based testing for the overlay/alpha-blend code.
+# Build is opt-in (--enable-rapidcheck); ext-deps/bootstrap_rapidcheck.sh
+# fetches and statically builds it under ext-deps/rapidcheck without
+# touching the system. A system pkg-config install is also accepted.
+
+AC_ARG_ENABLE(rapidcheck,
+              AS_HELP_STRING([--enable-rapidcheck], [enable RapidCheck property-based testing]),
+              [rapidcheck_req=$enableval],
+              [rapidcheck_req=auto])
+
+rapidcheck=no
+if test "$rapidcheck_req" != no; then
+        if test -f "$srcdir/ext-deps/rapidcheck/include/rapidcheck.h" || test -f "./ext-deps/rapidcheck/include/rapidcheck.h"; then
+                rapidcheck=yes
+                RAPIDCHECK_CFLAGS="-I$srcdir/ext-deps/rapidcheck/include"
+        else
+                PKG_CHECK_MODULES([RAPIDCHECK], [rapidcheck], [rapidcheck=yes], [
+                        AC_CHECK_HEADER([rapidcheck.h], [
+                                rapidcheck=yes
+                                RAPIDCHECK_CFLAGS=""
+                        ])
+                ])
+        fi
+
+        if test "$rapidcheck" = yes; then
+                AC_DEFINE([HAVE_RAPIDCHECK], [1], [RapidCheck is available])
+                AC_SUBST(RAPIDCHECK_CFLAGS)
+        fi
+fi
+ENSURE_FEATURE_PRESENT([$rapidcheck_req], [$rapidcheck],
+        [RapidCheck not found. Run ext-deps/bootstrap_rapidcheck.sh or install system-wide.])
+AM_CONDITIONAL([HAVE_RAPIDCHECK], [test "$rapidcheck" = yes])
+
+# -------------------------------------------------------------------------------------------------
 #
 # Jack stuff
 #
@@ -3698,6 +3732,7 @@ if test "$build_default" != no || test "$req_files" = all; then
         src/vo_postprocess/delay.o
         src/vo_postprocess/dummy.o
         src/vo_postprocess/interlace.o
+        src/vo_postprocess/overlay.o
         src/vo_postprocess/split.o
         src/vo_postprocess/temporal-deint.o
         src/vo_postprocess/temporal_3d.o

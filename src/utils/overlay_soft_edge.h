@@ -1,9 +1,10 @@
 /**
- * @file   utils/worker.h
- * @author Martin Pulec     <martin.pulec@cesnet.cz>
+ * @file   utils/overlay_soft_edge.h
+ * @author Ben Roeder     <ben@sohonet.com>
+ * @brief  Linear alpha-edge fade for the overlay buffer.
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,36 +36,30 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
- 
-#ifndef WORKER_H
-#define WORKER_H
+#ifndef UTILS_OVERLAY_SOFT_EDGE_H_4D2A8B7F_3E1C_4F6A_9B5D_8C2E1F4A6B3D
+#define UTILS_OVERLAY_SOFT_EDGE_H_4D2A8B7F_3E1C_4F6A_9B5D_8C2E1F4A6B3D
 
-#ifndef __cplusplus
-#include <stddef.h>
-#else
-#include <cstddef>
+#include <stdint.h>
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef void *task_result_handle_t;
-typedef void *(*runnable_t)(void *);
-
-// functions documented at definition
-task_result_handle_t task_run_async(runnable_t task, void *data);
-void task_run_async_detached(runnable_t task, void *data);
-void *wait_task(task_result_handle_t handle);
-int task_is_done(task_result_handle_t handle);
-void task_run_parallel(runnable_t task, int worker_count, void *data, size_t data_size, void **res);
-
-/**
- * @param data_len   in/out processed block length in bytes (multiple of respawn_parallel's size param)
+/*
+ * Apply a linear alpha ramp around the edges of a 16-bit RGBA overlay.
+ * For every pixel, alpha is multiplied by min(d, edge_w) / edge_w where
+ * d is the distance to the nearest edge — pixels on the outer row/column
+ * end up at alpha=0, and pixels at distance >= edge_w are unchanged.
+ *
+ * RGB components are not touched. edge_w == 0 is a no-op. edge_w larger
+ * than min(width, height) / 2 is silently clamped to that limit (so the
+ * centre still keeps non-zero alpha for pathological config values).
  */
-typedef void (*respawn_parallel_callback_t)(void *in, void *out, size_t data_len, void *udata);
-void respawn_parallel(void *in, void *out, size_t nmemb, size_t size, respawn_parallel_callback_t c, void *udata);
+void overlay_apply_soft_edge(uint16_t *rgba16,
+                             int width, int height, int edge_w);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // defined WORKER_H
-
+#endif

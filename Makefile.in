@@ -142,7 +142,14 @@ COMMON_OBJS     = \
 		tools/ipc_frame_ug.o \
 		tools/ipc_frame_unix.o \
 		tools/ipc_frame.o \
+		src/utils/alpha_blend.o \
 		src/utils/audio_buffer.o \
+		src/utils/overlay_config.o \
+		src/utils/overlay_layout.o \
+		src/utils/overlay_pam.o \
+		src/utils/overlay_scale.o \
+		src/utils/overlay_soft_edge.o \
+		src/utils/overlay_watch.o \
 		src/utils/color_out.o \
 		src/utils/config_file.o \
 		src/utils/dictionary.o \
@@ -213,6 +220,13 @@ TEST_OBJS = $(COMMON_OBJS) \
 	    @TEST_OBJS@ \
 	    test/codec_conversions_test.o \
 	    test/ff_codec_conversions_test.o \
+	    test/test_alpha_blend.o \
+	    test/test_overlay_config.o \
+	    test/test_overlay_layout.o \
+	    test/test_overlay_pam.o \
+	    test/test_overlay_scale.o \
+	    test/test_overlay_soft_edge.o \
+	    test/test_overlay_watch.o \
 	    test/get_framerate_test.o \
 	    test/gpujpeg_test.o \
 	    test/libavcodec_test.o \
@@ -530,6 +544,45 @@ configure-messages:
 
 tests: $(TEST_TARGET)
 	@export DYLD_LIBRARY_PATH=$(MY_DYLD_LIBRARY_PATH); $(TEST_TARGET)
+
+.PHONY: e2e-tests
+e2e-tests: $(TARGET)
+	@$(srcdir)/test/run_overlay_e2e.sh
+
+# RapidCheck property-based tests for the overlay/alpha-blend code.
+# Built only when configure --enable-rapidcheck succeeds (the conditional
+# is set up in configure.ac and surfaces here as @HAVE_RAPIDCHECK_TRUE@).
+@HAVE_RAPIDCHECK_TRUE@RAPIDCHECK_CFLAGS = @RAPIDCHECK_CFLAGS@
+@HAVE_RAPIDCHECK_TRUE@RAPIDCHECK_CXXFLAGS = $(CXXFLAGS) $(RAPIDCHECK_CFLAGS) $(INC)
+@HAVE_RAPIDCHECK_TRUE@RAPIDCHECK_TEST_SRCS = \
+@HAVE_RAPIDCHECK_TRUE@	test/test_alpha_blend_rapidcheck.cpp \
+@HAVE_RAPIDCHECK_TRUE@	test/test_overlay_rapidcheck.cpp \
+@HAVE_RAPIDCHECK_TRUE@	test/test_soft_edges_rapidcheck.cpp \
+@HAVE_RAPIDCHECK_TRUE@	test/test_file_monitoring_rapidcheck.cpp \
+@HAVE_RAPIDCHECK_TRUE@	test/test_rapidcheck_main.cpp
+@HAVE_RAPIDCHECK_TRUE@RAPIDCHECK_TEST_OBJS = $(RAPIDCHECK_TEST_SRCS:.cpp=.o)
+
+@HAVE_RAPIDCHECK_TRUE@test/%_rapidcheck.o: test/%_rapidcheck.cpp
+@HAVE_RAPIDCHECK_TRUE@	$(MKDIR_P) $$(dirname $@)
+@HAVE_RAPIDCHECK_TRUE@	$(CXX) $(RAPIDCHECK_CXXFLAGS) -MD -c $< -o $@
+@HAVE_RAPIDCHECK_TRUE@	$(POSTPROCESS_DEPS)
+
+@HAVE_RAPIDCHECK_TRUE@test/test_rapidcheck_main.o: test/test_rapidcheck_main.cpp
+@HAVE_RAPIDCHECK_TRUE@	$(MKDIR_P) $$(dirname $@)
+@HAVE_RAPIDCHECK_TRUE@	$(CXX) $(RAPIDCHECK_CXXFLAGS) -MD -c $< -o $@
+@HAVE_RAPIDCHECK_TRUE@	$(POSTPROCESS_DEPS)
+
+@HAVE_RAPIDCHECK_TRUE@bin/rapidcheck_tests: $(RAPIDCHECK_TEST_OBJS) \
+@HAVE_RAPIDCHECK_TRUE@		src/utils/alpha_blend.o src/color_space.o \
+@HAVE_RAPIDCHECK_TRUE@		src/utils/overlay_layout.o \
+@HAVE_RAPIDCHECK_TRUE@		src/utils/overlay_soft_edge.o \
+@HAVE_RAPIDCHECK_TRUE@		src/utils/overlay_watch.o
+@HAVE_RAPIDCHECK_TRUE@	$(CXX) $(CXXFLAGS) $(RAPIDCHECK_CFLAGS) -o $@ $^ \
+@HAVE_RAPIDCHECK_TRUE@		./ext-deps/rapidcheck/build/librapidcheck.a -pthread
+
+@HAVE_RAPIDCHECK_TRUE@.PHONY: rapidcheck-tests
+@HAVE_RAPIDCHECK_TRUE@rapidcheck-tests: bin/rapidcheck_tests
+@HAVE_RAPIDCHECK_TRUE@	@./bin/rapidcheck_tests
 
 .PHONY: check
 check: tests
