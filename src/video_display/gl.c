@@ -1289,18 +1289,21 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
         display_gl_set_sync_on_vblank(s->vsync);
         gl_check_error();
 
+        if (s->syphon_spout == nullptr &&
+            strlen(s->syphon_spout_srv_name) > 0) {
 #ifdef HAVE_SYPHON
-        if (!s->syphon_spout && strlen(s->syphon_spout_srv_name) > 0) {
-                s->syphon_spout = syphon_server_register(CGLGetCurrentContext(), s->syphon_spout_srv_name);
-        }
+                s->syphon_spout = syphon_server_register(
+                    CGLGetCurrentContext(), s->syphon_spout_srv_name);
 #endif
 #ifdef HAVE_SPOUT
-        if (strlen(s->syphon_spout_srv_name) > 0) {
-                if (!s->syphon_spout) {
-                        s->syphon_spout = spout_sender_register(s->syphon_spout_srv_name);
-                }
-	}
+                s->syphon_spout =
+                    spout_sender_register(s->syphon_spout_srv_name);
 #endif
+                if (s->syphon_spout == nullptr) {
+                        MSG(ERROR, "Unable to start Spout/Syphon server!\n");
+                        exit_uv(1);
+                }
+        }
 
         s->scratchpad = realloc(s->scratchpad, desc.width * desc.height * 8);
         s->current_display_desc = desc;
