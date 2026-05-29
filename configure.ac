@@ -3664,19 +3664,7 @@ if test -n "$req_files" && test "$req_files" != all; then
 fi
 
 if test "$build_default" != no || test "$req_files" = all; then
-        ULTRAGRID_OBJS="$ULTRAGRID_OBJS
-        src/audio/capture/aes67.o
-        src/audio/capture/passive.o
-        src/audio/capture/wav.o
-        src/audio/playback/aes67.o
-        src/audio/playback/dump.o
-        src/audio/playback/mixer.o
-        src/audio/filter/delay.o
-        src/audio/filter/discard.o
-        src/audio/filter/controlport_stats.o
-        src/audio/filter/silence.o
-        src/audio/filter/playback.o
-        src/audio/filter/channel_remap.o
+        CAPTURE_FILTERS="
         src/capture_filter/add_frame.o
         src/capture_filter/change_pixfmt.o
         src/capture_filter/color.o
@@ -3692,10 +3680,24 @@ if test "$build_default" != no || test "$req_files" = all; then
         src/capture_filter/mirror.o
         src/capture_filter/noise.o
         src/capture_filter/override_prop.o
-        src/capture_filter/preview.o
         src/capture_filter/ratelimit.o
         src/capture_filter/split.o
         src/capture_filter/temporal_3d.o
+        "
+        ULTRAGRID_OBJS="$ULTRAGRID_OBJS ${CAPTURE_FILTERS?}
+        src/audio/capture/aes67.o
+        src/audio/capture/passive.o
+        src/audio/capture/wav.o
+        src/audio/playback/aes67.o
+        src/audio/playback/dump.o
+        src/audio/playback/mixer.o
+        src/audio/filter/delay.o
+        src/audio/filter/discard.o
+        src/audio/filter/controlport_stats.o
+        src/audio/filter/silence.o
+        src/audio/filter/playback.o
+        src/audio/filter/channel_remap.o
+        src/capture_filter/preview.o
         src/utils/ptp.o
         src/utils/sdp_parser.o
         src/video_capture/aggregate.o
@@ -3725,6 +3727,7 @@ if test "$build_default" != no || test "$req_files" = all; then
         tools/ipc_frame_ug.o
         tools/ipc_frame_unix.o
         "
+        REFLECTOR_OBJS=${CAPTURE_FILTERS?}
 fi
 
 AC_ARG_WITH(object-remove,
@@ -3742,7 +3745,7 @@ fi
 # -------------------------------------------------------------------------------------------------
 TEST_LIBS="$LIB_MODULES $LIBS $UG_LIB_MODULES"
 TEST_OBJS="$OBJS $LIB_OBJS $UG_LIB_OBJS"
-REFLECTOR_OBJS="src/video_display/blend.o src/video_display/pipe.o"
+REFLECTOR_OBJS="$REFLECTOR_OBJS src/video_display/blend.o src/video_display/pipe.o"
 
 # this is only needed when passing to "clean" make target
 if test "$build_libraries" != yes
