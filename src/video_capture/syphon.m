@@ -133,7 +133,7 @@ struct state_vidcap_syphon {
         CFRunLoopTimerRef timer;
 
         struct gl_context gl_context;
-        SyphonClient *client;
+        SyphonOpenGLClient *client;
         pthread_mutex_t lock;
         pthread_cond_t frame_ready_cv;
         struct simple_linked_list *q;
@@ -193,7 +193,7 @@ static void reconfigure(struct state_vidcap_syphon *s, struct video_desc desc) {
 
 }
 
-static const char *get_syphon_description(SyphonClient *client) {
+static const char *get_syphon_description(SyphonOpenGLClient *client) {
         static char ret[1024];
         NSDictionary *dict = [client serverDescription];
         snprintf(ret, sizeof ret, "app: %s name: %s",
@@ -273,11 +273,14 @@ static void oneshot_init(CFRunLoopTimerRef timer, void *context)
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "FPS set to %f. Use override_fps to override if you know FPS of the server.\n", FPS);
         }
 
-        s->client = [[SyphonClient alloc] initWithServerDescription:[descriptions lastObject] context:CGLGetCurrentContext() options:nil newFrameHandler:^(SyphonClient *client) {
+        s->client = [[SyphonOpenGLClient alloc]
+                        initWithServerDescription:[descriptions lastObject]
+                        context:CGLGetCurrentContext() options:nil
+                        newFrameHandler:^(SyphonOpenGLClient *client) {
                 if ([client hasNewFrame] == NO)
                         return;
 
-                SyphonImage *img = [client newFrameImage];
+                SyphonOpenGLImage *img = [client newFrameImage];
                 unsigned int width = [img textureSize].width;
                 unsigned int height = [img textureSize].height;
 

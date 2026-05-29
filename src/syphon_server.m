@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2015 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,17 +43,22 @@
 #include "syphon_server.h"
 
 void *syphon_server_register(void *context, const char *name) {
-        SyphonServer *srv = [[SyphonServer alloc] initWithName:[NSString stringWithUTF8String:name]
+        SyphonOpenGLServer *srv = [[SyphonOpenGLServer alloc]
+                initWithName:[NSString stringWithUTF8String:name]
                 context:(CGLContextObj)context options:nil];
         return srv;
 }
 
 void syphon_server_publish(void *s, int width, int height, unsigned int id) {
-         [(SyphonServer *)s publishFrameTexture:id textureTarget:GL_TEXTURE_2D imageRegion:NSMakeRect(0, 0, width, height) textureDimensions:NSMakeSize(width, height) flipped:YES];
+         [(SyphonOpenGLServer *)s publishFrameTexture:id
+                                  textureTarget:GL_TEXTURE_2D
+                                  imageRegion:NSMakeRect(0, 0, width, height)
+                                  textureDimensions:NSMakeSize(width, height)
+                                  flipped:YES];
 }
 
 void syphon_server_unregister(void *s) {
-        [(SyphonServer *)s stop];
-        [(SyphonServer *)s dealloc];
+        [(SyphonOpenGLServer *)s stop];
+        [(SyphonOpenGLServer *)s dealloc];
 }
 
