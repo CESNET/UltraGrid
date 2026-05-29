@@ -139,13 +139,9 @@ COMMON_OBJS     = \
 		src/pixfmt_conv.o \
 		src/to_planar.o \
 		src/ug_runtime_error.o \
-		tools/ipc_frame_ug.o \
-		tools/ipc_frame_unix.o \
-		tools/ipc_frame.o \
 		src/utils/audio_buffer.o \
 		src/utils/color_out.o \
 		src/utils/config_file.o \
-		src/utils/dictionary.o \
 		src/utils/fs.o \
 		src/utils/jpeg_reader.o \
 		src/utils/list.o \
@@ -175,7 +171,6 @@ COMMON_OBJS     = \
 		src/utils/windows.o \
 		src/utils/worker.o \
 		src/utils/y4m.o \
-		src/utils/ptp.o \
 		src/video.o \
 		src/video_frame.o \
 		src/video_codec.o \

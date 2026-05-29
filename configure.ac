@@ -1407,10 +1407,11 @@ if test "$sdl_req" != no; then
                 else
                         sdl_ver_suffix=$sdl_version
                 fi
+                SDL_OBJ="src/video_display/sdl${sdl_ver_suffix}.o"
                 if test "$sdl_version" -eq 3; then
                         AC_DEFINE([HAVE_SDL3], [1],  [Build with SDL3 support])
+                        SDL_OBJ="${SDL_OBJ?} src/utils/dictionary.o"
                 fi
-                SDL_OBJ="src/video_display/sdl${sdl_ver_suffix}.o"
                 INC="$INC $($PKG_CONFIG --cflags-only-I sdl${sdl_ver_suffix})"
                 SDL_LIBS=$(remove_mwindows "$SDL_LIBS")
                 add_module display_sdl "$SDL_OBJ" "$SDL_LIBS"
@@ -2140,7 +2141,9 @@ then
                         HW_ACC_OBJ="${HW_ACC_OBJ} src/video_display/gl_vdpau.o"
                 fi
                 COMMON_FLAGS="$COMMON_FLAGS $GLFW_CFLAGS"
-                add_module display_gl "$GL_COMMON_OBJ $HW_ACC_OBJ src/video_display/gl.o" "$GL_LIB $LAVC_HWACC_LIBS"
+                GL_OBJ="${GL_COMMON_OBJ?} ${HW_ACC_OBJ?} src/utils/dictionary.o"
+                add_module display_gl "${GL_OBJ?} src/video_display/gl.o" \
+                        "$GL_LIB $LAVC_HWACC_LIBS"
         fi
 fi
 
@@ -3646,8 +3649,10 @@ fi
 
 if test "$build_default" != no || test "$req_files" = all; then
         ULTRAGRID_OBJS="$ULTRAGRID_OBJS
+        src/audio/capture/aes67.o
         src/audio/capture/passive.o
         src/audio/capture/wav.o
+        src/audio/playback/aes67.o
         src/audio/playback/dump.o
         src/audio/playback/mixer.o
         src/audio/filter/delay.o
@@ -3675,9 +3680,8 @@ if test "$build_default" != no || test "$req_files" = all; then
         src/capture_filter/ratelimit.o
         src/capture_filter/split.o
         src/capture_filter/temporal_3d.o
+        src/utils/ptp.o
         src/utils/sdp_parser.o
-        src/audio/capture/aes67.o
-        src/audio/playback/aes67.o
         src/video_capture/aggregate.o
         src/video_capture/import.o
         src/video_capture/switcher.o
@@ -3701,6 +3705,9 @@ if test "$build_default" != no || test "$req_files" = all; then
         src/vo_postprocess/split.o
         src/vo_postprocess/temporal-deint.o
         src/vo_postprocess/temporal_3d.o
+        tools/ipc_frame.o
+        tools/ipc_frame_ug.o
+        tools/ipc_frame_unix.o
         "
 fi
 
