@@ -1,5 +1,5 @@
 /**
- * @file   video_display/pipe.cpp
+ * @file   video_display/pipe.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -35,36 +35,34 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <cassert>
-#include <cstdio>             // for fprintf, sscanf, stderr
-#include <cstring>
-#include <iostream>
-#include <list>
-#include <mutex>
+#include <assert.h>
+#include <pthread.h>
+#include <stdio.h>            // for fprintf, sscanf, stderr
+#include <stdlib.h>           // for calloc
+#include <string.h>
 
 #include "audio/types.h"
 #include "audio/utils.h"
+#include "compat/c23.h"       // IWYU pragma: keep
 #include "debug.h"
+#include "export.h"
 #include "lib_common.h"
 #include "utils/color_out.h"  // for color_printf
+#include "utils/list.h"
+#include "utils/pthread.h"
 #include "video.h"
 #include "video_display.h"
 #include "video_display/pipe.h"
 
 #define MOD_NAME "[pipe] "
 
-using std::cout;
-using std::list;
-using std::lock_guard;
-using std::mutex;
-
 struct state_pipe {
-        struct module *parent;
-        pipe_frame_recv_delegate delegate;
-        codec_t decode_to;
-        struct video_desc desc{};
-        list<struct audio_frame *> audio_frames{};
-        mutex audio_lock{};
+        struct module                  *parent;
+        struct pipe_frame_recv_delegate delegate;
+        codec_t                         decode_to;
+        struct video_desc               desc;
+        struct simple_linked_list      *audio_frames;
+        pthread_mutex_t                 audio_lock;
 };
 
 static void
@@ -100,7 +98,7 @@ static void *display_pipe_init(struct module *parent, const char *fmt, unsigned 
 {
         UNUSED(flags);
         codec_t decode_to = VIDEO_CODEC_NONE;
-        const pipe_frame_recv_delegate *delegate = nullptr;
+        const struct pipe_frame_recv_delegate *delegate = nullptr;
 
         if (strlen(fmt) == 0 || strcmp(fmt, "help") == 0) {
                 display_pipe_usage(strcmp(fmt, "help") == 0);
@@ -114,7 +112,7 @@ static void *display_pipe_init(struct module *parent, const char *fmt, unsigned 
                         const char *codec_name = fmt + strlen("codec=");
                         decode_to = get_codec_from_name(codec_name);
                         if (decode_to == VIDEO_CODEC_NONE) {
-                                LOG(LOG_LEVEL_ERROR) << "Wrong codec name: " << codec_name << "\n";
+                                MSG(ERROR, "Wrong codec name: %s\n", codec_name);
                                 return nullptr;
                         }
                 } else {
@@ -124,7 +122,12 @@ static void *display_pipe_init(struct module *parent, const char *fmt, unsigned 
         }
 
         assert(delegate->frame_arrived != nullptr);
-        auto *s = new state_pipe{parent, *delegate, decode_to};
+        struct state_pipe *s = calloc(1, sizeof *s);
+        s->parent            = parent;
+        s->delegate          = *delegate;
+        s->decode_to         = decode_to;
+        s->audio_frames      = simple_linked_list_init();
+        ug_pthread_mutex_init(&s->audio_lock);
 
         return s;
 }
@@ -133,11 +136,13 @@ static void display_pipe_done(void *state)
 {
         struct state_pipe *s = (struct state_pipe *)state;
 
-        for (auto & a : s->audio_frames) {
+        struct audio_frame *a = nullptr;
+        while ((a = simple_linked_list_pop(s->audio_frames)) != nullptr) {
                 free(a->data);
                 free(a);
         }
-        delete s;
+        CHK_PTHR(pthread_mutex_destroy(&s->audio_lock));
+        free(s);
 }
 
 static struct video_frame *display_pipe_getf(void *state)
@@ -158,37 +163,42 @@ static void display_pipe_dispose_audio(struct audio_frame *f) {
 
 static struct audio_frame * display_pipe_get_audio(struct state_pipe *s)
 {
-        lock_guard<mutex> lk(s->audio_lock);
+        CHK_PTHR(pthread_mutex_lock(&s->audio_lock));
+
         size_t len = 0;
-        if (s->audio_frames.empty()) {
+        struct audio_frame *a = simple_linked_list_first(s->audio_frames);
+        if (a == nullptr) {
+                CHK_PTHR(pthread_mutex_unlock(&s->audio_lock));
                 return nullptr;
         }
-        struct audio_desc desc = audio_desc_from_frame(s->audio_frames.front());
-        for (auto it = s->audio_frames.begin(); it != s->audio_frames.end(); ) {
-                if (!audio_desc_eq(desc, audio_desc_from_frame(*it))) {
-                        LOG(LOG_LEVEL_WARNING) << "[pipe] Discarding audio - incompatible format!\n";
-                        free((*it)->data);
-                        free(*it);
-                        it = s->audio_frames.erase(it);
+        struct audio_desc desc = audio_desc_from_frame(a);
+        for(void *it = simple_linked_list_it_init(s->audio_frames); it != NULL; ) {
+                a = simple_linked_list_it_next(&it);
+                if (!audio_desc_eq(desc, audio_desc_from_frame(a))) {
+                        MSG(WARNING, "Discarding audio - incompatible format!\n");
+                        simple_linked_list_remove(s->audio_frames, a);
+                        free(a->data);
+                        free(a);
+                        // start over
+                        it = simple_linked_list_it_init(s->audio_frames);
                         continue;
                 }
-                len += (*it)->data_len;
-                ++it;
+                len += a->data_len;
         }
         if (len == 0) {
                 return nullptr;
         }
-        auto out = (struct audio_frame *) calloc(1, sizeof(struct audio_frame));
+        struct audio_frame *out = calloc(1, sizeof(struct audio_frame));
         audio_frame_write_desc(out, desc);
         out->max_size = len;
         out->data = (char *) malloc(len);
-        for (auto it = s->audio_frames.begin(); it != s->audio_frames.end(); ) {
-                append_audio_frame(out, (*it)->data, (*it)->data_len);
-                free((*it)->data);
-                free(*it);
-                it = s->audio_frames.erase(it);
+        while ((a = simple_linked_list_pop(s->audio_frames)) != nullptr) {
+                append_audio_frame(out, a->data, a->data_len);
+                free(a->data);
+                free(a);
         }
         out->dispose = display_pipe_dispose_audio;
+        CHK_PTHR(pthread_mutex_unlock(&s->audio_lock));
         return out;
 }
 
@@ -219,14 +229,14 @@ get_codecs(struct state_pipe *s, void *val, size_t *len)
                 *len = sizeof s->decode_to;
                 return true;
         }
-        auto       *out = (codec_t *) val;
+        codec_t    *out = val;
         const void *end = (char *) val + *len;
         for (int i = VC_FIRST; i < VIDEO_CODEC_COUNT; ++i) {
-                const auto c = (codec_t) i;
+                const codec_t c = i;
                 if (is_codec_opaque(c)) {
                         continue;
                 }
-                if (out + 1 > end) {
+                if ((void *) (out + 1) > end) {
                         MSG(ERROR, "Insufficient prop length %zu B!\n", *len);
                         return false;
                 }
@@ -238,7 +248,7 @@ get_codecs(struct state_pipe *s, void *val, size_t *len)
 
 static bool display_pipe_get_property(void *state, int property, void *val, size_t *len)
 {
-        auto *s = static_cast<struct state_pipe *>(state);
+        struct state_pipe *s = state;
         enum interlacing_t supported_il_modes[] = {PROGRESSIVE, INTERLACED_MERGED, SEGMENTED_FRAME};
         int rgb_shift[] = {0, 8, 16};
 
@@ -293,9 +303,11 @@ static bool display_pipe_reconfigure(void *state, struct video_desc desc)
 
 static void display_pipe_put_audio_frame(void *state, const struct audio_frame *frame)
 {
-        auto s = (struct state_pipe *) state;
-        lock_guard<mutex> lk(s->audio_lock);
-        s->audio_frames.push_back(audio_frame_copy(frame, false));
+        struct state_pipe *s = state;
+        CHK_PTHR(pthread_mutex_lock(&s->audio_lock));
+        simple_linked_list_append(s->audio_frames,
+                                  audio_frame_copy(frame, false));
+        CHK_PTHR(pthread_mutex_unlock(&s->audio_lock));
 }
 
 static bool display_pipe_reconfigure_audio(void *state, int quant_samples, int channels,
@@ -318,7 +330,7 @@ static void display_pipe_probe(struct device_info **available_cards, int *count,
 static const struct video_display_info display_pipe_info = {
         display_pipe_probe,
         display_pipe_init,
-        NULL, // _run
+        nullptr, // _run
         display_pipe_done,
         display_pipe_getf,
         display_pipe_putf,

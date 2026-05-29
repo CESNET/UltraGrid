@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -97,6 +97,9 @@ int simple_linked_list_size(struct simple_linked_list *l)
 
 void *simple_linked_list_first(struct simple_linked_list *l)
 {
+        if (l->l.size() == 0) {
+                return nullptr;
+        }
         return l->l.front();
 }
 

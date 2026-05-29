@@ -52,7 +52,7 @@ void simple_linked_list_append(struct simple_linked_list *, void *data);
 bool simple_linked_list_append_if_less(struct simple_linked_list *, void *data, int max_size);
 void *simple_linked_list_pop(struct simple_linked_list *);
 int simple_linked_list_size(struct simple_linked_list *);
-/// returns first element of list keeping it in the list (UB if empty)
+/// returns first element of list keeping it in the list (nullptr if empty)
 void *simple_linked_list_first(struct simple_linked_list *);
 void *simple_linked_list_last(struct simple_linked_list *); ///< returns last element of list, UB if empty
 
