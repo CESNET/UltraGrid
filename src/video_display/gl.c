@@ -906,9 +906,10 @@ display_gl_parse_fmt(struct state_gl *s, char *ptr)
                 } else if (IS_PREFIX(tok, "syphon") ||
                            IS_PREFIX(tok, "spout")) {
 #if defined HAVE_SYPHON || defined HAVE_SPOUT
-                        if (val) {
-                                strcpy_ch(s->syphon_spout_srv_name, val);
+                        if (val == nullptr) {
+                                val = "UltraGrid";
                         }
+                        strcpy_ch(s->syphon_spout_srv_name, val);
 #else
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Syphon/Spout support not compiled in.\n");
                         return false;
@@ -970,7 +971,6 @@ display_gl_init(struct module *parent, const char *fmt,
         s->window_hints = dictionary_init();
         dictionary_insert(s->window_hints, TOSTRING(GLFW_AUTO_ICONIFY),
                           TOSTRING(GLFW_FALSE));
-        snprintf_ch(s->syphon_spout_srv_name, "UltraGrid");
         ug_pthread_mutex_init(&s->lock);
         ug_pthread_cond_init(&s->new_frame_ready_cv);
         ug_pthread_cond_init(&s->frame_consumed_cv);
