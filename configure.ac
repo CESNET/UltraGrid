@@ -3224,8 +3224,23 @@ fi
 ENSURE_FEATURE_PRESENT([$crypto_req], [$crypto], [OpenSSL not found])
 
 # -------------------------------------------------------------------------------------------------
-# GPU accelerated LDGM
+# LDGM
 # -------------------------------------------------------------------------------------------------
+ldgm=no
+AC_ARG_ENABLE(ldgm,
+      AS_HELP_STRING([--disable-ldgm], [disable LDGM support (default is on)]),
+      [ldgm_req=$enableval],
+      [ldgm_req=$build_default]
+)
+
+if test "${ldgm_req?}" != no; then
+        ldgm=yes
+        AC_DEFINE([HAVE_LDGM], [1], [Build with LDGM support])
+        OBJS="$OBJS ldgm/src/ldgm-session.o ldgm/src/ldgm-session-cpu.o \
+              ldgm/src/tanner.o ldgm/matrix-gen/matrix-generator.o \
+              ldgm/matrix-gen/ldpc-matrix.o src/rtp/ldgm.o"
+fi
+
 ldgm_gpu=no
 AC_ARG_ENABLE(ldgm-gpu,
 [  --disable-ldgm-gpu      disable GPU accelerated LDGM (default is auto)]
@@ -3234,7 +3249,8 @@ AC_ARG_ENABLE(ldgm-gpu,
     [ldgm_gpu_req=$build_default]
     )
 
-if test "${ldgm_gpu_req?}" != no && test "${FOUND_CUDA?}" = yes
+if test "${ldgm_gpu_req?}" != no && test "${ldgm?}" = yes &&
+        test "${FOUND_CUDA?}" = yes
 then
         LDGM_GPU_OBJS="ldgm/src/ldgm-session-gpu.o src/rtp/ldgm_gpu.o $CUDA_COMMON_OBJ"
         LDGM_GPU_LIBS="$CUDA_LIB"

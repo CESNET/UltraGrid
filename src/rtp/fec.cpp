@@ -46,6 +46,7 @@
 #include <ostream>               // for operator<<, basic_ostream, basic_ost...
 #include <string>
 
+#include "config.h"              // for HAVE_LDGM
 #include "debug.h"
 #include "rtp/ldgm.hpp"
 #include "rtp/rs.h"
@@ -65,6 +66,7 @@ fec *fec::create_from_config(const char *c_str, bool is_audio) noexcept
 {
         try {
                 if (strncmp(c_str, "LDGM percents ", strlen("LDGM percents ")) == 0) {
+#ifdef HAVE_LDGM
                         char *str = strdup(c_str);
                         char *ptr = str + strlen("LDGM percents ");
                         char *save_ptr = nullptr;
@@ -84,9 +86,18 @@ fec *fec::create_from_config(const char *c_str, bool is_audio) noexcept
                         fec *ret = new ldgm(mtu_len, data_len, loss_pct);
                         free(str);
                         return ret;
+#else
+                        MSG(ERROR, "LDGM not compiled in!\n");
+                        return nullptr;
+#endif
                 }
                 if (strncmp(c_str, "LDGM cfg ", strlen("LDGM cfg ")) == 0) {
+#ifdef HAVE_LDGM
                         return new ldgm(c_str + strlen("LDGM cfg "));
+#else
+                        MSG(ERROR, "LDGM not compiled in!\n");
+                        return nullptr;
+#endif
                 }
                 if (strncmp(c_str, "RS cfg ", strlen("RS cfg ")) == 0) {
                         return new rs(c_str + strlen("rs cfg "), is_audio);
@@ -143,7 +154,12 @@ fec *fec::create_from_desc(struct fec_desc desc) noexcept
         try {
                 switch (desc.type) {
                         case FEC_LDGM:
+#ifdef HAVE_LDGM
                                 return new ldgm(desc.k, desc.m, desc.c, desc.seed);
+#else
+                                MSG(ERROR, "LDGM not compiled in!\n");
+                                return nullptr;
+#endif
                         case FEC_RS:
                                 return new rs(desc.k, desc.k + desc.m);
                         default:

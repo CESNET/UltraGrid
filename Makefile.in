@@ -90,7 +90,6 @@ COMMON_OBJS     = \
 		src/transmit.o \
 		src/tfrc.o \
 		src/rtp/fec.o \
-		src/rtp/ldgm.o \
 		src/rtp/pbuf.o \
 		src/rtp/audio_decoders.o \
 		src/rtp/net_udp.o \
@@ -190,11 +189,6 @@ COMMON_OBJS     = \
 		src/video_rxtx/rtp.o \
 		src/video_rxtx/ultragrid_rtp.o \
 		src/vo_postprocess.o \
-		ldgm/src/ldgm-session-cpu.o \
-		ldgm/src/ldgm-session.o \
-		ldgm/src/tanner.o \
-		ldgm/matrix-gen/matrix-generator.o \
-		ldgm/matrix-gen/ldpc-matrix.o \
 
 ULTRAGRID_LIBS = @ULTRAGRID_LIBS@
 ULTRAGRID_OBJS = $(COMMON_OBJS) @ULTRAGRID_OBJS@ src/main.o \
