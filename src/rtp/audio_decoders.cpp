@@ -887,24 +887,31 @@ decode_audio_frame_postprocess(struct state_audio_postprocess *postprocess,
  * Second version that uses external audio configuration,
  * now it uses a struct state_audio_decoder instead an audio_frame2.
  * It does multi-channel handling.
-*
+ * @note
+ * This might not ever worked (not before writing this but it doesn't seem that
+ * it has broken during the time).
  * @todo
  * This shouldn't perhaps be separate function but decode_audio_frame() should
  * rather dispatch decoders according to packet type number, which is defined in
  * this particular case (PCMU has 0).
  */
-int decode_audio_frame_mulaw(struct coded_data *cdata, void *data, struct pbuf_stats *)
+int decode_audio_frame_mulaw(struct coded_data *cdata, void *pbuf_data, struct pbuf_stats *)
 {
-    struct pbuf_audio_data *s = (struct pbuf_audio_data *) data;
-    struct state_audio_decoder *audio = s->decoder;
+    auto *s = (struct acodec_state *) pbuf_data;
+    struct state_audio_decoder *decoder = s->decoder;
 
     //struct state_audio_decoder *audio = (struct state_audio_decoder *)data;
 
     if(!cdata) return false;
 
+    if (decoder->audio_decompress == nullptr) {
+            decoder->audio_decompress = audio_codec_reconfigure(
+                decoder->audio_decompress, AC_MULAW, AUDIO_DECODER);
+            assert(decoder->audio_decompress != nullptr);
+    }
+
     audio_frame2 received_frame;
-    received_frame.init(audio->saved_desc.ch_count, audio->saved_desc.codec,
-                    audio->saved_desc.bps, audio->saved_desc.sample_rate);
+    received_frame.init(1, AC_MULAW, 1, kHz8);
 
     // Check-if-there-is-only-one-channel optimization.
     if (received_frame.get_channel_count() == 1) {
@@ -949,6 +956,9 @@ int decode_audio_frame_mulaw(struct coded_data *cdata, void *data, struct pbuf_s
         }
 
     }
+
+    audio_frame2 decompressed = audio_codec_decompress(decoder->audio_decompress, &received_frame);
+    s->decoded = new audio_frame2(std::move(decompressed));
 
     return true;
 }
