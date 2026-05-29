@@ -121,11 +121,11 @@ typedef void  rxtx_done_fn(void *state);
 typedef void  rxtx_send_audio_frame_fn(void                      *state,
                                        const struct audio_frame2 *frame);
 struct rx_audio_frames {
-        struct audio_frame2      *frame;
-        struct sockaddr_storage  *source; // network source address
-        long long int             expected_bytes;
-        long long int             received_bytes;
-        struct rx_audio_frames *next;
+        struct audio_frame2     *frame;
+        struct sockaddr_storage *source; // network source address
+        long long int            expected_bytes;
+        long long int            received_bytes;
+        struct rx_audio_frames  *next;
 };
 /**
  * receive one or more audio frames

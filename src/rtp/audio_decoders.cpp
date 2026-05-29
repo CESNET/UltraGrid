@@ -74,7 +74,7 @@
 #include "messaging.h"               // for new_response, msg_universal, che...
 #include "module.h"
 #include "rtp/fec.h"                 // for fec
-#include "rtp/pbuf.h"                // for pbuf_audio_data, coded_data
+#include "rtp/pbuf.h"                // for acodec_data, coded_data
 #include "rtp/rtp.h"                 // for RTP_MAX_PACKET_LEN
 #include "rtp/rtp_types.h"           // for BUFNUM_BITS, audio_payload_hdr_t
 #include "tv.h"

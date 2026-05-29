@@ -168,6 +168,7 @@ struct audio_frame *audio_frame_copy(const struct audio_frame *src, bool keep_si
 
 void audio_frame2_to_audio_frame(struct audio_frame        *dst,
                                  const struct audio_frame2 *src);
+struct audio_frame2 *audio_frame_to_audio_frame2(const struct audio_frame *src);
 
 int parse_audio_format(const char *str, struct audio_desc *ret);
 

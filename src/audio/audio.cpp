@@ -69,7 +69,6 @@
 #include "audio/codec.h"
 #include "audio/echo.h"
 #include "audio/filter_chain.hpp"
-#include "audio/jack.h"
 #include "audio/playback/sdi.h"
 #include "audio/resampler.hpp"
 #include "audio/utils.h"
@@ -399,23 +398,6 @@ audio_init(struct state_audio **state, const struct audio_options *opt,
 }
 
 void audio_start(struct state_audio *s) {
-#ifdef HAVE_JACK_TRANS
-        if (s->sender == NET_JACK || s->receiver == NET_JACK) {
-                s->jack_connection = jack_start(s->proto_cfg.c_str());
-                if (s->jack_connection) {
-                        if (!is_jack_sender(s->jack_connection)) {
-                                s->sender = NET_NATIVE;
-                        }
-                        if (!is_jack_receiver(s->jack_connection)) {
-                                s->receiver = NET_NATIVE;
-                        }
-                } else {
-                        log_msg(LOG_LEVEL_FATAL, "JACK transport initialization failed!\n");
-                        exit_uv(EXIT_FAIL_AUDIO);
-                }
-        }
-#endif
-
         if (s->audio_tx_mode & MODE_SENDER) {
                 if (pthread_create
                     (&s->audio_sender_thread_id, NULL, audio_sender_thread, (void *)s) != 0) {
@@ -481,12 +463,6 @@ void audio_done(struct state_audio *s)
 
         delete s;
 }
-
-struct audio_decoder {
-        bool enabled;
-        bool decoded; ///< last frame was decoded
-        struct pbuf_audio_data pbuf_data;
-};
 
 #define GET_MUTED(muted_flag, act, color) \
         if (muted_flag) { \
@@ -599,11 +575,6 @@ static void *audio_receiver_thread(void *arg)
         long long int received_bytes_cum         = 0;
         long long int expected_bytes_cum         = 0;
 
-#ifdef HAVE_JACK_TRANS
-        struct pbuf_audio_data jack_pbuf{};
-        // current_pbuf = &jack_pbuf;
-#endif
-
         size_t len = sizeof playback_supports_multiple_streams;
         audio_playback_ctl(s->audio_playback_device, AUDIO_PLAYBACK_CTL_MULTIPLE_STREAMS,
                         &playback_supports_multiple_streams, &len);
@@ -625,13 +596,7 @@ static void *audio_receiver_thread(void *arg)
 
                 struct rx_audio_frames *frames = nullptr;
 
-                if (s->receiver == NET_NATIVE || s->receiver == NET_STANDARD) {
-                        frames = rxtx_recv_audio_frame(s->rxtx);
-                }else { /* NET_JACK */
-#ifdef HAVE_JACK_TRANS
-                        // decoded = jack_receive(s->jack_connection, &jack_pbuf);
-#endif
-                }
+                frames = rxtx_recv_audio_frame(s->rxtx);
 
                 if (frames == nullptr) {
                         continue;
@@ -710,9 +675,6 @@ static void *audio_receiver_thread(void *arg)
                 rxtx_free_audio_frames(frames);
         }
 
-#ifdef HAVE_JACK_TRANS
-        free(jack_pbuf.buffer.data);
-#endif
         free(f.data);
         audio_postprocess_done(pp);
 
@@ -899,17 +861,12 @@ static void *audio_sender_thread(void *arg)
                                 bf_n.resample(*resampler_state, resample_to);
                         }
                         // SEND
-                        if (s->jack_connection == nullptr) {
-                                audio_frame2 *uncompressed = &bf_n;
-                                while (audio_frame2 to_send = audio_codec_compress(s->audio_encoder, uncompressed)) {
-                                        rxtx_send_audio(s->rxtx, &to_send);
-                                        uncompressed = NULL;
-                                }
+                        audio_frame2 *uncompressed = &bf_n;
+                        while (audio_frame2 to_send = audio_codec_compress(
+                                   s->audio_encoder, uncompressed)) {
+                                rxtx_send_audio(s->rxtx, &to_send);
+                                uncompressed = NULL;
                         }
-#ifdef HAVE_JACK_TRANS
-                        else
-                                jack_send(s->jack_connection, buffer);
-#endif
                 }
         }
 

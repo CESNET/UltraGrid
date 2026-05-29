@@ -113,15 +113,6 @@ struct acodec_state {
         long long int               expected_bytes;
 };
 
-struct pbuf_audio_data {
-        audio_frame buffer;
-        struct sockaddr_storage source; // network source address
-        struct state_audio_decoder *decoder;
-
-        bool reconfigured;
-        size_t frame_size; ///< currently decoded audio frame size (used similarly as vcodec_state::max_frame_size to allow caller adjust buffers if needed)
-};
-
 /**
  * @param decode_data
  */

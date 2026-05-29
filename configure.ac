@@ -2891,7 +2891,7 @@ fi
 
 if test "${jack_trans_req?}" != no && test "${FOUND_JACK_H?}" = yes
 then
-        OBJS="$OBJS src/audio/jack.o"
+        OBJS="$OBJS src/audio/jack.o src/video_rxtx/jack_audio.o"
         LIBS="$LIBS${JACK_LIBS:+ $JACK_LIBS}"
         AC_DEFINE([HAVE_JACK_TRANS], [1], [Build with JACK transport support])
         jack_trans=yes

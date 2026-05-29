@@ -50,6 +50,7 @@
 
 #include "audio/jack.h"
 #include "audio/types.h"
+#include "audio/utils.h"
 #include "jack_common.h"
 #include "pthread.h"
 #include "rtp/pbuf.h"
@@ -383,40 +384,43 @@ jack_send(void *state, const struct audio_frame *frame)
  * @brief Receives data from JACK
  *
  * @param[in]  state state returned by jack_init()
- * @param[out] data  @ref pbuf_audio_data
+ * @param[out] data  @ref acodec_data
  * @retval     true  if some data are received
  * @retval     false if no data were received
  */
 bool jack_receive(void *state, void *data)
 {
         struct state_jack *s = (struct state_jack *) state;
-        struct pbuf_audio_data *audio_data = (struct pbuf_audio_data *) data;
-        struct audio_frame *buffer = &audio_data->buffer;
-        
+        struct acodec_state *audio_data =  data;
+        struct audio_frame buffer = { 0 };
+
         /// @todo repair this
         while(s->rec_buffer_start == s->rec_buffer_end);
         //fprintf(stderr, "%d ", s->record.data_len);
         int end = s->rec_buffer_end;
-             
-        buffer->ch_count = s->record.ch_count;
-        buffer->bps = s->record.bps;
-        buffer->sample_rate = s->record.sample_rate;
-        
-        buffer->data_len = end - s->rec_buffer_start;
-        if (buffer->data_len < 0) buffer->data_len += BUFF_SIZE;
-        buffer->data = (char *) malloc(buffer->data_len);
+
+        buffer.ch_count = s->record.ch_count;
+        buffer.bps = s->record.bps;
+        buffer.sample_rate = s->record.sample_rate;
+
+        buffer.data_len = end - s->rec_buffer_start;
+        if (buffer.data_len < 0) buffer.data_len += BUFF_SIZE;
+        buffer.data = (char *) malloc(buffer.data_len);
 
         if (s->rec_buffer_start < end) {
-                memcpy(buffer->data, s->rec_buffer + s->rec_buffer_start, 
-                                buffer->data_len);
+                memcpy(buffer.data, s->rec_buffer + s->rec_buffer_start,
+                       buffer.data_len);
         } else {
-                memcpy(buffer->data, s->rec_buffer + s->rec_buffer_start, 
-                                BUFF_SIZE - s->rec_buffer_start);
-                memcpy(buffer->data + BUFF_SIZE - s->rec_buffer_start,
-                                s->rec_buffer, 
-                                buffer->data_len + BUFF_SIZE - s->rec_buffer_start);
+                memcpy(buffer.data, s->rec_buffer + s->rec_buffer_start,
+                       BUFF_SIZE - s->rec_buffer_start);
+                memcpy(buffer.data + BUFF_SIZE - s->rec_buffer_start,
+                       s->rec_buffer,
+                       buffer.data_len + BUFF_SIZE - s->rec_buffer_start);
         }
-        s->rec_buffer_start = (s->rec_buffer_start + buffer->data_len) % BUFF_SIZE;
+        s->rec_buffer_start = (s->rec_buffer_start + buffer.data_len) % BUFF_SIZE;
+
+        audio_data->decoded = audio_frame_to_audio_frame2(&buffer);
+        free(buffer.data);
 
         return true;
 }

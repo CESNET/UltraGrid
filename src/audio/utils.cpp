@@ -688,6 +688,12 @@ audio_frame2_to_audio_frame(struct audio_frame        *dst,
         dst->sample_rate = src->get_sample_rate();
 }
 
+struct audio_frame2 *
+audio_frame_to_audio_frame2(const struct audio_frame *src)
+{
+        return new audio_frame2(src);
+}
+
 const char *audio_desc_to_cstring(struct audio_desc desc) {
         thread_local string str = desc;
         return str.c_str();
