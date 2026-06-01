@@ -37,6 +37,10 @@ fi
 
 cd "$ORIGDIR"
 
+if [ "${NO_CONFIGURE-}" ]; then
+        exit
+fi
+
 echo "Running configure..."
 "$srcdir"/configure "$@"
 
