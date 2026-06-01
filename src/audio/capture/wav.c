@@ -3,6 +3,11 @@
 /**
  * @file   audio/capture/wav.c
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
+ *
+ * This duplicates of acap/testcard that also has the ability to produce WAV. On
+ * the other hand, this is more explicit so it may be considered whether not to
+ * remove WAV from acap/testcard... or perhaps keep both, it doesn't cost
+ * much...
  */
 
 #include <assert.h> // for assert
@@ -58,6 +63,9 @@ usage()
                      " is capable to play a WAV file.\n\n");
         color_printf("Usage:\n\t" TBOLD(TRED("wav") ":file=<filename>")
                      "\n\n");
+        color_printf(TBOLD("Note:")
+                     " audio capture " TBOLD("testcard")
+                     " can play WAV files as well.\n\n");
         color_printf("Input WAV file is looped infinitely.\n\n");
 }
 

@@ -63,6 +63,7 @@
 #include "utils/fs.h"
 #include "utils/macros.h"
 #include "utils/misc.h"
+#include "utils/text.h" // for color_printf_wrapped
 
 #define AUDIO_CAPTURE_TESTCARD_MAGIC 0xf4b3c9c9u
 
@@ -411,8 +412,14 @@ static void *audio_cap_testcard_init(struct module *parent, const char *cfg)
                         { NULL, NULL }
                 };
                 print_module_usage("-s testcard", options, NULL, false);
-                color_printf("\nYou can also consider using " TBOLD("sdl_mixer") " audio capture card to generate a more complex pattern. "
-                                "(It already includes a MIDI that can be played immediately.)\n");
+                color_printf_wrapped(
+                    "\nSee also audio capture " TBOLD("wav")
+                    " that can also play wav files.\n");
+                color_printf_wrapped(
+                    "\nYou can also consider using " TBOLD("fluidsynth")
+                    " audio capture card to generate a more complex pattern. "
+                    "(It already includes sample MIDIs that can be played "
+                    "immediately.)\n");
                 return INIT_NOERR;
         }
 
