@@ -1,0 +1,412 @@
+/* src/config.h.in.  Generated from configure.ac by autoheader.  */
+
+/* Define if building universal (internal helper macro) */
+#undef AC_APPLE_UNIVERSAL_BUILD
+
+/* Autoconf result */
+#undef AUTOCONF_RESULT
+
+/* Build drivers as a standalone libraries */
+#undef BUILD_LIBRARIES
+
+/* Flags passed to configure */
+#undef CONFIG_FLAGS
+
+/* We build with debug messages */
+#undef DEBUG
+
+/* Current GIT branch */
+#undef GIT_BRANCH
+
+/* Current GIT revision */
+#undef GIT_REV
+
+/* Define to 1 if you have the <AudioUnit/AudioUnit.h> header file. */
+#undef HAVE_AUDIOUNIT_AUDIOUNIT_H
+
+/* Define to 1 if you have the <BlueVelvetC.h> header file. */
+#undef HAVE_BLUEVELVETC_H
+
+/* CUDA is present on the system */
+#undef HAVE_CUDA
+
+/* Build with pipewire screencast dbus support */
+#undef HAVE_DBUS_SCREENCAST
+
+/* Define to 1 if you have the <EmbeddableWebServer.h> header file. */
+#undef HAVE_EMBEDDABLEWEBSERVER_H
+
+/* Define to 1 if you have the 'EVP_aes_128_cbc' function. */
+#undef HAVE_EVP_AES_128_CBC
+
+/* have CFB128 */
+#undef HAVE_EVP_AES_128_CFB128
+
+/* have CTR */
+#undef HAVE_EVP_AES_128_CTR
+
+/* Define to 1 if you have the 'EVP_aes_128_ecb' function. */
+#undef HAVE_EVP_AES_128_ECB
+
+/* Define to 1 if you have the 'EVP_aes_128_gcm' function. */
+#undef HAVE_EVP_AES_128_GCM
+
+/* have ECB */
+#undef HAVE_EVP_AES_ECB
+
+/* fec_init must be called before fec_new */
+#undef HAVE_FEC_INIT
+
+/* We have Firewire DV */
+#undef HAVE_FIREWIRE_DV_FREEBSD
+
+/* Define if you have the m3api framework */
+#undef HAVE_FRAMEWORK_M3API
+
+/* Define if you have the Syphon framework */
+#undef HAVE_FRAMEWORK_SYPHON
+
+/* Define if you have the VideoMasterHD framework */
+#undef HAVE_FRAMEWORK_VIDEOMASTERHD
+
+/* Define if you have the VideoMasterHD_Audio framework */
+#undef HAVE_FRAMEWORK_VIDEOMASTERHD_AUDIO
+
+/* Build with GPUJPEG support */
+#undef HAVE_GPUJPEG
+
+/* Build with iHDTV support */
+#undef HAVE_IHDTV
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+#undef HAVE_INTTYPES_H
+
+/* Enable IPv6 support */
+#undef HAVE_IPv6
+
+/* Build with JACK transport support */
+#undef HAVE_JACK_TRANS
+
+/* Build with LAVC support */
+#undef HAVE_LAVC
+
+/* Build with lavc CUDA conversions */
+#undef HAVE_LAVC_CUDA_CONV
+
+/* Define to 1 if you have the 'asound' library (-lasound). */
+#undef HAVE_LIBASOUND
+
+/* Define to 1 if you have the 'avcodec' library (-lavcodec). */
+#undef HAVE_LIBAVCODEC
+
+/* Define to 1 if you have the <libavcodec/avcodec.h> header file. */
+#undef HAVE_LIBAVCODEC_AVCODEC_H
+
+/* Define to 1 if you have the 'avformat' library (-lavformat). */
+#undef HAVE_LIBAVFORMAT
+
+/* Define to 1 if you have the <libavformat/avformat.h> header file. */
+#undef HAVE_LIBAVFORMAT_AVFORMAT_H
+
+/* Define to 1 if you have the 'avutil' library (-lavutil). */
+#undef HAVE_LIBAVUTIL
+
+/* Define to 1 if you have the <libavutil/imgutils.h> header file. */
+#undef HAVE_LIBAVUTIL_IMGUTILS_H
+
+/* Define to 1 if you have the <libavutil/opt.h> header file. */
+#undef HAVE_LIBAVUTIL_OPT_H
+
+/* we have libbacktrace */
+#undef HAVE_LIBBACKTRACE
+
+/* Define to 1 if you have the 'GL' library (-lGL). */
+#undef HAVE_LIBGL
+
+/* Define to 1 if you have the 'GLEW' library (-lGLEW). */
+#undef HAVE_LIBGLEW
+
+/* Define to 1 if you have the 'glew32' library (-lglew32). */
+#undef HAVE_LIBGLEW32
+
+/* Define to 1 if you have the 'gpujpeg' library (-lgpujpeg). */
+#undef HAVE_LIBGPUJPEG
+
+/* Define to 1 if you have the 'opencv_core' library (-lopencv_core). */
+#undef HAVE_LIBOPENCV_CORE
+
+/* Define to 1 if you have the 'opencv_imgproc' library (-lopencv_imgproc). */
+#undef HAVE_LIBOPENCV_IMGPROC
+
+/* Define to 1 if you have the 'portaudio' library (-lportaudio). */
+#undef HAVE_LIBPORTAUDIO
+
+/* Define to 1 if you have the 'rt' library (-lrt). */
+#undef HAVE_LIBRT
+
+/* Build testcard2 with TTF support */
+#undef HAVE_LIBSDL_TTF
+
+/* Define to 1 if you have the 'swscale' library (-lswscale). */
+#undef HAVE_LIBSWSCALE
+
+/* Define to 1 if you have the <libswscale/swscale.h> header file. */
+#undef HAVE_LIBSWSCALE_SWSCALE_H
+
+/* Build with libv4lconvert support */
+#undef HAVE_LIBV4LCONVERT
+
+/* Define to 1 if you have the 'X11' library (-lX11). */
+#undef HAVE_LIBX11
+
+/* Define to 1 if you have the 'Xfixes' library (-lXfixes). */
+#undef HAVE_LIBXFIXES
+
+/* This is Linux */
+#undef HAVE_LINUX
+
+/* Define to 1 if you have the <linux/version.h> header file. */
+#undef HAVE_LINUX_VERSION_H
+
+/* Define to 1 if you have the <linux/videodev2.h> header file. */
+#undef HAVE_LINUX_VIDEODEV2_H
+
+/* This is Mac X OS */
+#undef HAVE_MACOSX
+
+/* Build with NAT-PMP support */
+#undef HAVE_NATPMP
+
+/* OpenCL is supported */
+#undef HAVE_OPENCL
+
+/* Define to 1 if you have the <opencv2/core/mat.hpp> header file. */
+#undef HAVE_OPENCV2_CORE_MAT_HPP
+
+/* Define to 1 if you have the <opencv2/opencv.hpp> header file. */
+#undef HAVE_OPENCV2_OPENCV_HPP
+
+/* Portaudio has Pa_GetVersionInfo */
+#undef HAVE_PA_GETVERSIONINFO
+
+/* Build with PCP support */
+#undef HAVE_PCP
+
+/* Build with new PCP name */
+#undef HAVE_PCP_NEW
+
+/* RTSP server build with live555 support */
+#undef HAVE_RTSP_SERVER
+
+/* Define to 1 if you have the 'sched_setscheduler' function. */
+#undef HAVE_SCHED_SETSCHEDULER
+
+/* Build with SDL3 support */
+#undef HAVE_SDL3
+
+/* Define to 1 if you have the 'SetThreadDescription' function. */
+#undef HAVE_SETTHREADDESCRIPTION
+
+/* Build with Soxr support */
+#undef HAVE_SOXR
+
+/* Build with SpeexDSP support */
+#undef HAVE_SPEEXDSP
+
+/* Build with Spout support */
+#undef HAVE_SPOUT
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#undef HAVE_STDINT_H
+
+/* Define to 1 if you have the <stdio.h> header file. */
+#undef HAVE_STDIO_H
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#undef HAVE_STDLIB_H
+
+/* Define to 1 if you have the <strings.h> header file. */
+#undef HAVE_STRINGS_H
+
+/* Define to 1 if you have the <string.h> header file. */
+#undef HAVE_STRING_H
+
+/* Build with Swscale support */
+#undef HAVE_SWSCALE
+
+/* Build with Syphon support */
+#undef HAVE_SYPHON
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#undef HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#undef HAVE_SYS_TYPES_H
+
+/* Define to 1 if you have the <termios.h> header file. */
+#undef HAVE_TERMIOS_H
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#undef HAVE_UNISTD_H
+
+/* Define to 1 if you have the 'usleep' function. */
+#undef HAVE_USLEEP
+
+/* Define to 1 if you have the <VideoMasterHD_Core.h> header file. */
+#undef HAVE_VIDEOMASTERHD_CORE_H
+
+/* Define to 1 if you have the <VideoMasterHD_Sdi_Audio.h> header file. */
+#undef HAVE_VIDEOMASTERHD_SDI_AUDIO_H
+
+/* Define to 1 if you have the <VideoMasterHD_Sdi.h> header file. */
+#undef HAVE_VIDEOMASTERHD_SDI_H
+
+/* Define to 1 if you have the <VideoMasterHD/VideoMasterHD_Core.h> header
+   file. */
+#undef HAVE_VIDEOMASTERHD_VIDEOMASTERHD_CORE_H
+
+/* Define to 1 if you have the 'vkCreateImage' function. */
+#undef HAVE_VKCREATEIMAGE
+
+/* Define to 1 if you have the <vulkan/vulkan.h> header file. */
+#undef HAVE_VULKAN_VULKAN_H
+
+/* Using WolfSSL instead of OpenSSL */
+#undef HAVE_WOLFSSL
+
+/* Define to 1 if you have the 'wolfSSL_EVP_aes_128_cbc' function. */
+#undef HAVE_WOLFSSL_EVP_AES_128_CBC
+
+/* Define to 1 if you have the 'wolfSSL_EVP_aes_128_cfb128' function. */
+#undef HAVE_WOLFSSL_EVP_AES_128_CFB128
+
+/* Define to 1 if you have the 'wolfSSL_EVP_aes_128_ctr' function. */
+#undef HAVE_WOLFSSL_EVP_AES_128_CTR
+
+/* Define to 1 if you have the 'wolfSSL_EVP_aes_128_ecb' function. */
+#undef HAVE_WOLFSSL_EVP_AES_128_ECB
+
+/* Define to 1 if you have the 'wolfSSL_EVP_aes_128_gcm' function. */
+#undef HAVE_WOLFSSL_EVP_AES_128_GCM
+
+/* Build with XFixes support */
+#undef HAVE_XFIXES
+
+/* Define to 1 if you have the <xiApi.h> header file. */
+#undef HAVE_XIAPI_H
+
+/* Build with zfec support */
+#undef HAVE_ZFEC
+
+/* Build with libavcodec VDPAU HW acceleration support */
+#undef HWACC_VDPAU
+
+/* Name of package */
+#undef PACKAGE
+
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the home page for this package. */
+#undef PACKAGE_URL
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
+
+/* Assume that SAGE supports native DXT5 YCoCg */
+#undef SAGE_NATIVE_DXT5YCOCG
+
+/* Add support for SDP over HTTP */
+#undef SDP_HTTP
+
+/* use shared decoder for all participants */
+#undef SHARED_DECODER
+
+/* The size of 'int *', as computed by sizeof. */
+#undef SIZEOF_INT_P
+
+/* The size of 'size_t', as computed by sizeof. */
+#undef SIZEOF_SIZE_T
+
+/* path to src directory */
+#undef SRCDIR
+
+/* Define to 1 if all of the C89 standard headers exist (not just the ones
+   required in a freestanding environment). This macro is provided for
+   backward compatibility; new code need not use it. */
+#undef STDC_HEADERS
+
+/* NDI version to use */
+#undef USE_NDI_VERSION
+
+/* We want to use OpenGL pixel buffer objects */
+#undef USE_PBO_DXT_ENCODER
+
+/* We use RT priority */
+#undef USE_RT
+
+/* Version number of package */
+#undef VERSION
+
+/* MagickWand is v7 or later */
+#undef WAND7
+
+/* This is an Windows OS */
+#undef WIN32
+
+/* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
+   significant byte first (like Motorola and SPARC, unlike Intel). */
+#if defined AC_APPLE_UNIVERSAL_BUILD
+# if defined __BIG_ENDIAN__
+#  define WORDS_BIGENDIAN 1
+# endif
+#else
+# ifndef WORDS_BIGENDIAN
+#  undef WORDS_BIGENDIAN
+# endif
+#endif
+
+/* This is little endian system */
+#undef WORDS_SMALLENDIAN
+
+/* Name of the dynamic libarary */
+#undef XIMEA_LIBRARY_NAME
+
+/* Path to the XI dynamic libarary */
+#undef XIMEA_LIBRARY_PATH
+
+/* Dynamically open XIMEA lib on runtime */
+#undef XIMEA_RUNTIME_LINKING
+
+/* Number of bits in a file offset, on hosts where this is settable. */
+#undef _FILE_OFFSET_BITS
+
+/* Define to 1 on platforms where this makes off_t a 64-bit type. */
+#undef _LARGE_FILES
+
+/* Number of bits in time_t, on hosts where this is settable. */
+#undef _TIME_BITS
+
+/* Define to 1 if type 'char' is unsigned and your compiler does not
+   predefine this macro.  */
+#ifndef __CHAR_UNSIGNED__
+# undef __CHAR_UNSIGNED__
+#endif
+
+/* Define to 1 on platforms where this makes time_t a 64-bit type. */
+#undef __MINGW_USE_VC2005_COMPAT
+
+/* Define to empty if 'const' does not conform to ANSI C. */
+#undef const
+
+/* Define as 'unsigned int' if <stddef.h> doesn't define. */
+#undef size_t
