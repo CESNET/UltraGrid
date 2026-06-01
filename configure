@@ -10323,11 +10323,14 @@ if test -n "$AJA_DIRECTORY"; then
 fi
 
 if test -z "$AJA_PATH"; then
-        if test -d /usr/local/include/libajantv2; then
-                AJA_PATH=/usr/local/include/libajantv2
-        # libajantv2 AUR
-        elif test -d /usr/include/libajantv2; then
+        testf=ajantv2/includes/ntv2card.h
+        AJA_PATH=/usr/local/include/libajantv2
+        if ! test -f "${AJA_PATH?}/${testf?}"; then
+                # libajantv2 AUR
                 AJA_PATH=/usr/include/libajantv2
+                if ! test -f "${AJA_PATH?}/${testf?}"; then
+                        AJA_PATH=
+                fi
         fi
 fi
 
