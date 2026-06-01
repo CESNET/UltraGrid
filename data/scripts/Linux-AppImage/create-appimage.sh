@@ -13,33 +13,54 @@
 ## `openssl aes-256-cbc -pass pass:dummy -in privkey.asc -out privkey.asc.enc -a -md sha256`
 ## @returns           name of created AppImage
 
-APPDIR=UltraGrid.AppDir
+tmp_pattern=ug-ai-build
+APPDIR=$(mktemp -d -t $tmp_pattern-XXXXXX.AppDir)
 APPPREFIX=$APPDIR/usr
+tmpinstall=$(mktemp -d -t $tmp_pattern-XXXXXX-tmpinst)
+# import srcdir (path to source) from Makefile
 eval "$(grep 'srcdir *=' < Makefile | tr -d \  )"
 
 umask 022
 
-# soft fail - fail in CI, otherwise continue
-handle_error() {
+print_error() {
+        set +x # do not echo every cmd now on
         red=1
-        tput setaf $red 2>/dev/null || true
+        color=${2-$red}
+        tput setaf "$color" 2>/dev/null || true
         tput bold 2>/dev/null || true
         echo "$1" >&2
         tput sgr0 2>/dev/null || true
-        if [ -n "${GITHUB_REPOSITORY:-}" ]; then
+}
+
+# soft fail - fail in CI, otherwise continue
+handle_error() {
+        print_error "$1" "$red"
+        if [ "${CI:-}" = true ]; then
                 exit 2
         fi
 }
 
-mkdir tmpinstall $APPDIR
-make DESTDIR=tmpinstall install
-mv tmpinstall/usr/local $APPPREFIX
+check_kept_build_dirs() {
+        old_build_pref=$(mktemp -u -t $tmp_pattern-XXXXXXX |
+                sed 's/[0-9a-zA-Z]*$//')
+        old_builds=$(echo "$old_build_pref"*)
+        if [ "$old_builds" != "$old_build_pref"'*' ]; then
+                bright_yellow=11
+                print_error "Build dirs $old_builds exist (not removed), \
+consider removing manually..." "$bright_yellow"
+        fi
+}
+
+trap check_kept_build_dirs EXIT
+
+make DESTDIR="$tmpinstall" install
+mv "$tmpinstall/usr/local" "$APPPREFIX"
 
 # add packet reflector
 make -f "${srcdir?srcdir not found}/hd-rum-multi/Makefile" "SRCDIR=$srcdir/hd-rum-multi"
-cp hd-rum $APPPREFIX/bin
+cp hd-rum "$APPPREFIX/bin"
 make -C "$srcdir/tools" convert
-cp "$srcdir/tools/convert" $APPPREFIX/bin
+cp "$srcdir/tools/convert" "$APPPREFIX/bin"
 
 # add platform and other Qt plugins if using dynamic libs
 # @todo copy only needed ones
@@ -47,8 +68,8 @@ cp "$srcdir/tools/convert" $APPPREFIX/bin
 PLUGIN_LIBS=
 QT_DIR=
 QT_VER=
-if [ -f $APPPREFIX/bin/uv-qt ]; then
-        QT_LDD_DEP=$(ldd $APPPREFIX/bin/uv-qt | grep Qt.Gui | grep -v 'not found')
+if [ -f "$APPPREFIX/bin/uv-qt" ]; then
+        QT_LDD_DEP=$(ldd "$APPPREFIX/bin/uv-qt" | grep Qt.Gui | grep -v 'not found')
         QT_DIR=$(echo "$QT_LDD_DEP" | awk '{ print $3 }')
         QT_DIR=$(dirname "$QT_DIR")
         QT_VER=$(echo "$QT_LDD_DEP" | awk '{ print $1  }' | sed 's/.*Qt\([0-9]\)Gui.*/\1/g')
@@ -67,22 +88,22 @@ append() { eval "$1=\"\$$1\${$1:+ }$2\""; }
 
 # deploy libdecor + its plugin(s) - it is dlopen-ed so not automatic
 pfix=$APPPREFIX/lib/ultragrid/ultragrid_display_
-if [ -f ${pfix}gl.so ] || [ -f ${pfix}sdl.so ] || [ -f ${pfix}vulkan.so ]; then
+if [ -f "${pfix}gl.so" ] || [ -f "${pfix}sdl.so" ] || [ -f "${pfix}vulkan.so" ]; then
         libdecor=$(find /usr/lib -name libdecor-0.so.0 | head -n 1)
         if [ -f "$libdecor" ]; then
-                cp "$libdecor" $APPPREFIX/lib/
-                append PLUGIN_LIBS $APPPREFIX/lib/libdecor-0.so.0
+                cp "$libdecor" "$APPPREFIX/lib/"
+                append PLUGIN_LIBS "$APPPREFIX/lib/libdecor-0.so.0"
                 plugins=$(dirname "$libdecor")/libdecor/plugins-1
                 if [ -d "$plugins" ]; then
                         dst=$APPPREFIX/lib/libdecor/plugins-1
-                        mkdir -p $dst
-                        cp "$plugins"/*.so $dst/
+                        mkdir -p "$dst"
+                        cp "$plugins"/*.so "$dst/"
                         append PLUGIN_LIBS "$(find "$dst" -type f -exec echo {} +)"
                 fi
         fi
 fi
 
-if [ -f $APPPREFIX/lib/ultragrid/ultragrid_vo_pp_text.so ]; then
+if [ -f "$APPPREFIX/lib/ultragrid/ultragrid_vo_pp_text.so" ]; then
         if ! command -v convert >/dev/null; then
                 handle_error 'IM convert missing! (needed for bundle)'
         fi
@@ -93,10 +114,10 @@ if [ -f $APPPREFIX/lib/ultragrid/ultragrid_vo_pp_text.so ]; then
                 sed -n '/CODER_PATH/ { s/[A-Z_]* *//; p; q; }')
         filt_path=$(convert -list configure |
                 sed -n '/FILTER_PATH/ { s/[A-Z_]* *//; p; q; }')
-        mkdir $APPDIR/etc $APPPREFIX/share/IM
-        cp -r "$conf_path" $APPDIR/etc/IM
-        cp -r "$codr_path" $APPPREFIX/share/IM/coders
-        cp -r "$filt_path" $APPPREFIX/share/IM/filters
+        mkdir "$APPDIR/etc" "$APPPREFIX/share/IM"
+        cp -r "$conf_path" "$APPDIR/etc/IM"
+        cp -r "$codr_path" "$APPPREFIX/share/IM/coders"
+        cp -r "$filt_path" "$APPPREFIX/share/IM/filters"
 fi
 
 add_fonts() { # for GUI+testcard2
@@ -105,36 +126,36 @@ add_fonts() { # for GUI+testcard2
                 return
         fi
         # add DejaVu font
-        mkdir $APPPREFIX/share/fonts
+        mkdir "$APPPREFIX/share/fonts"
         for family in "DejaVu Sans" "DejaVu Sans Mono"; do
                 for style in "Book" "Bold"; do
                         FONT_PATH=$(fc-match "$family:style=$style" file | sed 's/.*=//')
-                        cp "$FONT_PATH" $APPPREFIX/share/fonts
+                        cp "$FONT_PATH" "$APPPREFIX/share/fonts"
                 done
         done
 }
 
 # copy dependencies
-mkdir -p $APPPREFIX/lib
+mkdir -p "$APPPREFIX/lib"
 for n in "$APPPREFIX"/bin/* "$APPPREFIX"/lib/ultragrid/* $PLUGIN_LIBS; do
         for lib in $(ldd "$n" | awk '{ print $3 }'); do
                 [ ! -f "$lib" ] && continue
                 DST_NAME=$APPPREFIX/lib/$(basename "$lib")
                 [ -f "$DST_NAME" ] && continue
-                cp "$lib" $APPPREFIX/lib
+                cp "$lib" "$APPPREFIX/lib"
         done
 done
 
 # hide Wayland libraries
-if ls $APPPREFIX/lib/libwayland-* >/dev/null 2>&1; then
-        mkdir $APPPREFIX/lib/wayland
-        mv $APPPREFIX/lib/libwayland-* $APPPREFIX/lib/wayland
+if ls "$APPPREFIX"/lib/libwayland-* >/dev/null 2>&1; then
+        mkdir "$APPPREFIX"/lib/wayland
+        mv "$APPPREFIX"/lib/libwayland-* "$APPPREFIX"/lib/wayland
 fi
 
 # hide libOpenGL.so.0 libraries
-if [ -f $APPPREFIX/lib/libOpenGL.so.0 ]; then
-        mkdir $APPPREFIX/lib/libopengl
-        mv $APPPREFIX/lib/libOpenGL.so.0 $APPPREFIX/lib/libopengl
+if [ -f "$APPPREFIX/lib/libOpenGL.so.0" ]; then
+        mkdir "$APPPREFIX/lib/libopengl"
+        mv "$APPPREFIX/lib/libOpenGL.so.0" "$APPPREFIX/lib/libopengl"
 fi
 
 add_fonts
@@ -189,13 +210,13 @@ for n in $EXCLUDE_LIST; do
         fi
 done
 
-( cd $APPPREFIX/lib; rm -f libcmpto* ) # remove non-free components
+( cd "$APPPREFIX/lib"; rm -f libcmpto* ) # remove non-free components
 
 # ship VA-API drivers if have libva
-if [ -f "$(echo $APPPREFIX/lib/libva.so.* | cut -d\  -f 1)" ]; then
+if [ -f "$(echo "$APPPREFIX"/lib/libva.so.* | cut -d\  -f 1)" ]; then
         for n in ${LIBVA_DRIVERS_PATH:-} /usr/lib/x86_64-linux-gnu/dri /usr/lib/dri; do
                 if [ -d "$n" ]; then
-                        cp -r "$n" $APPPREFIX/lib/va
+                        cp -r "$n" "$APPPREFIX/lib/va"
                         break
                 fi
         done
@@ -205,22 +226,24 @@ fi
 if [ -f "$APPPREFIX/lib/libomt.so" ]; then
         LIBVMX_PATH=/usr/local/lib/libvmx.so
         if [ -n "$LIBVMX_PATH" ]; then
-                cp "$LIBVMX_PATH" $APPPREFIX/lib/
+                cp "$LIBVMX_PATH" "$APPPREFIX/lib/"
         fi
 fi
 
-cp -r "$srcdir/data/scripts/Linux-AppImage/AppRun" "$srcdir/data/scripts/Linux-AppImage/scripts" "$srcdir/data/ultragrid.png" $APPDIR
-cp "$srcdir/data/uv-qt.desktop" $APPDIR/cz.cesnet.ultragrid.desktop
+cp -r "$srcdir/data/scripts/Linux-AppImage/AppRun" \
+        "$srcdir/data/scripts/Linux-AppImage/scripts" \
+        "$srcdir/data/ultragrid.png" "$APPDIR"
+cp "$srcdir/data/uv-qt.desktop" "$APPDIR/cz.cesnet.ultragrid.desktop"
 appimageupdatetool=$(command -v appimageupdatetool-x86_64.AppImage || command -v ./appimageupdatetool || true)
 if [ -z "$appimageupdatetool" ]; then
         appimageupdatetool=./appimageupdatetool
         dl https://github.com/AppImage/AppImageUpdate/releases/download/continuous/appimageupdatetool-x86_64.AppImage > $appimageupdatetool # use AppImageUpdate for GUI updater
 fi
-cp "$appimageupdatetool" $APPDIR/appimageupdatetool
-chmod ugo+x $APPDIR/appimageupdatetool
+cp "$appimageupdatetool" "$APPDIR/appimageupdatetool"
+chmod ugo+x "$APPDIR/appimageupdatetool"
 if [ -f /lib/x86_64-linux-gnu/libfuse.so.2 ]; then
-        mkdir $APPDIR/appimageupdatetool-lib
-        cp /lib/x86_64-linux-gnu/libfuse.so.2 $APPDIR/appimageupdatetool-lib
+        mkdir "$APPDIR/appimageupdatetool-lib"
+        cp /lib/x86_64-linux-gnu/libfuse.so.2 "$APPDIR/appimageupdatetool-lib"
 fi
 
 # TODO: temporarily (? 2025-01-25) disable signing because validation fails
@@ -250,9 +273,10 @@ UPDATE_INFORMATION=
 if [ $# -ge 1 ]; then
         UPDATE_INFORMATION="-u zsync|$1"
 fi
+chmod 755 "$APPDIR" # mktemp creates 700 but 755 needed
 # shellcheck disable=SC1007,SC2086 # word spliting of
 # $UPDATE_INFORMATION is a requested behavior
-GITHUB_TOKEN= $mkappimage $UPDATE_INFORMATION $APPDIR
+GITHUB_TOKEN= $mkappimage $UPDATE_INFORMATION "$APPDIR"
 
-rm -rf $APPDIR tmpinstall
+rm -rf "$APPDIR" "$tmpinstall"
 
