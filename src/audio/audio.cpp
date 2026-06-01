@@ -606,7 +606,9 @@ static void *audio_receiver_thread(void *arg)
 
                 if (!audio_desc_eq(network_desc, curr_desc)) {
                         size_t len = sizeof device_desc;
-                        int output_channels =  audio_postprocess_reconfigure(pp, curr_desc.ch_count);
+                        // the eventual user override by --audio-channel-map
+                        int    output_channels = audio_postprocess_reconfigure(
+                            pp, curr_desc.ch_count);
                         device_desc =
                             audio_desc{ .bps         = curr_desc.bps,
                                         .sample_rate = curr_desc.sample_rate,

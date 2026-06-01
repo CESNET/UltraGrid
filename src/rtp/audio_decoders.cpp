@@ -451,8 +451,7 @@ audio_postprocess_reconfigure(struct state_audio_postprocess *postprocess,
 
         if(!postprocess->fixed_scale) {
                 postprocess->scale.clear();
-                int scale_count = postprocess->channel_remapping ? postprocess->channel_map.max_output + 1: input_channels;
-                postprocess->scale.resize(scale_count);
+                postprocess->scale.resize(output_channels);
         }
         postprocess->resample_remainder = {};
         postprocess->decoded = {};
