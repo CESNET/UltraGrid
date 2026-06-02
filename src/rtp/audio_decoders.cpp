@@ -245,21 +245,24 @@ static void audio_decoder_process_message(struct module *m)
         }
 }
 
-static void audio_channel_map_usage()
+static void
+audio_channel_map_usage()
 {
-        printf("\t--audio-channel-map <mapping>   mapping of input audio channels\n");
-        printf("\t                                to output audio channels comma-separated\n");
-        printf("\t                                list of channel mapping (receiver only)\n");
-        printf("\t                                eg. 0:0,1:0 - mixes first 2 channels\n");
-        printf("\t                                    0:0    - play only first channel\n");
-        printf("\t                                    0:0,:1 - sets second channel to\n");
-        printf("\t                                             a silence, first one is\n");
-        printf("\t                                             left as is\n");
-        printf("\t                                    0:0,0:1 - splits mono into\n");
-        printf("\t                                              2 channels\n");
+        color_printf("Usage:\n");
+        color_printf("\t" TBOLD(TRED("--audio-channel-map <mapping>"))"   mapping of input audio channels\n");
+        color_printf("\t                                to output audio channels comma-separated\n");
+        color_printf("\t                                list of channel mapping (receiver only)\n");
+
+        color_printf("\nExamples:\n");
+        color_printf("\t- " TBOLD("0:0,1:0") " - mixes first 2 channels\n");
+        color_printf("\t- " TBOLD("0:0") "     - play only first channel\n");
+        color_printf("\t- " TBOLD("0:0,:1") "  - sets second channel to a silence, first "
+                     "one is left as is\n");
+        color_printf("\t- " TBOLD("0:0,0:1") " - splits mono into 2 channels\n");
 }
 
-static void audio_scale_usage()
+static void
+audio_scale_usage()
 {
         color_printf("Usage:\n");
         color_printf(TBOLD(TRED("\t--audio-scale [<factor>|<method>]\n")));
@@ -271,7 +274,6 @@ static void audio_scale_usage()
         color_printf(TBOLD("\t          auto") " - automatically adjust volume\n");
         color_printf(TBOLD("\t          none") " - no scaling will be performed\n");
 }
-
 
 ADD_TO_PARAM("soft-resample", "* soft-resample=<num>/<den>\n"
                 "  Resample to specified sampling rate, eg. 12288128/256 for 48000.5 Hz\n");
