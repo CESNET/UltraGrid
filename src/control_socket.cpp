@@ -321,7 +321,10 @@ void control_start(struct control_state *s)
         s->control_thread_id = thread(control_thread, s);
         s->stat_event_thread_id = thread(stat_event_thread, s);
 
-        log_msg(LOG_LEVEL_NOTICE, "Control socket listening on port %d\n",
+        /* @todo this should be perhaps at most LOG_LEVEL_VERBOSE
+         * not to advertise it to users much as control socket is
+         * mainly internal... but GUI is currently using that */
+        log_msg(LOG_LEVEL_INFO, "Control socket listening on port %d\n",
                         socket_get_recv_port(s->socket_fd));
         s->started = true;
 }

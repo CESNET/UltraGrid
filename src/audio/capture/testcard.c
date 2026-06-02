@@ -372,12 +372,12 @@ generate_signal(struct state_audio_capture_testcard *s, enum pattern pattern,
                 abort();
         }
 
-        log_msg(LOG_LEVEL_NOTICE,
-                MOD_NAME "Generating %d Hz (%.2f  RMS dBFS) %s (%s, "
-                         "samples per frame: %llu).\n",
-                frequency, volume, pattern_name,
-                audio_desc_to_cstring(audio_desc_from_frame(&s->audio)),
-                s->chunk_size);
+        MSG(INFO,
+            "Generating %d Hz (%.2f  RMS dBFS) %s (%s, "
+            "samples per frame: %llu).\n",
+            frequency, volume, pattern_name,
+            audio_desc_to_cstring(audio_desc_from_frame(&s->audio)),
+            s->chunk_size);
 
         // add padding if s->total_samples % s->chunk_size != 0
         s->audio_samples = (char *) realloc(

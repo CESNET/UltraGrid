@@ -270,7 +270,7 @@ audio_cap_fluidsynth_init(struct module */* parent */, const char *cfg)
                         MSG(ERROR, "Failed to add MIDI: %s\n", s->req_filename);
                         goto error;
                 }
-                MSG(NOTICE, "Playing MIDI file: %s\n", s->req_filename);
+                MSG(INFO, "Playing MIDI file: %s\n", s->req_filename);
         } else {
                 int rc = fluid_player_add_mem(s->player,
                                           songs[s->req_song_idx - 1].midi,
@@ -280,7 +280,7 @@ audio_cap_fluidsynth_init(struct module */* parent */, const char *cfg)
                             songs[s->req_song_idx - 1].desc);
                         goto error;
                 }
-                MSG(NOTICE, "Playing built-in song: %s\n",
+                MSG(INFO, "Playing built-in song: %s\n",
                     songs[s->req_song_idx - 1].desc);
         }
         fluid_player_set_loop(s->player, s->req_iterations);
@@ -295,7 +295,7 @@ audio_cap_fluidsynth_init(struct module */* parent */, const char *cfg)
         s->frame_interval  = CHUNK_SIZE * NS_IN_SEC_DBL / s->audio.sample_rate;
         s->next_frame_time = get_time_in_ns() + s->frame_interval;
 
-        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Initialized fluidsynth\n");
+        MSG(VERBOSE, "Initialized fluidsynth\n");
 
         free(sf);
         return s;
