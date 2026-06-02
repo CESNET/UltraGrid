@@ -55,6 +55,7 @@ struct audio_frame2;
 struct coded_data;
 struct module;
 struct pbuf_stats;
+struct state_audio_postprocess;
 
 typedef bool (*audio_playback_ctl_t)(void *state, int request, void *data, size_t *len);
 
@@ -64,9 +65,9 @@ void *audio_decoder_init(const char *encryption, struct module *parent);
 void audio_decoder_destroy(void *state);
 
 // postprocess API
-struct state_audio_postprocess *audio_postprocess_init(char *audio_channel_map,
-                                                       const char *audio_scale,
-                                                       struct module *parent);
+int  audio_postprocess_init(char *channel_map, const char *scale,
+                            struct module                   *parent,
+                            struct state_audio_postprocess **out);
 int  audio_postprocess_reconfigure(struct state_audio_postprocess *postprocess,
                                    int input_channels);
 void audio_postprocess_done(struct state_audio_postprocess *postprocess);

@@ -131,8 +131,6 @@ struct state_audio {
         pthread_t audio_sender_thread_id   = PTHREAD_NULL;
         pthread_t audio_receiver_thread_id = PTHREAD_NULL;
 
-        char *audio_channel_map = nullptr;
-        const char *audio_scale = nullptr;
         echo_cancellation_t *echo_state = nullptr;
         struct exporter *exporter = nullptr;
         int resample_to = 0;
@@ -146,6 +144,7 @@ struct state_audio {
         int recv_buf_size = DEFAULT_AUDIO_RECV_BUF_SIZE;
 
         struct video_rxtx *rxtx = nullptr;
+        struct state_audio_postprocess *pp = nullptr;
 };
 
 /** 
@@ -162,36 +161,6 @@ static struct response *
 audio_sender_process_message(struct state_audio      *s,
                              struct msg_audio_sender *msg);
 
-static void audio_channel_map_usage(void);
-static void audio_scale_usage(void);
-
-static void audio_channel_map_usage(void)
-{
-        printf("\t--audio-channel-map <mapping>   mapping of input audio channels\n");
-        printf("\t                                to output audio channels comma-separated\n");
-        printf("\t                                list of channel mapping (receiver only)\n");
-        printf("\t                                eg. 0:0,1:0 - mixes first 2 channels\n");
-        printf("\t                                    0:0    - play only first channel\n");
-        printf("\t                                    0:0,:1 - sets second channel to\n");
-        printf("\t                                             a silence, first one is\n");
-        printf("\t                                             left as is\n");
-        printf("\t                                    0:0,0:1 - splits mono into\n");
-        printf("\t                                              2 channels\n");
-}
-
-static void audio_scale_usage(void)
-{
-        col() << "Usage:\n";
-        col() << TBOLD(TRED("\t--audio-scale [<factor>|<method>]\n"));
-        col() << "\t        Floating point number that tells a static scaling factor for all\n";
-        col() << "\t        output channels. Scaling method can be one from these:\n";
-        col() << TBOLD("\t          0.0-1.0") << " - factor to scale to (usually 0-1 but can be more)\n";
-        col() << TBOLD("\t          mixauto") << " - automatically adjust volume if using channel\n";
-        col() << "\t                    mixing/remapping (default)\n";
-        col() << TBOLD("\t          auto") << " - automatically adjust volume\n";
-        col() << TBOLD("\t          none") << " - no scaling will be performed\n";
-}
-
 static void should_exit_audio(void *state) {
         auto *s = (struct state_audio *) state;
         s->should_exit = true;
@@ -204,20 +173,6 @@ audio_init_real(struct state_audio *s, const struct audio_options *opt,
         assert(opt->send_cfg != NULL);
         assert(opt->recv_cfg != NULL);
 
-        if (opt->channel_map &&
-                     strcmp("help", opt->channel_map) == 0) {
-                audio_channel_map_usage();
-                return 1;
-        }
-
-        if (opt->scale &&
-                     strcmp("help", opt->scale) == 0) {
-                audio_scale_usage();
-                return 1;
-        }
-
-        s->audio_channel_map = opt->channel_map;
-        s->audio_scale = opt->scale;
         s->rxtx = opt->vrxtx;
         s->resample_to = parse_audio_codec_params(opt->codec_cfg).sample_rate;
 
@@ -315,6 +270,13 @@ audio_init_real(struct state_audio *s, const struct audio_options *opt,
                 }
         }
 
+        int pp_ret =
+            audio_postprocess_init(opt->channel_map, opt->scale,
+                                   s->audio_receiver_module.get(), &s->pp);
+        if (pp_ret != 0) {
+                return pp_ret;
+        }
+
         return 0;
 }
 
@@ -401,6 +363,7 @@ void audio_done(struct state_audio *s)
         }
 
         audio_codec_done(s->audio_encoder);
+        audio_postprocess_done(s->pp);
 
         unregister_should_exit_callback(get_root_module(s->mod.get()),
                                         should_exit_audio, s);
@@ -522,8 +485,6 @@ static void *audio_receiver_thread(void *arg)
         // rtp variables
         struct audio_desc device_desc{};
         struct audio_desc network_desc{};
-        auto *pp = audio_postprocess_init(s->audio_channel_map, s->audio_scale,
-                                          s->audio_receiver_module.get());
         bool  playback_supports_multiple_streams = false;
         long long int received_bytes_cum         = 0;
         long long int expected_bytes_cum         = 0;
@@ -561,7 +522,7 @@ static void *audio_receiver_thread(void *arg)
                         size_t len = sizeof device_desc;
                         // the eventual user override by --audio-channel-map
                         int    output_channels = audio_postprocess_reconfigure(
-                            pp, curr_desc.ch_count);
+                            s->pp, curr_desc.ch_count);
                         device_desc =
                             audio_desc{ .bps         = curr_desc.bps,
                                         .sample_rate = curr_desc.sample_rate,
@@ -608,7 +569,7 @@ static void *audio_receiver_thread(void *arg)
                         received_bytes_cum += cur_frame->received_bytes;
 
                         if (!decode_audio_frame_postprocess(
-                                pp, cur_frame->frame, &f, &expected_bytes_cum,
+                                s->pp, cur_frame->frame, &f, &expected_bytes_cum,
                                 &received_bytes_cum)) {
                                 CONTINUE;
                         }
@@ -631,7 +592,6 @@ static void *audio_receiver_thread(void *arg)
         }
 
         free(f.data);
-        audio_postprocess_done(pp);
 
         return NULL;
 }

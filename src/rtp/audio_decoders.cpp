@@ -245,13 +245,52 @@ static void audio_decoder_process_message(struct module *m)
         }
 }
 
+static void audio_channel_map_usage()
+{
+        printf("\t--audio-channel-map <mapping>   mapping of input audio channels\n");
+        printf("\t                                to output audio channels comma-separated\n");
+        printf("\t                                list of channel mapping (receiver only)\n");
+        printf("\t                                eg. 0:0,1:0 - mixes first 2 channels\n");
+        printf("\t                                    0:0    - play only first channel\n");
+        printf("\t                                    0:0,:1 - sets second channel to\n");
+        printf("\t                                             a silence, first one is\n");
+        printf("\t                                             left as is\n");
+        printf("\t                                    0:0,0:1 - splits mono into\n");
+        printf("\t                                              2 channels\n");
+}
+
+static void audio_scale_usage()
+{
+        color_printf("Usage:\n");
+        color_printf(TBOLD(TRED("\t--audio-scale [<factor>|<method>]\n")));
+        color_printf("\t        Floating point number that tells a static scaling factor for all\n");
+        color_printf("\t        output channels. Scaling method can be one from these:\n");
+        color_printf(TBOLD("\t          0.0-1.0") " - factor to scale to (usually 0-1 but can be more)\n");
+        color_printf(TBOLD("\t          mixauto") " - automatically adjust volume if using channel\n");
+        color_printf("\t                    mixing/remapping (default)\n");
+        color_printf(TBOLD("\t          auto") " - automatically adjust volume\n");
+        color_printf(TBOLD("\t          none") " - no scaling will be performed\n");
+}
+
+
 ADD_TO_PARAM("soft-resample", "* soft-resample=<num>/<den>\n"
                 "  Resample to specified sampling rate, eg. 12288128/256 for 48000.5 Hz\n");
-struct state_audio_postprocess *
-audio_postprocess_init(char *audio_channel_map, const char *audio_scale,
-                       struct module *parent)
+int
+audio_postprocess_init(char *channel_map, const char *scale,
+                       struct module                   *parent,
+                       struct state_audio_postprocess **out)
 {
-        assert(audio_scale != NULL);
+        assert(scale != nullptr);
+
+        if (channel_map != nullptr && strcmp(channel_map, "help") == 0) {
+                audio_channel_map_usage();
+                return 1;
+        }
+
+        if (strcmp(scale, "help") == 0) {
+                audio_scale_usage();
+                return 1;
+        }
 
         bool scale_auto = false;
         double scale_factor = 1.0;
@@ -272,10 +311,10 @@ audio_postprocess_init(char *audio_channel_map, const char *audio_scale,
 
         s->control = get_control_state(parent);
 
-        if(audio_channel_map) {
-                if (!parse_channel_map_cfg(&s->channel_map, audio_channel_map)) {
+        if (channel_map != nullptr) {
+                if (!parse_channel_map_cfg(&s->channel_map, channel_map)) {
                         audio_postprocess_done(s);
-                        return nullptr;
+                        return -1;
                 }
                 s->channel_remapping = true;
         } else {
@@ -283,34 +322,35 @@ audio_postprocess_init(char *audio_channel_map, const char *audio_scale,
                 s->channel_map.map = NULL;
                 s->channel_map.sizes = NULL;
                 s->channel_map.size = 0;
-        } 
+        }
 
-        if(strcasecmp(audio_scale, "mixauto") == 0) {
+        if (strcasecmp(scale, "mixauto") == 0) {
                 if(s->channel_remapping) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Channel remapping detected - automatically scaling audio levels. Use \"--audio-scale none\" to disable.\n");
                         scale_auto = true;
                 } else {
                         scale_auto = false;
                 }
-        } else if(strcasecmp(audio_scale, "auto") == 0) {
+        } else if (strcasecmp(scale, "auto") == 0) {
                 scale_auto = true;
-        } else if(strcasecmp(audio_scale, "none") == 0) {
+        } else if (strcasecmp(scale, "none") == 0) {
                 scale_auto = false;
                 scale_factor = 1.0;
         } else {
                 scale_auto = false;
-                scale_factor = atof(audio_scale);
+                scale_factor = atof(scale);
                 if(scale_factor <= 0.0) {
                         log_msg(LOG_LEVEL_ERROR, "Invalid audio scaling factor!\n");
                         audio_postprocess_done(s);
-                        return nullptr;
+                        return -1;
                 }
         }
 
         s->fixed_scale = scale_auto ? false : true;
         s->scale.at(0).scale = scale_factor;
 
-        return s;
+        *out = s;
+        return 0;
 }
 
 void *
@@ -377,6 +417,9 @@ void audio_decoder_destroy(void *state)
 void
 audio_postprocess_done(struct state_audio_postprocess *postprocess)
 {
+        if (!postprocess) {
+                return;
+        }
         module_done(&postprocess->mod);
         delete postprocess;
 }
