@@ -47,15 +47,12 @@
  *
  */
 
-#include <array>
 #include <cassert>
-#include <cinttypes>
 #include <climits>
 #include <cmath>      // for log10
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <iomanip>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -77,9 +74,7 @@
 #include "host.h"
 #include "messaging.h"                  // for check_message...
 #include "module.h"
-#include "pdb.h"
 #include "rtp/audio_decoders.h"
-#include "rtp/pbuf.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "transmit.h"
@@ -88,7 +83,6 @@
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "video_display.h"              // for DISPLAY_FLAG_AUDIO_*
-#include "utils/net.h"
 #include "utils/macros.h"               // for STR_LEN, snprintf_ch
 #include "utils/misc.h"                 // for get_stat_color
 #include "utils/pthread.h"              // for PTHREAD_NULL
@@ -98,35 +92,22 @@
 #include "video_rxtx.h"                 // for video_rxtx
 #include "video_rxtx/rtp_common.h"
 
-using std::array;
-using std::fixed;
 using std::ostringstream;
-using std::setprecision;
 using std::string;
-using std::to_string;
 using std::unique_ptr;
 using namespace std::string_literals;
 
 const enum module_class path_audio_send_module[] = { MODULE_CLASS_AUDIO,
                                                      MODULE_CLASS_SENDER,
                                                      MODULE_CLASS_NONE };
-
-enum audio_transport_device {
-        NET_NATIVE,
-        NET_JACK,
-        NET_STANDARD
-};
-
 #define MOD_NAME "[audio] "
 
 struct state_audio {
-        state_audio(struct module *parent, time_ns_t st) :
+        explicit state_audio(struct module *parent) :
                 mod(MODULE_CLASS_AUDIO, parent, this),
                 audio_receiver_module(MODULE_CLASS_RECEIVER, mod.get(), this),
                 audio_sender_module(MODULE_CLASS_SENDER,mod.get(), this),
-                filter_chain(audio_sender_module.get()),
-                start_time(st),
-                t0(st)
+                filter_chain(audio_sender_module.get())
         {
         }
 
@@ -142,17 +123,9 @@ struct state_audio {
         Filter_chain filter_chain;
 
         struct audio_codec_state *audio_encoder = nullptr;
-        
-        struct rtp *audio_network_device = nullptr;
-        struct pdb *audio_participants = nullptr;
-        std::string proto_cfg; // audio network protocol options
-        void *jack_connection = nullptr;
-        enum audio_transport_device sender = NET_NATIVE;
-        enum audio_transport_device receiver = NET_NATIVE;
-        
-        time_ns_t start_time;
-        time_ns_t t0; // for statistics
 
+        // for statistics
+        time_ns_t t0 = get_time_in_ns();
         audio_frame2 captured;
 
         pthread_t audio_sender_thread_id   = PTHREAD_NULL;
@@ -163,8 +136,6 @@ struct state_audio {
         echo_cancellation_t *echo_state = nullptr;
         struct exporter *exporter = nullptr;
         int resample_to = 0;
-
-        struct common_opts opts{};
 
         int audio_tx_mode = 0;
 
@@ -261,8 +232,6 @@ audio_init_real(struct state_audio *s, const struct audio_options *opt,
                 fprintf(stderr, "Speex not compiled in. Could not enable echo cancellation.\n");
                 return -1;
 #endif /* HAVE_SPEEXDSP */
-        } else {
-                s->echo_state = NULL;
         }
 
         if(opt->filter_cfg){
@@ -276,8 +245,6 @@ audio_init_real(struct state_audio *s, const struct audio_options *opt,
                 }
         }
 
-        s->opts = *common;
-        
         if (strcmp(opt->send_cfg, "none") != 0) {
                 const char *cfg = "";
                 char *device = strdup(opt->send_cfg);
@@ -331,43 +298,21 @@ audio_init_real(struct state_audio *s, const struct audio_options *opt,
                 }
         }
 
-        s->proto_cfg = opt->proto_cfg;
-
-        if (strcasecmp(opt->proto, "ultragrid_rtp") == 0 ||
-            strcasecmp(opt->proto, "rtsp") == 0 ||
-            strcasecmp(opt->proto, "sdp") == 0) {
-                s->sender = s->receiver =
-                    strcasecmp(opt->proto, "ultragrid_rtp") == 0 ? NET_NATIVE
-                                                                 : NET_STANDARD;
-                struct rtp_rxtx_common *rtp_common_state = nullptr;
-                size_t                  len =
-                    sizeof rtp_common_state; // NOLINT(bugprone-sizeof-expression)
-                bool ctl_rc =
-                    rxtx_ctl_property(s->rxtx, GET_RTP_COMMON_STATE,
-                                      (void *) &rtp_common_state, &len);
-                assert(ctl_rc && MOD_NAME "Cannot get RTP state from RXTX!");
-                struct rtp_rxtx_medium *audio = &rtp_common_state->medium[TX_MEDIA_AUDIO];
-                s->audio_network_device = audio->network_device;
-                s->audio_participants = audio->participants;
-        } else if (strcasecmp(opt->proto, "JACK") == 0) {
-#ifndef HAVE_JACK_TRANS
-                fprintf(stderr, "[Audio] JACK transport requested, "
-                                "but JACK support isn't compiled.\n");
-                return -1;
-#else
-                s->sender = NET_JACK;
-                s->receiver = NET_JACK;
-#endif
-        } else if (s->audio_tx_mode != 0) {
-                log_msg(LOG_LEVEL_ERROR, "Unknown audio protocol: %s\n", opt->proto);
-                return -1;
-        }
-
-        if ((s->audio_tx_mode & MODE_RECEIVER) != 0U) {
-                size_t len = sizeof(struct rtp *);
-                audio_playback_ctl(s->audio_playback_device,
-                                   AUDIO_PLAYBACK_PUT_NETWORK_DEVICE,
-                                   &s->audio_network_device, &len);
+        struct rtp_rxtx_common *rtp_common_state = nullptr;
+        size_t                  len =
+            sizeof rtp_common_state; // NOLINT(bugprone-sizeof-expression)
+        bool rtp_state_rc = rxtx_ctl_property(s->rxtx, GET_RTP_COMMON_STATE,
+                                              (void *) &rtp_common_state, &len);
+        if (rtp_state_rc) {
+                struct rtp_rxtx_medium *audio =
+                    &rtp_common_state->medium[TX_MEDIA_AUDIO];
+                struct rtp *audio_network_device = audio->network_device;
+                if ((s->audio_tx_mode & MODE_RECEIVER) != 0U) {
+                        audio_playback_ctl(s->audio_playback_device,
+                                           AUDIO_PLAYBACK_PUT_NETWORK_DEVICE,
+                                           (void *) &audio_network_device,
+                                           &len);
+                }
         }
 
         return 0;
@@ -382,7 +327,7 @@ audio_init_real(struct state_audio *s, const struct audio_options *opt,
 int
 audio_init(struct state_audio **state, const struct audio_options *opt,
                 const struct common_opts *common) {
-        auto *s = new state_audio(common->parent, common->start_time);
+        auto *s = new state_audio(common->parent);
         register_should_exit_callback(common->parent, should_exit_audio, s);
 
         int rc = audio_init_real(s, opt, common);
