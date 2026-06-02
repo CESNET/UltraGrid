@@ -1,9 +1,9 @@
 /**
- * @file   utils/wait_obj.cpp
+ * @file   utils/wait_obj.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2025 CESNET
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,28 +37,60 @@
 
 #include "utils/wait_obj.h"
 
-struct wait_obj *wait_obj_init()
+#include <pthread.h>
+#include <stdlib.h>
+
+#include "compat/c23.h" // IWYU pragma: keep
+#include "utils/pthread.h"
+
+#define MOD_NAME "[wait_obj] "
+
+struct wait_obj {
+        pthread_mutex_t lock;
+        pthread_cond_t  cv;
+        bool            val;
+};
+
+struct wait_obj *
+wait_obj_init()
 {
-        return new wait_obj;
+        struct wait_obj *wait_obj = calloc(1, sizeof *wait_obj);
+        ug_pthread_mutex_init(&wait_obj->lock);
+        pthread_cond_init(&wait_obj->cv, nullptr);
+        return wait_obj;
 }
 
-void wait_obj_reset(struct wait_obj *wait_obj)
+void
+wait_obj_reset(struct wait_obj *wait_obj)
 {
-        wait_obj->reset();
+        CHK_PTHR(pthread_mutex_lock(&wait_obj->lock));
+        wait_obj->val = false;
+        CHK_PTHR(pthread_mutex_unlock(&wait_obj->lock));
 }
 
-void wait_obj_wait(struct wait_obj *wait_obj)
+void
+wait_obj_wait(struct wait_obj *wait_obj)
 {
-        wait_obj->wait();
+        CHK_PTHR(pthread_mutex_lock(&wait_obj->lock));
+        while (!wait_obj->val) {
+                CHK_PTHR(pthread_cond_wait(&wait_obj->cv, &wait_obj->lock));
+        }
+        CHK_PTHR(pthread_mutex_unlock(&wait_obj->lock));
 }
 
-void wait_obj_notify(struct wait_obj *wait_obj)
+void
+wait_obj_notify(struct wait_obj *wait_obj)
 {
-        wait_obj->notify();
+        CHK_PTHR(pthread_mutex_lock(&wait_obj->lock));
+        wait_obj->val = true;
+        CHK_PTHR(pthread_mutex_unlock(&wait_obj->lock));
+        CHK_PTHR(pthread_cond_signal(&wait_obj->cv));
 }
 
-void wait_obj_done(struct wait_obj *wait_obj)
+void
+wait_obj_done(struct wait_obj *wait_obj)
 {
-        delete wait_obj;
+        CHK_PTHR(pthread_cond_destroy(&wait_obj->cv));
+        CHK_PTHR(pthread_mutex_destroy(&wait_obj->lock));
+        free(wait_obj);
 }
-

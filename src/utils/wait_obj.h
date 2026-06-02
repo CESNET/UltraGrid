@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013 CESNET z.s.p.o.
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,40 +38,6 @@
 #ifndef UTILS_WAIT_OBJ_H_
 #define UTILS_WAIT_OBJ_H_
 
-#ifdef __cplusplus
-#include <condition_variable>
-#include <mutex>
-
-struct wait_obj {
-        public:
-                wait_obj() : m_val(false) {
-                }
-                void wait() {
-                        std::unique_lock<std::mutex> lk(m_lock);
-                        m_cv.wait(lk, [this] { return m_val; });
-                }
-                void reset() {
-                        std::lock_guard<std::mutex> lk(m_lock);
-                        m_val = false;
-                }
-                void notify() {
-                        std::unique_lock<std::mutex> lk(m_lock);
-                        m_val = true;
-                        lk.unlock();
-                        m_cv.notify_one();
-                }
-        private:
-                std::mutex m_lock;
-                std::condition_variable m_cv;
-                bool m_val;
-};
-#endif // __cplusplus
-
-struct wait_obj;
-
-//
-// C wrapper
-//
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
