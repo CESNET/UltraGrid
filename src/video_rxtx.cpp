@@ -94,6 +94,8 @@ public:
         const struct video_rxtx_info *m_impl_funcs = nullptr;
         void                         *m_impl_state = nullptr;
 
+        enum rxtx_mode rxtx_mode[NUM_TX_MEDIA];
+
 protected:
         video_rxtx(const char *protocol_name,
                    const struct vrxtx_params *params,
@@ -297,7 +299,7 @@ void *video_rxtx::sender_loop() {
 }
 
 /**
- // * @returns the vrxtx state (not nullptr)
+ * @returns the vrxtx state (not nullptr)
  * @throws 1 help shown
  * @throws -1 on error
  */
@@ -334,6 +336,10 @@ video_rxtx::create(string const &proto, const struct vrxtx_params *params,
                         throw 1;
                 }
                 throw -1;
+        }
+
+        for (int i = 0; i < NUM_TX_MEDIA; ++i) {
+                ret->rxtx_mode[i] = params->medium[i].rxtx_mode;
         }
 
         if ((params_video->rxtx_mode & MODE_RECEIVER) != 0U) {
@@ -470,4 +476,10 @@ get_tx_name(enum tx_media_type t)
         }
         MSG(ERROR, "wrong medium type %d passed to %s!\n", t, __func__);
         abort();
+}
+
+enum rxtx_mode
+rxtx_get_mode(struct video_rxtx *s, enum tx_media_type t)
+{
+        return s->rxtx_mode[t];
 }

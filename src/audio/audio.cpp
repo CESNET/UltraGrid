@@ -200,31 +200,25 @@ audio_init_real(struct state_audio *s, const struct audio_options *opt,
                 }
         }
 
-        if (strcmp(opt->send_cfg, "none") != 0) {
-                const char *cfg = "";
-                char *device = strdup(opt->send_cfg);
-		if(strchr(device, ':')) {
-			char *delim = strchr(device, ':');
-			*delim = '\0';
-			cfg = delim + 1;
-		}
+        s->audio_tx_mode = rxtx_get_mode(s->rxtx, TX_MEDIA_AUDIO);
 
-                int ret = audio_capture_init(s->audio_sender_module.get(), device, cfg, &s->audio_capture_device);
-                free(device);
-                if (ret != 0) {
-                        return ret;
-                }
+        char capture_dev[STR_LEN];
+        const char *capture_cfg = "";
+        strcpy_ch(capture_dev, opt->send_cfg);
+        if (strchr(capture_dev, ':') != nullptr) {
+                char *delim  = strchr(capture_dev, ':');
+                *delim       = '\0';
+                capture_cfg = delim + 1;
+        }
+        int ret = audio_capture_init(s->audio_sender_module.get(), capture_dev,
+                                     capture_cfg, &s->audio_capture_device);
+        if (ret != 0) {
+                return ret;
+        }
 
-                s->audio_tx_mode |= MODE_SENDER;
-        } else {
-                s->audio_capture_device = audio_capture_init_null_device();
-        }
-        
-        if (strcmp(opt->recv_cfg, "none") != 0) {
-                s->audio_tx_mode |= MODE_RECEIVER;
-        }
+        char playback_dev[STR_LEN];
         const char *playback_cfg = "";
-        char       *playback_dev = strdup(opt->recv_cfg);
+        strcpy_ch(playback_dev, opt->recv_cfg);
         if (strchr(playback_dev, ':') != nullptr) {
                 char *delim  = strchr(playback_dev, ':');
                 *delim       = '\0';
@@ -233,11 +227,10 @@ audio_init_real(struct state_audio *s, const struct audio_options *opt,
         struct audio_playback_opts opts{};
         snprintf_ch(opts.cfg, "%s", playback_cfg);
         opts.parent = s->audio_receiver_module.get();
-        int ret =
+        ret =
             audio_playback_init(playback_dev, &opts, &s->audio_playback_device);
         bool playback_is_sdi = (audio_get_display_flags(playback_dev) &
                                 DISPLAY_FLAG_AUDIO_ANY) != 0U;
-        free(playback_dev);
         if (ret != 0) {
                 return ret;
         }

@@ -94,16 +94,6 @@ error:
         return -1;
 }
 
-struct state_audio_capture *audio_capture_init_null_device()
-{
-        struct state_audio_capture *device = NULL;
-        int ret = audio_capture_init(NULL, "none", "", &device);
-        if (ret != 0) {
-                log_msg(LOG_LEVEL_ERROR, "Unable to initialize null audio capture: %d\n", ret);
-        }
-        return device;
-}
-
 void audio_capture_print_help(bool full)
 {
         printf("Available audio capture devices:\n");

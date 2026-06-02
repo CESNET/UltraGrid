@@ -68,7 +68,6 @@ void                        audio_capture_print_help(bool);
  */
 int                         audio_capture_init(struct module *parent, const char *driver, const char *cfg,
                 struct state_audio_capture **);
-struct state_audio_capture *audio_capture_init_null_device(void);
 const struct audio_frame   *audio_capture_read(struct state_audio_capture * state);
 void                        audio_capture_done(struct state_audio_capture * state);
 
