@@ -103,17 +103,14 @@ COMMON_OBJS     = \
 		src/audio/audio_playback.o \
 		src/audio/capture/none.o \
 		src/audio/capture/sdi.o \
-		src/audio/capture/testcard.o \
 		src/audio/codec.o \
 		src/audio/codec/dummy_pcm.o \
 		src/audio/export.o \
-		src/audio/playback/dummy.o \
 		src/audio/playback/none.o \
 		src/audio/playback/sdi.o \
 		src/audio/resampler.o \
 		src/audio/types.o \
 		src/audio/utils.o \
-		src/audio/wav_reader.o \
 		src/audio/wav_writer.o \
 		src/audio/audio_filter.o \
 		src/audio/filter_chain.o \
@@ -165,7 +162,6 @@ COMMON_OBJS     = \
 		src/utils/time.o \
 		src/utils/vf_split.o \
 		src/utils/video_frame_pool.o \
-		src/utils/video_pattern_generator.o \
 		src/utils/wait_obj.o \
 		src/utils/windows.o \
 		src/utils/worker.o \
@@ -176,13 +172,10 @@ COMMON_OBJS     = \
 		src/video_capture.o \
 		src/video_capture_params.o \
 		src/video_capture/null.o \
-		src/video_capture/testcard.o \
-		src/video_capture/testcard_common.o \
 		src/video_compress.o \
 		src/video_compress/none.o \
 		src/video_decompress.o \
 		src/video_display.o \
-		src/video_display/dummy.o \
 		src/video_display/null.o \
 		src/video_export.o \
 		src/video_rxtx.o \

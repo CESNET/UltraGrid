@@ -1840,7 +1840,8 @@ esac
 
 if test $testcard2_req != no
 then
-        TESTCARD2_OBJ="src/video_capture/testcard2.o"
+        TESTCARD2_OBJ="src/video_capture/testcard2.o\
+ src/video_capture/testcard_common.o"
         if test "${testcard2_sdl_ttf_req?}" != no; then
                 if test "${sdl_version?}" -lt 3; then
                         PKG_CHECK_MODULES([SDL_TTF], [SDL${sdl_ver_suffix}_ttf],
@@ -3663,6 +3664,19 @@ if test -n "$req_files" && test "$req_files" != all; then
         OBJS="$OBJS $(echo "$req_files" | sed 's/,/ /g')"
 fi
 
+# for every dep ensure also that the depending file exists (to avoid forgetting
+# to update when moved or deleted)
+assert_present() { test -f $srcdir/$1 || { echo "$srcdir/$1 missing!" 2>&1; exit 20; }; }
+src_audio_capture_wav_o_dep=src/audio/wav_reader.o
+assert_present src/audio/capture/wav.c
+src_audio_capture_testcard_o_dep=src/audio/wav_reader.o
+assert_present src/audio/capture/testcard.c
+src_video_capture_import_o_dep=src/audio/wav_reader.o
+assert_present src/video_capture/import.c
+src_video_capture_testcard_o_dep="src/utils/video_pattern_generator.o
+                                  src/video_capture/testcard_common.o"
+assert_present src/video_capture/testcard.c
+
 if test "$build_default" != no || test "$req_files" = all; then
         CAPTURE_FILTERS="
         src/capture_filter/add_frame.o
@@ -3687,8 +3701,10 @@ if test "$build_default" != no || test "$req_files" = all; then
         ULTRAGRID_OBJS="$ULTRAGRID_OBJS ${CAPTURE_FILTERS?}
         src/audio/capture/aes67.o
         src/audio/capture/passive.o
+        src/audio/capture/testcard.o
         src/audio/capture/wav.o
         src/audio/playback/aes67.o
+        src/audio/playback/dummy.o
         src/audio/playback/dump.o
         src/audio/playback/mixer.o
         src/audio/filter/delay.o
@@ -3704,8 +3720,10 @@ if test "$build_default" != no || test "$req_files" = all; then
         src/video_capture/import.o
         src/video_capture/switcher.o
         src/video_capture/ug_input.o
+        src/video_capture/testcard.o
         src/video_decompress/i420.o
         src/video_display/aggregate.o
+        src/video_display/dummy.o
         src/video_display/dump.o
         src/video_display/multiplier.o
         src/video_display/pipe.o
@@ -3763,10 +3781,29 @@ fi
 
 TOREMOVE="$LIB_OBJS $UG_LIB_OBJS"
 
+# add common objs
+REFLECTOR_OBJS="$REFLECTOR_OBJS $OBJS"
+ULTRAGRID_OBJS="$ULTRAGRID_OBJS $OBJS"
+
+add_depends() (
+        print_file_deps() (
+                escaped_name=$(echo "${1?}" | tr ./- '@<:@_*@:>@')
+                eval "deps=\$${escaped_name}_dep"
+                echo $deps
+        )
+        for n in $1; do
+                echo $n
+                print_file_deps $n
+        done
+)
+ULTRAGRID_OBJS=$(add_depends "$ULTRAGRID_OBJS")
+REFLECTOR_OBJS=$(add_depends "$REFLECTOR_OBJS")
+TEST_OBJS=$(add_depends "$TEST_OBJS")
+
 # remove duplicite objs
-REFLECTOR_OBJS=`echo $REFLECTOR_OBJS $OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' '`
+REFLECTOR_OBJS=$(echo $REFLECTOR_OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' ')
 TEST_OBJS=`echo $TEST_OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' '`
-ULTRAGRID_OBJS=`echo $ULTRAGRID_OBJS $OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' '`
+ULTRAGRID_OBJS=$(echo $ULTRAGRID_OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' ')
 
 AC_SUBST(BIN_DEPS)
 AC_SUBST(GENERATED_HEADERS)
