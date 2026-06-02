@@ -1,9 +1,9 @@
 /**
- * @file   audio/playback/coreaudio.cpp
+ * @file   audio/playback/coreaudio.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,22 +42,20 @@
 
 #include <AudioUnit/AudioUnit.h>
 #include <Availability.h>
-#include <MacTypes.h>
-#include <cassert>
-#include <cstdio>
-#include <chrono>
-#include <cinttypes>
-#include <climits>
 #include <CoreAudio/AudioHardware.h>
-#include <iostream>
-#include <stdexcept>
+#include <MacTypes.h>
+#include <assert.h>
+#include <stdio.h>
+#include <inttypes.h>
+#include <limits.h>
+#include <time.h>
 #include <stdlib.h>
-#include <string>
 #include <string.h>
 
 #include "audio/audio_playback.h"
 #include "audio/playback/coreaudio.h"
 #include "audio/types.h"
+#include "compat/c23.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/audio_buffer.h"
@@ -65,13 +63,11 @@
 #include "utils/macos.h"
 #include "utils/ring_buffer.h"
 
-using namespace std::chrono;
-using std::cout;
-using std::stoi;
-
-constexpr int DEFAULT_BUFLEN_MS = 50;
-constexpr int CA_DIR = 1;
-#define NO_DATA_STOP_SEC 2
+enum {
+        CA_DIR            = 1,
+        DEFAULT_BUFLEN_MS = 50,
+        NO_DATA_STOP_SEC  = 2,
+};
 #define MOD_NAME "[CoreAudio play.] "
 
 struct state_ca_playback {
@@ -80,10 +76,10 @@ struct state_ca_playback {
         void *buffer; // audio buffer
         struct audio_buffer_api *buffer_fns;
         int audio_packet_size;
-        steady_clock::time_point last_audio_read;
+        struct timespec last_audio_read;
         bool quiet; ///< do not report buffer underruns if we do not receive data at all for a long period
         bool initialized;
-        int buf_len_ms = DEFAULT_BUFLEN_MS;
+        int buf_len_ms;
 };
 
 static OSStatus theRenderProc(void *inRefCon,
@@ -110,20 +106,27 @@ static OSStatus theRenderProc(void *inRefCon,
 
         if(ret < write_bytes) {
                 if (!s->quiet) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Audio buffer underflow (" << write_bytes << " requested, " << ret << " written).\n";
+                        MSG(WARNING,
+                            "Audio buffer underflow (%d requested, %d "
+                            "written).\n",
+                            write_bytes, ret);
                 }
                 //memset(ioData->mBuffers[0].mData, 0, write_bytes);
+                struct timespec now;
+                clock_gettime(CLOCK_MONOTONIC, &now);
+
                 ioData->mBuffers[0].mDataByteSize = ret;
-                if (!s->quiet && duration_cast<seconds>(steady_clock::now() - s->last_audio_read).count() > NO_DATA_STOP_SEC) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "No data for " << NO_DATA_STOP_SEC << " seconds! Stopping.\n";
+                if (!s->quiet && ts_diff(now, s->last_audio_read) > (double) NO_DATA_STOP_SEC) {
+                        MSG(WARNING, "No data for %d seconds! Stopping.\n",
+                            NO_DATA_STOP_SEC);
                         s->quiet = true;
                 }
         } else {
                 if (s->quiet) {
-                        LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Starting again.\n";
+                        MSG(NOTICE, "Starting again.\n");
                 }
                 s->quiet = false;
-                s->last_audio_read = steady_clock::now();
+                clock_gettime(CLOCK_MONOTONIC, &s->last_audio_read);
         }
         return noErr;
 }
@@ -157,18 +160,21 @@ static bool audio_play_ca_reconfigure(void *state, struct audio_desc desc)
         OSStatus ret = noErr;
         AURenderCallbackStruct  renderStruct;
 
-        LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Audio reinitialized to " << desc.bps * 8 << "-bit, " << desc.ch_count << " channels, " << desc.sample_rate << " Hz\n";
+        MSG(INFO, "Audio reinitialized to %d-bit, %d channels, %d Hz\n",
+            desc.bps * 8, desc.ch_count, desc.sample_rate);
 
         if (s->initialized) {
                 ret = AudioOutputUnitStop(s->auHALComponentInstance);
                 if(ret) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot stop AUHAL instance: " << get_osstatus_str(ret) << ".\n";
+                        MSG(ERROR, "Cannot stop AUHAL instance: %s\n",
+                            get_osstatus_str(ret));
                         goto error;
                 }
 
                 ret = AudioUnitUninitialize(s->auHALComponentInstance);
                 if(ret) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot uninitialize AUHAL instance: " << get_osstatus_str(ret) << ".\n";
+                        MSG(ERROR, "Cannot uninitialize AUHAL instance: %s\n",
+                            get_osstatus_str(ret));
                         goto error;
                 }
                 s->initialized = false;
@@ -185,7 +191,10 @@ static bool audio_play_ca_reconfigure(void *state, struct audio_desc desc)
         {
                 if (get_commandline_param("audio-disable-adaptive-buffer") != nullptr || get_commandline_param("ca-disable-adaptive-buf") != nullptr) {
                         if (get_commandline_param("ca-disable-adaptive-buf") != nullptr) {
-                                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Param \"ca-disable-adaptive-buf\" is deprecated, use audio-disable-adaptive-bufer instead.\n";
+                                MSG(WARNING,
+                                    "Param \"ca-disable-adaptive-buf\" is "
+                                    "deprecated, use "
+                                    "audio-disable-adaptive-bufer instead.\n");
                         }
                         int buf_len = desc.bps * desc.ch_count * (desc.sample_rate * s->buf_len_ms / 1000);
                         s->buffer = ring_buffer_init(buf_len);
@@ -200,7 +209,8 @@ static bool audio_play_ca_reconfigure(void *state, struct audio_desc desc)
         ret = AudioUnitGetProperty(s->auHALComponentInstance, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input,
                         0, &stream_desc, &size);
         if(ret) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot get device format from AUHAL instance: " << get_osstatus_str(ret) << ".\n";
+                MSG(ERROR, "Cannot get device format from AUHAL instance: %s\n",
+                    get_osstatus_str(ret));
                 goto error;
         }
         stream_desc.mSampleRate = desc.sample_rate;
@@ -214,7 +224,8 @@ static bool audio_play_ca_reconfigure(void *state, struct audio_desc desc)
         ret = AudioUnitSetProperty(s->auHALComponentInstance, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input,
                         0, &stream_desc, sizeof(stream_desc));
         if(ret) {
-                LOG(LOG_LEVEL_ERROR) << "Cannot set device format to AUHAL instance: " << get_osstatus_str(ret) << ".\n";
+                MSG(ERROR, "Cannot set device format to AUHAL instance: %s\n",
+                    get_osstatus_str(ret));
                 goto error;
         }
 
@@ -223,19 +234,21 @@ static bool audio_play_ca_reconfigure(void *state, struct audio_desc desc)
         ret = AudioUnitSetProperty(s->auHALComponentInstance, kAudioUnitProperty_SetRenderCallback,
                         kAudioUnitScope_Input, 0, &renderStruct, sizeof(AURenderCallbackStruct));
         if(ret) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot register audio processing callback: " << get_osstatus_str(ret) << ".\n";
+                MSG(ERROR, "Cannot register audio processing callback: %s\n",
+                    get_osstatus_str(ret));
                 goto error;
         }
 
         ret = AudioUnitInitialize(s->auHALComponentInstance);
         if(ret) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot initialize AUHAL: " << get_osstatus_str(ret) << ".\n";
+                MSG(ERROR, "Cannot initialize AUHAL: %s\n",
+                    get_osstatus_str(ret));
                 goto error;
         }
 
         ret = AudioOutputUnitStart(s->auHALComponentInstance);
         if(ret) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot start AUHAL: " << get_osstatus_str(ret) << ".\n";
+                MSG(ERROR, "Cannot start AUHAL: %s\n", get_osstatus_str(ret));
                 goto error;
         }
 
@@ -256,19 +269,26 @@ static bool is_requested_direction(AudioObjectPropertyAddress propertyAddress, A
         propertyAddress.mSelector = kAudioDevicePropertyStreamConfiguration;
         status = AudioObjectGetPropertyDataSize(*audioDevice, &propertyAddress, 0, NULL, &size);
         if(kAudioHardwareNoError != status) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "AudioObjectGetPropertyDataSize (kAudioDevicePropertyStreamConfiguration) failed: " << status << "\n";
+                MSG(ERROR,
+                    "AudioObjectGetPropertyDataSize "
+                    "(kAudioDevicePropertyStreamConfiguration) failed: %d\n",
+                    status);
                 return false;
         }
 
-        AudioBufferList *bufferList = static_cast<AudioBufferList *>(malloc(size));
+        AudioBufferList *bufferList = malloc(size);
         if(NULL == bufferList) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unable to allocate memory\n";
+                MSG(ERROR, "Unable to allocate memory\n");
                 return false;
         }
         status = AudioObjectGetPropertyData(*audioDevice, &propertyAddress, 0, NULL, &size, bufferList);
         if(kAudioHardwareNoError != status || 0 == bufferList->mNumberBuffers) {
                 if(kAudioHardwareNoError != status)
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "AudioObjectGetPropertyData (kAudioDevicePropertyStreamConfiguration) failed: " << status << "\n";
+                        MSG(ERROR,
+                            "AudioObjectGetPropertyData "
+                            "(kAudioDevicePropertyStreamConfiguration) failed: "
+                            "%d\n",
+                            status);
                 free(bufferList);
                 return false;
         }
@@ -278,14 +298,15 @@ static bool is_requested_direction(AudioObjectPropertyAddress propertyAddress, A
 
 void audio_ca_get_device_name(AudioDeviceID dev_id, size_t namebuf_len, char *namebuf)
 {
-        AudioObjectPropertyAddress propertyAddress{};
+        AudioObjectPropertyAddress propertyAddress = { 0 };
         propertyAddress.mSelector = kAudioHardwarePropertyDevices;
         propertyAddress.mScope = kAudioObjectPropertyScopeGlobal;
         propertyAddress.mElement = kAudioObjectPropertyElementMain;
         propertyAddress.mSelector = kAudioDevicePropertyDeviceNameCFString;
         CFStringRef deviceName = NULL;
         UInt32 size = sizeof(deviceName);
-        if (OSStatus ret = AudioObjectGetPropertyData(dev_id, &propertyAddress, 0, NULL, &size, &deviceName)) {
+        OSStatus ret = AudioObjectGetPropertyData(dev_id, &propertyAddress, 0, NULL, &size, &deviceName);
+        if (ret != noErr) {
                 log_msg(LOG_LEVEL_WARNING, "[CoreAudio] Cannot get device %" PRIu32 " name: %s\n",
                         dev_id, get_osstatus_str(ret));
                 snprintf(namebuf, namebuf_len, "CoreAudio device #%" PRIu32 " (unable to get name)", dev_id);
@@ -356,7 +377,7 @@ void audio_ca_probe(struct device_info **available_devices, int *count, int dir)
         return;
 
 error:
-        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Error obtaining device list.\n";
+        MSG(ERROR, "Error obtaining device list.\n");
 }
 
 /**
@@ -387,10 +408,15 @@ static void audio_play_ca_probe(struct device_info **available_devices, int *cou
 
 static void audio_play_ca_help()
 {
-        cout << "Core Audio playback usage:\n";
-        col() << SBOLD(SRED("\t-r coreaudio") << "[:<index>|:<name>] "
-                "[--param audio-buffer-len=<len_ms>] [--param audio-disable-adaptive-buffer]") << "\n";
-        col() << "where\n\t" << SBOLD("<name>") << " - device name substring (case sensitive)\n\n";
+        color_printf("Core Audio playback usage:\n");
+        color_printf(
+            TBOLD(TRED("\t-r coreaudio") "[:<index>|:<name>] "
+                                         "[--param audio-buffer-len=<len_ms>] "
+                                         "[--param "
+                                         "audio-disable-adaptive-buffer]")
+                     "\n");
+        color_printf("where\n\t" TBOLD("<name>")
+                     " - device name substring (case sensitive)\n\n");
         printf("Available CoreAudio playback devices:\n");
         struct device_info *available_devices;
         int count;
@@ -416,12 +442,17 @@ audio_play_ca_init(const struct audio_playback_opts *opts)
         AudioComponentDescription comp_desc;
         AudioDeviceID device;
 
-        struct state_ca_playback *s = new struct state_ca_playback();
+        struct state_ca_playback *s = calloc(1, sizeof *s);
+        s->buf_len_ms               = DEFAULT_BUFLEN_MS;
 
-        if (const char *val = get_commandline_param("audio-buffer-len")) {
+        const char *val = get_commandline_param("audio-buffer-len");
+        if (val != nullptr) {
                 s->buf_len_ms = atoi(val);
                 if (s->buf_len_ms <= 0 || s->buf_len_ms >= 10000) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Wrong value \"" <<  val << "\" given to \"audio-buffer-len\", allowed range (0, 10000).\n";
+                        MSG(ERROR,
+                            "Wrong value \"%s\" given to \"audio-buffer-len\", "
+                            "allowed range (0, 10000).\n",
+                            val);
                         goto error;
                 }
         }
@@ -461,16 +492,15 @@ audio_play_ca_init(const struct audio_playback_opts *opts)
         }
 
         if (strlen(opts->cfg) > 0) {
-                try {
-                        device = stoi(opts->cfg);
-                } catch (std::invalid_argument &e) {
+                char *endptr = nullptr;
+                device = strtol(opts->cfg, &endptr, 0);
+                if (*endptr != '\0') {
                         device = audio_ca_get_device_by_name(opts->cfg, CA_DIR);
                         if (device == UINT_MAX) {
-                                log_msg(LOG_LEVEL_ERROR,
-                                        MOD_NAME
-                                        "Wrong device index "
-                                        "or unrecognized name \"%s\"!\n",
-                                        opts->cfg);
+                                MSG(ERROR,
+                                    "Wrong device index "
+                                    "or unrecognized name \"%s\"!\n",
+                                    opts->cfg);
                                 goto error;
                         }
                 }
@@ -491,9 +521,9 @@ audio_play_ca_init(const struct audio_playback_opts *opts)
 
         if (get_commandline_param("ca-disable-adaptive-buf") == nullptr &&
                         get_commandline_param("audio-disable-adaptive-buffer") == nullptr) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Using adaptive buffer. "
+                MSG(WARNING, "Using adaptive buffer. "
                         "In case of problems, try \"--param audio-disable-adaptive-buffer\" "
-                        "option.\n";
+                        "option.\n");
         }
 
         ret = AudioUnitSetProperty(s->auHALComponentInstance,
@@ -510,7 +540,7 @@ audio_play_ca_init(const struct audio_playback_opts *opts)
         return s;
 
 error:
-        delete s;
+        free(s);
         return NULL;
 }
 
@@ -532,7 +562,7 @@ static void audio_play_ca_done(void *state)
         if (s->buffer_fns) {
                 s->buffer_fns->destroy(s->buffer);
         }
-        delete s;
+        free(s);
 }
 
 static const struct audio_playback_info aplay_coreaudio_info = {

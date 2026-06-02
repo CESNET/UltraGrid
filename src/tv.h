@@ -66,6 +66,7 @@ uint32_t get_local_mediatime(void);
 
 void     ts_add_nsec(struct timespec *ts, long long offset);
 
+double   ts_diff(struct timespec curr_time, struct timespec prev_time);
 double   tv_diff(struct timeval curr_time, struct timeval prev_time);
 uint32_t tv_diff_usec(struct timeval curr_time, struct timeval prev_time);
 void     tv_add(struct timeval *ts, double offset_secs);

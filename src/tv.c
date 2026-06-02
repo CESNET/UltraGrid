@@ -3,6 +3,7 @@
  * AUTHOR:   Colin Perkins <csp@csperkins.org>
  * MODIFIED: Ladan Gharai  <ladan@isi.edu>
  *
+ * Copyright (c) 2010-2026 CESNET, zájmové sdružení právnických osob
  * Copyright (c) 2001-2003 University of Southern California
  *
  * Redistribution and use in source and binary forms, with or without
@@ -91,6 +92,19 @@ void ts_add_nsec(struct timespec *ts, long long offset)
         lldiv_t d = lldiv(new_nsec, NS_IN_SEC);
         ts->tv_sec += d.quot;
         ts->tv_nsec = d.rem;
+}
+
+double
+ts_diff(struct timespec curr_time, struct timespec prev_time)
+{
+        /* Return (curr_time - prev_time) in seconds */
+        double ct, pt;
+
+        ct = (double) curr_time.tv_sec +
+             (((double) curr_time.tv_nsec) / 1000000000.0);
+        pt = (double) prev_time.tv_sec +
+             (((double) prev_time.tv_nsec) / 1000000000.0);
+        return (ct - pt);
 }
 
 double tv_diff(struct timeval curr_time, struct timeval prev_time)
