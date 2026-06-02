@@ -330,6 +330,14 @@ h264_rtp_ctl_property(void *state, enum rxtx_property p,
                 memcpy(val, (void *) &s->m_rtp_common, *len);
                 return true;
         }
+        case SET_RTP_AUD_FRM_SZ: {
+                int sz = 0;
+                assert(*len >= sizeof sz);
+                memcpy((void *) &sz, val, sizeof sz);
+                rtp_set_recv_buf(
+                    s->m_rtp_common->medium[TX_MEDIA_AUDIO].network_device, sz);
+                return true;
+        }
         case SET_ULTRAGRID_RTP_MUTLI_OUT:
                 abort();
         }

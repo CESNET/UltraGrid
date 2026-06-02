@@ -62,8 +62,6 @@
 #include "utils/string.h"      // for strprintf
 #include "video_rxtx.h"
 
-#define DEFAULT_AUDIO_RECV_BUF_SIZE (256 * 1024)
-
 #define MAGIC to_fourcc('V', 'X', 'r', ' ')
 #define MOD_NAME "[video_rxtx/rtp] "
 

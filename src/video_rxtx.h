@@ -102,6 +102,7 @@ struct vrxtx_params {
 
 enum rxtx_property {
         GET_RTP_COMMON_STATE, ///< RTP state - pointer to struct rtp_rxtx_common
+        SET_RTP_AUD_FRM_SZ,   ///< pointer to int
         SET_ULTRAGRID_RTP_MUTLI_OUT, ///< pointer to bool
 };
 

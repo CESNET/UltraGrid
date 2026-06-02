@@ -52,6 +52,8 @@
 extern "C" {
 #endif // defined __cplusplus
 
+#define DEFAULT_AUDIO_RECV_BUF_SIZE (256 * 1024)
+
 #ifdef __APPLE__
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  5944320
 #else

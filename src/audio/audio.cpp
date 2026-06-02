@@ -117,7 +117,6 @@ enum audio_transport_device {
         NET_STANDARD
 };
 
-#define DEFAULT_AUDIO_RECV_BUF_SIZE (256 * 1024)
 #define MOD_NAME "[audio] "
 
 struct state_audio {
@@ -173,7 +172,7 @@ struct state_audio {
         bool muted_receiver = false;
         bool muted_sender = false;
 
-        size_t recv_buf_size = DEFAULT_AUDIO_RECV_BUF_SIZE;
+        int recv_buf_size = DEFAULT_AUDIO_RECV_BUF_SIZE;
 
         struct video_rxtx *rxtx = nullptr;
 };
@@ -526,12 +525,21 @@ static struct response * audio_receiver_process_message(struct state_audio *s, s
 
 static void audio_update_recv_buf(struct state_audio *s, size_t curr_frame_len)
 {
-        size_t new_size = curr_frame_len * 2;
+        int new_size = (int) curr_frame_len * 2;
 
-        if (new_size > s->recv_buf_size) {
-                s->recv_buf_size = new_size;
-                LOG(LOG_LEVEL_DEBUG) << "[Audio receiver] Recv buffer adjusted to " << new_size << "\n";
-                rtp_set_recv_buf(s->audio_network_device, s->recv_buf_size);
+        if (new_size <= s->recv_buf_size) {
+                return;
+        }
+        s->recv_buf_size = new_size;
+
+        size_t len = sizeof new_size;
+        bool ret = rxtx_ctl_property(s->rxtx, SET_RTP_AUD_FRM_SZ, (void *) &curr_frame_len,
+                          &len);
+        if (ret) {
+                MSG(VERBOSE, "Recv buffer adjusted to %d\n", new_size);
+        } else {
+                MSG(VERBOSE, "Cannot adjust recv buffer to %d. Not a RTP RXTX?\n",
+                    new_size);
         }
 }
 

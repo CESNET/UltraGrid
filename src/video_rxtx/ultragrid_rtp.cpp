@@ -608,12 +608,18 @@ ultragrid_rtp_ctl_property(void *state, enum rxtx_property p,
                 return true;
         }
         case SET_ULTRAGRID_RTP_MUTLI_OUT: {
-                // NOLINTBEGIN(bugprone-sizeof-expression)
                 assert(*len >= sizeof(bool));
-                // NOLINTEND(bugprone-sizeof-expression)
                 memcpy((void *) &s->m_rtp_common
                            ->playback_supports_multiple_streams,
                        val, sizeof(bool));
+                return true;
+        }
+        case SET_RTP_AUD_FRM_SZ: {
+                int sz = 0;
+                assert(*len >= sizeof sz);
+                memcpy((void *) &sz, val, sizeof sz);
+                rtp_set_recv_buf(
+                    s->m_rtp_common->medium[TX_MEDIA_AUDIO].network_device, sz);
                 return true;
         }
         }
