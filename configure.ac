@@ -3667,15 +3667,35 @@ fi
 # for every dep ensure also that the depending file exists (to avoid forgetting
 # to update when moved or deleted)
 assert_present() { test -f $srcdir/$1 || { echo "$srcdir/$1 missing!" 2>&1; exit 20; }; }
-src_audio_capture_wav_o_dep=src/audio/wav_reader.o
+
+assert_present src/capture_filter/preview.cpp
+src_capture_filter_preview_o_dep="tools/ipc_frame.o
+                                    tools/ipc_frame_ug.o
+                                    tools/ipc_frame_unix.o"
+
+assert_present src/audio/capture/aes67.cpp
+src_audio_capture_aes67_o_dep=src/utils/sdp_parser.o
+
 assert_present src/audio/capture/wav.c
-src_audio_capture_testcard_o_dep=src/audio/wav_reader.o
+src_audio_capture_wav_o_dep=src/audio/wav_reader.o
+
 assert_present src/audio/capture/testcard.c
-src_video_capture_import_o_dep=src/audio/wav_reader.o
+src_audio_capture_testcard_o_dep=src/audio/wav_reader.o
+
 assert_present src/video_capture/import.c
+src_video_capture_import_o_dep=src/audio/wav_reader.o
+
+assert_present src/audio/playback/aes67.cpp
+src_audio_playback_aes67_o_dep=src/utils/ptp.o
+
+assert_present src/video_capture/testcard.c
 src_video_capture_testcard_o_dep="src/utils/video_pattern_generator.o
                                   src/video_capture/testcard_common.o"
-assert_present src/video_capture/testcard.c
+
+assert_present src/video_display/unix_sock.cpp
+src_video_display_unix_sock_o_dep="tools/ipc_frame.o
+                                     tools/ipc_frame_ug.o
+                                     tools/ipc_frame_unix.o"
 
 if test "$build_default" != no || test "$req_files" = all; then
         CAPTURE_FILTERS="
@@ -3714,8 +3734,6 @@ if test "$build_default" != no || test "$req_files" = all; then
         src/audio/filter/playback.o
         src/audio/filter/channel_remap.o
         src/capture_filter/preview.o
-        src/utils/ptp.o
-        src/utils/sdp_parser.o
         src/video_capture/aggregate.o
         src/video_capture/import.o
         src/video_capture/switcher.o
@@ -3741,9 +3759,6 @@ if test "$build_default" != no || test "$req_files" = all; then
         src/vo_postprocess/split.o
         src/vo_postprocess/temporal-deint.o
         src/vo_postprocess/temporal_3d.o
-        tools/ipc_frame.o
-        tools/ipc_frame_ug.o
-        tools/ipc_frame_unix.o
         "
         REFLECTOR_OBJS=${CAPTURE_FILTERS?}
 fi
@@ -3787,7 +3802,8 @@ ULTRAGRID_OBJS="$ULTRAGRID_OBJS $OBJS"
 
 add_depends() (
         print_file_deps() (
-                escaped_name=$(echo "${1?}" | tr ./- '@<:@_*@:>@')
+                escaped_name=$(printf '%s' "${1?}" |
+                        tr -c '_@<:@:alnum:@:>@' '@<:@_*@:>@')
                 eval "deps=\$${escaped_name}_dep"
                 echo $deps
         )
