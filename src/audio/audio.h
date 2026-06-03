@@ -66,7 +66,7 @@ struct audio_options {
         const char        *send_cfg;
         const char        *proto;
         const char        *proto_cfg;
-        char              *channel_map;
+        const char        *channel_map;
         const char        *scale;
         bool               echo_cancellation;
         const char        *codec_cfg;

@@ -39,31 +39,23 @@
 /**
  * @file
  * @todo
- * unnecessarily complex - move mixing/scaling to audio receiver thread (if not
- * even remove), similarly the fec, decompress etc...
+ * consider adding fec/decompress to separate thread
  */
 
 #include "rtp/audio_decoders.h"
 
-#include <algorithm>                 // for min
-#include <atomic>                    // for atomic_uint64_t
 #include <cassert>                   // for assert
 #include <chrono>                    // for steady_clock, duration_cast, ope...
-#include <cmath>                     // for log
-#include <cstdlib>                   // for strtoll, atof, free, realloc
 #include <cstring>                   // for memcpy, memset, strcasecmp...
-#include <iomanip>                   // for setprecision
 #include <iostream>                  // for basic_ostream, operator<<, clog
 #include <map>                       // for map
+#include <sstream>                   // for basic_ostringstream
 #include <string>                    // for char_traits, allocator, operator+
 #include <utility>                   // for pair, move, swap
 #include <vector>                    // for vector
 
-#include "audio/audio_playback.h"    // for AUDIO_PLAYBACK_CTL_QUERY_FORMAT
 #include "audio/codec.h"             // for get_audio_codec_to_tag, audio_co...
-#include "audio/resampler.hpp"       // for audio_frame2_resampler
 #include "audio/types.h"             // for audio_frame2, audio_desc, AC_PCM
-#include "audio/utils.h"             // for channel_map, calculate_rms, mux_...
 #include "compat/net.h"              // for ntohl, sockaddr_storage
 #include "control_socket.h"
 #include "crypto/openssl_decrypt.h"  // for openssl_decrypt_info, OPENSSL_DE...
@@ -71,44 +63,29 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "messaging.h"               // for new_response, msg_universal, che...
-#include "module.h"
 #include "rtp/fec.h"                 // for fec
 #include "rtp/pbuf.h"                // for acodec_data, coded_data
 #include "rtp/rtp.h"                 // for RTP_MAX_PACKET_LEN
 #include "rtp/rtp_types.h"           // for BUFNUM_BITS, audio_payload_hdr_t
-#include "tv.h"
 #include "types.h"                   // for fec_desc, fec_type
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/debug.h"             // for DEBUG_TIMER_*
 #include "utils/macros.h"
-#include "utils/misc.h"              // for get_stat_color
 #include "utils/packet_counter.h"
-#include "utils/worker.h"
 
 using std::chrono::duration_cast;
 using std::chrono::seconds;
 using std::chrono::steady_clock;
-using std::fixed;
 using std::hex;
 using std::map;
 using std::ostringstream;
 using std::pair;
-using std::setprecision;
 using std::string;
-using std::to_string;
 using std::vector;
 
 #define AUDIO_DECODER_MAGIC 0x12ab332bu
 #define MOD_NAME "[audio dec.] "
-
-struct scale_data {
-        double vol_avg = 1.0;
-        int samples = 0;
-
-        double scale = 1.0;
-};
 
 struct state_audio_decoder_summary {
 private:
@@ -176,185 +153,6 @@ struct state_audio_decoder {
 
 };
 
-struct state_audio_postprocess {
-        struct module mod;
-
-        struct timeval t0;
-        struct control_state *control;
-
-        unsigned int channel_remapping:1;
-        struct channel_map channel_map;
-
-        /// contains scaling metadata if we want to perform audio scaling
-        vector<struct scale_data> scale = vector<scale_data>(1);
-        bool fixed_scale;
-
-        bool muted;
-
-        audio_frame2 decoded; ///< buffer that keeps audio samples from last 5
-                              ///< seconds (for statistics)
-        audio_frame2_resampler resampler;
-        audio_frame2           resample_remainder;
-        std::atomic_uint64_t
-            req_resample_to{}; // hi 32 - numerator; lo 32 - denominator
-};
-
-constexpr double VOL_UP = 1.1;
-constexpr double VOL_DOWN = 1.0/1.1;
-
-static void compute_scale(struct scale_data *scale_data, double vol_avg, int samples, int sample_rate)
-{
-        scale_data->vol_avg = scale_data->vol_avg * (scale_data->samples / ((double) scale_data->samples + samples)) +
-                vol_avg * (samples / ((double) scale_data->samples + samples));
-        scale_data->samples += samples;
-
-        if (scale_data->samples > sample_rate * 6) {
-                double ratio = 1.0;
-
-                if (scale_data->vol_avg > 0.25 || (scale_data->vol_avg > 0.05 && scale_data->scale > 1.0)) {
-                        ratio = VOL_DOWN;
-                } else if (scale_data->vol_avg < 0.20 && scale_data->scale < 1.0) {
-                        ratio = VOL_UP;
-                }
-
-                scale_data->scale *= ratio;
-                scale_data->vol_avg *= ratio;
-
-                MSG(VERBOSE,
-                    "Audio scale adjusted to: %f (average volume was %f)\n",
-                    scale_data->scale, scale_data->vol_avg);
-
-                scale_data->samples = 4 * sample_rate;
-        }
-}
-
-static void audio_decoder_process_message(struct module *m)
-{
-        auto *s = static_cast<struct state_audio_postprocess *>(m->priv_data);
-
-        while (auto *msg = reinterpret_cast<msg_universal *>(check_message(m))) {
-                struct response *r = nullptr;
-                if (strstr(msg->text, MSG_UNIVERSAL_TAG_AUDIO_DECODER) == msg->text) {
-                        s->req_resample_to = strtoull(msg->text + strlen(MSG_UNIVERSAL_TAG_AUDIO_DECODER), nullptr, 0);
-                        LOG(LOG_LEVEL_VERBOSE) << MOD_NAME << "Resampling sound to: " << (s->req_resample_to >> ADEC_CH_RATE_SHIFT) << "/" << (s->req_resample_to & ((1LLU << ADEC_CH_RATE_SHIFT) - 1)) << "\n";
-                        r = new_response(RESPONSE_OK, nullptr);
-                } else {
-                        r = new_response(RESPONSE_NOT_FOUND, nullptr);
-                }
-                free_message(reinterpret_cast<message *>(msg), r);
-        }
-}
-
-static void
-audio_channel_map_usage()
-{
-        color_printf("Usage:\n");
-        color_printf("\t" TBOLD(TRED("--audio-channel-map <mapping>"))"   mapping of input audio channels\n");
-        color_printf("\t                                to output audio channels comma-separated\n");
-        color_printf("\t                                list of channel mapping (receiver only)\n");
-
-        color_printf("\nExamples:\n");
-        color_printf("\t- " TBOLD("0:0,1:0") " - mixes first 2 channels\n");
-        color_printf("\t- " TBOLD("0:0") "     - play only first channel\n");
-        color_printf("\t- " TBOLD("0:0,:1") "  - sets second channel to a silence, first "
-                     "one is left as is\n");
-        color_printf("\t- " TBOLD("0:0,0:1") " - splits mono into 2 channels\n");
-}
-
-static void
-audio_scale_usage()
-{
-        color_printf("Usage:\n");
-        color_printf(TBOLD(TRED("\t--audio-scale [<factor>|<method>]\n")));
-        color_printf("\t        Floating point number that tells a static scaling factor for all\n");
-        color_printf("\t        output channels. Scaling method can be one from these:\n");
-        color_printf(TBOLD("\t          0.0-1.0") " - factor to scale to (usually 0-1 but can be more)\n");
-        color_printf(TBOLD("\t          mixauto") " - automatically adjust volume if using channel\n");
-        color_printf("\t                    mixing/remapping (default)\n");
-        color_printf(TBOLD("\t          auto") " - automatically adjust volume\n");
-        color_printf(TBOLD("\t          none") " - no scaling will be performed\n");
-}
-
-ADD_TO_PARAM("soft-resample", "* soft-resample=<num>/<den>\n"
-                "  Resample to specified sampling rate, eg. 12288128/256 for 48000.5 Hz\n");
-int
-audio_postprocess_init(char *channel_map, const char *scale,
-                       struct module                   *parent,
-                       struct state_audio_postprocess **out)
-{
-        assert(scale != nullptr);
-
-        if (channel_map != nullptr && strcmp(channel_map, "help") == 0) {
-                audio_channel_map_usage();
-                return 1;
-        }
-
-        if (strcmp(scale, "help") == 0) {
-                audio_scale_usage();
-                return 1;
-        }
-
-        bool scale_auto = false;
-        double scale_factor = 1.0;
-        auto *s = new struct state_audio_postprocess();
-
-        module_init_default(&s->mod);
-        s->mod.cls = MODULE_CLASS_DECODER;
-        s->mod.priv_data = s;
-        s->mod.new_message = audio_decoder_process_message;
-        module_register(&s->mod, parent);
-
-        if (const char *val = get_commandline_param("soft-resample")) {
-                assert(strchr(val, '/') != nullptr);
-                s->req_resample_to = strtoll(val, NULL, 0) << 32LLU | strtoll(strchr(val, '/') + 1, NULL, 0);
-        }
-
-        gettimeofday(&s->t0, NULL);
-
-        s->control = get_control_state(parent);
-
-        if (channel_map != nullptr) {
-                if (!parse_channel_map_cfg(&s->channel_map, channel_map)) {
-                        audio_postprocess_done(s);
-                        return -1;
-                }
-                s->channel_remapping = true;
-        } else {
-                s->channel_remapping = false;
-                s->channel_map.map = NULL;
-                s->channel_map.sizes = NULL;
-                s->channel_map.size = 0;
-        }
-
-        if (strcasecmp(scale, "mixauto") == 0) {
-                if(s->channel_remapping) {
-                        log_msg(LOG_LEVEL_WARNING, MOD_NAME "Channel remapping detected - automatically scaling audio levels. Use \"--audio-scale none\" to disable.\n");
-                        scale_auto = true;
-                } else {
-                        scale_auto = false;
-                }
-        } else if (strcasecmp(scale, "auto") == 0) {
-                scale_auto = true;
-        } else if (strcasecmp(scale, "none") == 0) {
-                scale_auto = false;
-                scale_factor = 1.0;
-        } else {
-                scale_auto = false;
-                scale_factor = atof(scale);
-                if(scale_factor <= 0.0) {
-                        log_msg(LOG_LEVEL_ERROR, "Invalid audio scaling factor!\n");
-                        audio_postprocess_done(s);
-                        return -1;
-                }
-        }
-
-        s->fixed_scale = scale_auto ? false : true;
-        s->scale.at(0).scale = scale_factor;
-
-        *out = s;
-        return 0;
-}
-
 void *
 audio_decoder_init(const char *encryption, struct module *parent)
 {
@@ -416,16 +214,6 @@ void audio_decoder_destroy(void *state)
         delete s;
 }
 
-void
-audio_postprocess_done(struct state_audio_postprocess *postprocess)
-{
-        if (!postprocess) {
-                return;
-        }
-        module_done(&postprocess->mod);
-        delete postprocess;
-}
-
 bool parse_audio_hdr(uint32_t *hdr, struct audio_desc *desc)
 {
         desc->ch_count = ((ntohl(hdr[0]) >> 22) & 0x3ff) + 1;
@@ -438,73 +226,6 @@ bool parse_audio_hdr(uint32_t *hdr, struct audio_desc *desc)
         return true;
 }
 
-struct adec_stats_processing_data {
-        audio_frame2 frame;
-        double seconds;
-        long bytes_received;
-        long bytes_expected;
-        bool muted_receiver;
-};
-
-static void *adec_compute_and_print_stats(void *arg) {
-        auto d = (struct adec_stats_processing_data*) arg;
-        string loss;
-        if (d->bytes_received < d->bytes_expected) {
-                loss = " (" + to_string(d->bytes_expected - d->bytes_received) + " lost)";
-        }
-
-        const double exp_samples = d->frame.get_sample_rate() * d->seconds;
-        const char  *dec_cnt_warn_col =
-            get_stat_color(d->frame.get_sample_count() / exp_samples);
-
-        MSG(INFO,
-            "Received %ld/%ld B%s, "
-            "decoded %s%d samples" TERM_RESET " in %.2f sec.\n",
-            d->bytes_received, d->bytes_expected, loss.c_str(),
-            dec_cnt_warn_col, d->frame.get_sample_count(), d->seconds);
-
-        char volume[STR_LEN];
-        char       *vol_start = volume;
-        for (int i = 0; i < d->frame.get_channel_count(); ++i) {
-                double rms = 0.0;
-                double peak = 0.0;
-                rms = calculate_rms(&d->frame, i, &peak);
-                format_audio_channel_volume(i, rms, peak, TERM_FG_GREEN,
-                                            &vol_start, volume + sizeof volume);
-        }
-
-        log_msg(LOG_LEVEL_INFO, TBOLD(TGREEN(MOD_NAME)) "Volume: %s dBFS RMS/peak%s\n", volume,
-            d->muted_receiver ? TBOLD(TRED(" (muted receiver)")) : "");
-
-        delete d;
-
-        return NULL;
-}
-
-int
-audio_postprocess_reconfigure(struct state_audio_postprocess *postprocess,
-                              int                             input_channels)
-{
-        if (postprocess->channel_remapping &&
-            postprocess->channel_map.size > input_channels) {
-                log_msg(LOG_LEVEL_ERROR,
-                        MOD_NAME "Audio channel map references channels with "
-                                 "idx higher than ch. count!\n");
-        }
-        int output_channels = postprocess->channel_remapping ?
-                        postprocess->channel_map.max_output + 1: input_channels;
-
-        if(!postprocess->fixed_scale) {
-                postprocess->scale.clear();
-                postprocess->scale.resize(output_channels);
-        }
-        postprocess->resample_remainder = {};
-        postprocess->decoded = {};
-        return output_channels;
-}
-
-ADD_TO_PARAM("audio-dec-format", "* audio-dec-format=<fmt>|help\n"
-                "  Forces specified format playback format.\n");
 /**
  * Compares provided parameters with previous configuration and if it differs, reconfigure
  * the decoder, otherwise the reconfiguration is skipped.
@@ -527,7 +248,7 @@ audio_decoder_reconfigure(struct state_audio_decoder *decoder,
 
         std::ostringstream oss;
         oss << "new incoming audio fmt: " << sample_rate << "Hz " << input_channels << "ch " << get_name_to_audio_codec(get_audio_codec_to_tag(audio_tag));
-        control_report_stats(decoder->control, oss.str());
+        control_report_stats(decoder->control, oss.str().c_str());
 
         decoder->saved_desc.ch_count = input_channels;
         decoder->saved_desc.bps = bps;
@@ -775,158 +496,6 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
         return true;
 }
 
-bool
-decode_audio_frame_postprocess(struct state_audio_postprocess *postprocess,
-                               struct audio_frame2            *decompressed_ptr,
-                               struct audio_frame             *out,
-                               long long int *expected_bytes_cum,
-                               long long int *received_bytes_cum)
-{
-        struct audio_frame2  &decompressed = *decompressed_ptr;
-
-        // Perform a variable rate resample if any output device has requested it
-        if (postprocess->req_resample_to != 0 ||
-            out->sample_rate != decompressed.get_sample_rate()) {
-                int resampler_bps =
-                    postprocess->resampler.align_bps(decompressed.get_bps());
-                if (resampler_bps <= 0) {
-                        return false;
-                }
-                if (resampler_bps != decompressed.get_bps()) {
-                        decompressed.change_bps(resampler_bps);
-                }
-                if (postprocess->req_resample_to != 0) {
-                        auto [ret, remainder] = decompressed.resample_fake(
-                            postprocess->resampler,
-                            postprocess->req_resample_to >> ADEC_CH_RATE_SHIFT,
-                            postprocess->req_resample_to &
-                                ((1LLU << ADEC_CH_RATE_SHIFT) - 1));
-                        if (!ret) {
-                                LOG(LOG_LEVEL_INFO) << MOD_NAME << "You may try to set different sampling on sender.\n";
-                                return false;
-                        }
-                        postprocess->resample_remainder = std::move(remainder);
-                } else {
-                        if (!decompressed.resample(postprocess->resampler, out->sample_rate)) {
-                                LOG(LOG_LEVEL_INFO) << MOD_NAME << "You may try to set different sampling on sender.\n";
-                                return false;
-                        }
-                }
-        }
-
-        if (decompressed.get_bps() != out->bps) {
-                decompressed.change_bps(out->bps);
-        }
-
-        out->data_len = decompressed.get_data_len(0) * out->ch_count;
-        if (out->max_size < out->data_len) {
-                out->max_size = out->data_len;
-                out->data = (char *) realloc(out->data, out->data_len);
-        }
-
-        memset(out->data, 0, out->data_len);
-
-        if (!postprocess->muted) {
-                // there is a mapping for channel
-                for(int channel = 0; channel < decompressed.get_channel_count(); ++channel) {
-                        if (postprocess->channel_remapping) {
-                                if(channel < postprocess->channel_map.size) {
-                                        for(int i = 0; i < postprocess->channel_map.sizes[channel]; ++i) {
-                                                int new_position = postprocess->channel_map.map[channel][i];
-                                                if (new_position >= out->ch_count) {
-                                                        continue;
-                                                }
-                                                mux_and_mix_channel(out->data,
-                                                                decompressed.get_data(channel),
-                                                                decompressed.get_bps(), decompressed.get_data_len(channel),
-                                                                out->ch_count, new_position,
-                                                                postprocess->scale.at(postprocess->fixed_scale ? 0 : new_position).scale);
-                                        }
-                                }
-                        } else {
-                                if (channel >= out->ch_count) {
-                                        continue;
-                                }
-                                mux_and_mix_channel(out->data, decompressed.get_data(channel),
-                                                decompressed.get_bps(),
-                                                decompressed.get_data_len(channel), out->ch_count, channel,
-                                                postprocess->scale.at(postprocess->fixed_scale ? 0 : decompressed.get_channel_count()).scale);
-                        }
-                }
-        }
-        out->timestamp = decompressed.get_timestamp();
-
-        if (postprocess->decoded.get_channel_count() == 0) {
-                postprocess->decoded.init(decompressed.get_channel_count(), AC_PCM,
-                                      decompressed.get_bps(),
-                                      decompressed.get_sample_rate());
-                postprocess->decoded.reserve(decompressed.get_bps() *
-                                         decompressed.get_channel_count() * 6);
-        }
-        postprocess->decoded.append(decompressed);
-
-        if (control_stats_enabled(postprocess->control)) {
-                std::string report = "ARECV";
-                int num_ch = std::min(decompressed.get_channel_count(), control_audio_ch_report_count(postprocess->control));
-                for(int i = 0; i < num_ch; i++){
-                        double rms, peak;
-                        rms = calculate_rms(&decompressed, i, &peak);
-                        double rms_dbfs0 = 20 * log(rms) / log(10);
-                        double peak_dbfs0 = 20 * log(peak) / log(10);
-                        report += " volrms" + std::to_string(i) + " " + std::to_string(rms_dbfs0);
-                        report += " volpeak" + std::to_string(i) + " " + std::to_string(peak_dbfs0);
-                }
-
-                control_report_stats(postprocess->control, report);
-        }
-
-        double seconds;
-        struct timeval t;
-
-        gettimeofday(&t, 0);
-        seconds = tv_diff(t, postprocess->t0);
-        if(seconds > 5.0) {
-                auto d = new adec_stats_processing_data;
-                d->frame.init(postprocess->decoded.get_channel_count(),
-                              postprocess->decoded.get_codec(),
-                              postprocess->decoded.get_bps(),
-                              postprocess->decoded.get_sample_rate());
-                /// @todo
-                /// this will certainly result in a syscall, maybe use some
-                /// pool?
-                d->frame.reserve(postprocess->decoded.get_bps() *
-                                 postprocess->decoded.get_sample_rate() * 6);
-
-                std::swap(d->frame, postprocess->decoded);
-                d->seconds = seconds;
-                d->bytes_received = *received_bytes_cum;
-                d->bytes_expected = *expected_bytes_cum;
-                d->muted_receiver = postprocess->muted;
-
-                task_run_async_detached(adec_compute_and_print_stats, d);
-
-                postprocess->t0 = t;
-                *received_bytes_cum = 0;
-                *expected_bytes_cum = 0;
-        }
-
-        DEBUG_TIMER_START(audio_decode_compute_autoscale);
-        if(!postprocess->fixed_scale) {
-                int output_channels = postprocess->channel_remapping ?
-                        postprocess->channel_map.max_output + 1: decompressed.get_channel_count();
-                for(int i = 0; i <= postprocess->channel_map.max_output; ++i) {
-                        if (postprocess->channel_map.contributors[i] <= 1) {
-                                continue;
-                        }
-                        double avg = get_avg_volume(out->data, out->bps,
-                                        out->data_len / output_channels / out->bps, output_channels, i);
-                        compute_scale(&postprocess->scale.at(i), avg,
-                                        out->data_len / output_channels / out->bps, out->sample_rate);
-                }
-        }
-        DEBUG_TIMER_STOP(audio_decode_compute_autoscale);
-        return true;
-}
 /**
  * Second version that uses external audio configuration,
  * now it uses a struct state_audio_decoder instead an audio_frame2.

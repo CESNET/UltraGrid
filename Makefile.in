@@ -108,6 +108,7 @@ COMMON_OBJS     = \
 		src/audio/export.o \
 		src/audio/playback/none.o \
 		src/audio/playback/sdi.o \
+		src/audio/postprocess.o \
 		src/audio/resampler.o \
 		src/audio/types.o \
 		src/audio/utils.o \

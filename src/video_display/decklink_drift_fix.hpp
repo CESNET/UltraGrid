@@ -45,10 +45,10 @@
 #include <cstdint>
 #include <string>
 
+#include "audio/postprocess.h"
 #include "debug.h"
 #include "host.h"
 #include "messaging.h"
-#include "rtp/audio_decoders.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"       // for snprintf_ch
 

@@ -4,7 +4,7 @@
  * @author Andrew Walker    <andrew.walker@sohonet.com>
  */
 /*
- * Copyright (c) 2011-2022 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -71,6 +71,9 @@ class audio_frame2_resampler::impl {
                 virtual ~impl() {}
 };
 
+/**
+ * @returns [resample status, remainder]
+ */
 tuple<bool, audio_frame2> audio_frame2_resampler::resample(audio_frame2 &a, vector<audio_frame2::channel> &out, int new_sample_rate_num, int new_sample_rate_den)
 {
         if (!m_impl) {
@@ -413,6 +416,12 @@ int audio_frame2_resampler::align_bps(int orig) {
                 last = *sup++;
         }
         return last;
+}
+
+int
+resampler_align_bps(struct audio_frame2_resampler *resampler, int orig_bps)
+{
+        return resampler->align_bps(orig_bps);
 }
 
 audio_frame2_resampler::~audio_frame2_resampler() = default;

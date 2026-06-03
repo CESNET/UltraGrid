@@ -147,7 +147,7 @@ static double calculate_rms_helper(const char *channel_data,
  * @param[out] peak    peak RMS
  * @returns            mean RMS
  */
-double calculate_rms(audio_frame2 *frame, int channel, double *peak)
+double calculate_rms2(const audio_frame2 *frame, int channel, double *peak)
 {
         assert(frame->get_codec() == AC_PCM);
         int sample_count = frame->get_data_len(channel) / frame->get_bps();
@@ -777,6 +777,35 @@ int parse_audio_format(const char *str, struct audio_desc *ret) {
         return 0;
 }
 
+static bool
+channel_map_validate(const struct channel_map *map)
+{
+        for (int i = 0; i < map->size; ++i) {
+                for(int j = 0; j < map->sizes[i]; ++j) {
+                        if(map->map[i][j] < 0) {
+                                log_msg(LOG_LEVEL_ERROR, "Audio channel mapping - negative parameter occurred.\n");
+                                return false;
+                        }
+                }
+        }
+
+        return true;
+}
+
+static void
+channel_map_compute_contributors(struct channel_map *map) {
+        for (int i = 0; i < map->size; ++i) {
+                for (int j = 0; j < map->sizes[i]; ++j) {
+                        map->max_output = MAX(map->map[i][j], map->max_output);
+                }
+        }
+        map->contributors = (int *) calloc(map->max_output + 1, sizeof(int));
+        for (int i = 0; i < map->size; ++i) {
+                for (int j = 0; j < map->sizes[i]; ++j) {
+                        map->contributors[map->map[i][j]] += 1;
+                }
+        }
+}
 
 bool parse_channel_map_cfg(struct channel_map *channel_map, const char *cfg){
         char *save_ptr = NULL;
@@ -784,6 +813,7 @@ bool parse_channel_map_cfg(struct channel_map *channel_map, const char *cfg){
         char *ptr;
         char *tmp = ptr = strdup(cfg);
 
+        channel_map->max_output = -1;
         channel_map->size = 0;
         while((item = strtok_r(ptr, ",", &save_ptr))) {
                 ptr = NULL;
@@ -835,49 +865,24 @@ bool parse_channel_map_cfg(struct channel_map *channel_map, const char *cfg){
         free(tmp);
         tmp = NULL;
 
-        if (!channel_map->validate()) {
+        if (!channel_map_validate(channel_map)) {
                 log_msg(LOG_LEVEL_ERROR, "Wrong audio mapping.\n");
                 return false;
         }
-        channel_map->compute_contributors();
+        channel_map_compute_contributors(channel_map);
 
         return true;
 }
 
-channel_map::~channel_map(){
-        free(sizes);
-        for(int i = 0; i < size; ++i) {
-                free(map[i]);
+void
+channel_map_free_data(struct channel_map *map)
+{
+        free(map->sizes);
+        for(int i = 0; i < map->size; ++i) {
+                free(map->map[i]);
         }
-        free(map);
-        free(contributors);
-}
-
-bool channel_map::validate() {
-        for(int i = 0; i < size; ++i) {
-                for(int j = 0; j < sizes[i]; ++j) {
-                        if(map[i][j] < 0) {
-                                log_msg(LOG_LEVEL_ERROR, "Audio channel mapping - negative parameter occurred.\n");
-                                return false;
-                        }
-                }
-        }
-
-        return true;
-}
-
-void channel_map::compute_contributors() {
-        for (int i = 0; i < size; ++i) {
-                for (int j = 0; j < sizes[i]; ++j) {
-                        max_output = std::max(map[i][j], max_output);
-                }
-        }
-        contributors = (int *) calloc(max_output + 1, sizeof(int));
-        for (int i = 0; i < size; ++i) {
-                for (int j = 0; j < sizes[i]; ++j) {
-                        contributors[map[i][j]] += 1;
-                }
-        }
+        free(map->map);
+        free(map->contributors);
 }
 
 /**

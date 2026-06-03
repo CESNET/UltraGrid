@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2022 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,11 +40,12 @@
 
 #include "audio/types.h"
 
+#ifdef __cplusplus
 #include <tuple>
 #include <memory>
 #include <vector>
 
-class audio_frame2_resampler {
+struct audio_frame2_resampler {
 public:
         audio_frame2_resampler();
         ~audio_frame2_resampler();
@@ -58,6 +59,19 @@ public:
 private:
         std::unique_ptr<impl> m_impl;
 };
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif // defined __cplusplus
+
+struct audio_frame2_resampler *new_resampler();
+int resampler_align_bps(struct audio_frame2_resampler *resampler, int orig_bps);
+void delete_resampler(struct audio_frame2_resampler *resampler);
+
+#ifdef __cplusplus
+}
+#endif // defined __cplusplus
 
 #endif // defined AUDIO_RESAMPLER_HPP_60C123AE_99B1_4726_AA2C_EFDB2C723952
 

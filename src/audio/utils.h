@@ -52,11 +52,6 @@
 
 struct audio_frame2;
 
-#ifdef __cplusplus
-double calculate_rms(audio_frame2 *frame, int channel, double *peak);
-double calculate_rms(const audio_frame *frame, int channel, double *peak);
-void audio_channel_demux(const audio_frame2 *, int, audio_channel*);
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -65,6 +60,12 @@ extern "C" {
 bool audio_desc_eq(struct audio_desc, struct audio_desc);
 struct audio_desc audio_desc_from_audio_channel(const audio_channel *);
 void audio_frame_write_desc(struct audio_frame *f, struct audio_desc desc);
+
+double calculate_rms(const struct audio_frame *frame, int channel,
+                     double *peak);
+double calculate_rms2(const struct audio_frame2 *frame, int channel,
+                      double *peak);
+void   audio_channel_demux(const struct audio_frame2 *, int, audio_channel *);
 
 /**
  * Changes bps for everey sample.
@@ -172,27 +173,19 @@ struct audio_frame2 *audio_frame_to_audio_frame2(const struct audio_frame *src);
 
 int parse_audio_format(const char *str, struct audio_desc *ret);
 
-#ifdef __cplusplus
 struct channel_map {
-        ~channel_map();
-
-        int **map = nullptr; // index is source channel, content is output channels
-        int *sizes = nullptr;
-        int *contributors = nullptr; // count of contributing channels to output
-        int size = 0;
-        int max_output = -1;
-
-        bool validate();
-        void compute_contributors();
+        int **map; // index is source channel, content is output channels
+        int  *sizes;
+        int  *contributors; // count of contributing channels to output
+        int   size;
+        int   max_output;
 };
-
 bool parse_channel_map_cfg(struct channel_map *channel_map, const char *cfg);
+void channel_map_free_data(struct channel_map *map);
 
 void format_audio_channel_volume(int chan_idx, double rms, double peak,
                                  const char *format_color, char **volume_start,
                                  char *volume_end);
-
-#endif
 
 #ifdef __cplusplus
 }

@@ -57,7 +57,7 @@ struct state_channel_remap{
         int ch_count = 0;
         int sample_rate = 0;
 
-        struct channel_map channel_map;
+        struct channel_map channel_map{};
 
         std::vector<char> out_buffer;
         audio_frame out_frame = {};
@@ -115,6 +115,7 @@ static af_result_code configure(void *state,
 
 static void done(void *state){
         auto s = static_cast<state_channel_remap *>(state);
+        channel_map_free_data(&s->channel_map);
 
         delete s;
 }

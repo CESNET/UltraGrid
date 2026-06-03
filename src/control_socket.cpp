@@ -996,13 +996,14 @@ void control_done(struct control_state *s)
         delete s;
 }
 
-static void control_report_stats_event(struct control_state *s, const std::string &report_line)
+static void
+control_report_stats_event(struct control_state *s, std::string &&report_line)
 {
         assert(s->magic == MODULE_MAGIC);
         std::unique_lock<std::mutex> lk(s->stats_lock);
 
         if (s->stat_event_queue.size() < MAX_STAT_EVENT_QUEUE) {
-                s->stat_event_queue.push(report_line);
+                s->stat_event_queue.push(std::move(report_line));
         } else {
                 MSG(WARNING, "Cannot write stats/event - queue full!!!\n");
         }
@@ -1010,22 +1011,28 @@ static void control_report_stats_event(struct control_state *s, const std::strin
         s->stat_event_cv.notify_one();
 }
 
-void control_report_stats(struct control_state *s, const std::string &report_line)
+void
+control_report_stats(struct control_state *s, const char *stat_line)
 {
         if (!s || !s->stats_on) {
                 return;
         }
 
-        control_report_stats_event(s, "stats " + report_line + "\r\n");
+        string sline = string("stats ") + stat_line + "\r\n";
+
+        control_report_stats_event(s, std::move(sline));
 }
 
-void control_report_event(struct control_state *s, const std::string &report_line)
+void
+control_report_event(struct control_state *s, const char *event_line)
 {
         if (!s) {
                 return;
         }
 
-        control_report_stats_event(s, "event " + report_line + "\r\n");
+        string eline = string("event ") + event_line + "\r\n";
+
+        control_report_stats_event(s, std::move(eline));
 }
 
 bool control_stats_enabled(struct control_state *s)

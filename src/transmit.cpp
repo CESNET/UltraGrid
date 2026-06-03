@@ -604,7 +604,7 @@ report_stats(struct tx *tx, struct rtp *rtp_session, long data_sent)
         oss << "tx_send " << std::hex << rtp_my_ssrc(rtp_session) << std::dec
             << " " << media << " " << tx->sent_since_report;
 
-        control_report_stats(tx->control, oss.str());
+        control_report_stats(tx->control, oss.str().c_str());
         tx->last_stat_report  = current_time_ns;
         tx->sent_since_report = 0;
 }

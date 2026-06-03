@@ -1509,7 +1509,7 @@ static void check_for_mode_change(struct state_video_decoder *decoder,
 
         std::ostringstream oss;
         oss << "new incoming video fmt: " << network_desc;
-        control_report_stats(decoder->control, oss.str());
+        control_report_stats(decoder->control, oss.str().c_str());
 
         reconfigure_helper(decoder, network_desc, {});
 }

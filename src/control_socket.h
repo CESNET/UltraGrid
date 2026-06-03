@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2025 CESNET
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,9 +38,13 @@
 #ifndef control_socket_h_
 #define control_socket_h_
 
+#include "compat/c23.h" // IWYU pragma: keep for bool
+
 #define DEFAULT_CONTROL_PORT 5054
 
-#include <string>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct control_state;
 struct module;
@@ -54,10 +58,14 @@ int control_init(int port, int connection_type, struct control_state **state, st
 struct control_state *get_control_state(struct module *mod);
 void control_start(struct control_state *state);
 void control_done(struct control_state *s);
-void control_report_stats(struct control_state *state, const std::string & stat_line);
-void control_report_event(struct control_state *state, const std::string & event_line);
+void control_report_stats(struct control_state *state, const char *stat_line);
+void control_report_event(struct control_state *state, const char *event_line);
 bool control_stats_enabled(struct control_state *state);
 int control_audio_ch_report_count(struct control_state *state);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // control_socket_h_
 

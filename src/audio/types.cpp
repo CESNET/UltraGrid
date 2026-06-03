@@ -421,3 +421,108 @@ bool audio_frame2::resample(audio_frame2_resampler & resampler_state, int new_sa
 
         return true;
 }
+
+struct audio_frame2 *
+audio_frame2_alloc(int ch_count, audio_codec_t codec, int bps, int sample_rate)
+{
+
+        auto *ret = new audio_frame2();
+        ret->init(ch_count, codec, bps, sample_rate);
+        ret->reserve(bps * ch_count * 6); ///< @todo
+        return ret;
+}
+
+void
+audio_frame2_delete(struct audio_frame2 *frame)
+{
+        delete frame;
+}
+
+void
+audio_frame2_append(struct audio_frame2 *dst, const struct audio_frame2 *src)
+{
+        dst->append(*src);
+}
+
+void
+audio_frame2_change_bps(struct audio_frame2 *frame, int new_bps)
+{
+        frame->change_bps(new_bps);
+}
+
+int
+audio_frame2_get_bps(const struct audio_frame2 *frame)
+{
+        return frame->get_bps();
+}
+
+int
+audio_frame2_get_channel_count(const struct audio_frame2 *frame)
+{
+        return frame->get_channel_count();
+}
+const char *
+audio_frame2_get_data(const struct audio_frame2 *frame, int channel)
+{
+        return frame->get_data(channel);
+}
+
+size_t
+audio_frame2_get_data_len(const struct audio_frame2 *frame, int channel)
+{
+        return frame->get_data_len(channel);
+}
+
+int
+audio_frame2_get_sample_count(const struct audio_frame2 *frame)
+{
+        return frame->get_sample_count();
+}
+
+int
+audio_frame2_get_sample_rate(const struct audio_frame2 *frame)
+{
+        return frame->get_sample_rate();
+}
+
+int64_t
+audio_frame2_get_timestamp(const struct audio_frame2 *frame)
+{
+        return frame->get_timestamp();
+}
+
+struct audio_frame2_resampler *
+audio_frame2_resampler_init()
+{
+        return new audio_frame2_resampler();
+}
+
+void
+delete_resampler(struct audio_frame2_resampler *resampler)
+{
+        delete resampler;
+}
+
+bool
+audio_frame2_resample(struct audio_frame2_resampler *resampler,
+                      struct audio_frame2 *frame, int new_sample_rate)
+{
+        return frame->resample(*resampler, new_sample_rate);
+}
+
+bool
+audio_frame2_resample_fake(struct audio_frame2_resampler *resampler,
+                           struct audio_frame2 *frame, int new_sample_rate_num,
+                           int                  new_sample_rate_den,
+                           struct audio_frame2 **remainder_out)
+{
+        auto [ret, remainder] = frame->resample_fake(
+            *resampler, new_sample_rate_num, new_sample_rate_den);
+        if (!ret) {
+                return false;
+        }
+        if (remainder) {
+                *remainder_out = new audio_frame2(std::move(remainder));
+        }
+        return true;
+}

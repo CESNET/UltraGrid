@@ -94,6 +94,7 @@ typedef long long time_ns_t;
 #define US_TO_NS(val_us) ((val_us) * 1000)
 #define MS_TO_US(val_ms) ((val_ms) * 1000)
 #define NS_TO_MS(val_ns) ((val_ns) / 1000 / 1000)
+#define NS_TO_SEC_DBL(val_ns) ((double) (val_ns) / 1000 / 1000 / 1000)
 #define NS_TO_US(val_ns) ((val_ns) / 1000)
 #define MS_TO_NS(val_ms) ((val_ms) * 1000)
 #define SEC_TO_NS(val_sec) ((val_sec) * 1000LL * 1000 * 1000)

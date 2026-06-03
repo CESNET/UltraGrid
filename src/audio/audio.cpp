@@ -67,6 +67,7 @@
 #include "audio/echo.h"
 #include "audio/filter_chain.hpp"
 #include "audio/playback/sdi.h"
+#include "audio/postprocess.h"
 #include "audio/resampler.hpp"
 #include "audio/utils.h"
 #include "config.h"                     // for HAVE_SPEEXDSP
@@ -471,6 +472,8 @@ flush_rtp_samples(struct video_rxtx *rxtx)
         rtp_flush_recv_buf(audio->network_device);
 }
 
+ADD_TO_PARAM("audio-dec-format", "* audio-dec-format=<fmt>|help\n"
+                "  Forces specified format playback format.\n");
 static void *audio_receiver_thread(void *arg)
 {
         set_thread_name(__func__);
@@ -640,7 +643,7 @@ static void *asend_compute_and_print_stats(void *arg) {
         for (int i = 0; i < d->frame.get_channel_count(); ++i) {
                 double rms = 0.0;
                 double peak = 0.0;
-                rms = calculate_rms(&d->frame, i, &peak);
+                rms = calculate_rms2(&d->frame, i, &peak);
                 format_audio_channel_volume(i, rms, peak, T256_FG_SYM(T_AMBER),
                                             &vol_start, volume + sizeof volume);
         }

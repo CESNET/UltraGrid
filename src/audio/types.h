@@ -131,12 +131,12 @@ typedef struct
         double duration;
 } audio_channel;
 
+struct audio_frame2_resampler;
+
 #ifdef __cplusplus
 #include <memory>
 #include <tuple>
 #include <vector>
-
-class audio_frame2_resampler;
 
 /**
  * More versatile than audio_frame
@@ -214,11 +214,42 @@ private:
         double duration = 0.0; ///< for compressed formats where this cannot be directly determined from samples/sample_rate
         int64_t timestamp = -1;
 
-        friend class audio_frame2_resampler;
+        friend struct audio_frame2_resampler;
         friend class soxr_resampler;
         friend class speex_resampler;
 };
+#endif // __cplusplus
 
+// C API for audio_frame2 (incomplete - fn added as needed)
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+struct audio_frame2 *audio_frame2_alloc(int ch_count, audio_codec_t codec,
+                                        int bps, int sample_rate);
+void                 audio_frame2_delete(struct audio_frame2 *frame);
+
+void        audio_frame2_append(struct audio_frame2       *dst,
+                                const struct audio_frame2 *src);
+void        audio_frame2_change_bps(struct audio_frame2 *frame, int new_bps);
+int         audio_frame2_get_bps(const struct audio_frame2 *frame);
+int         audio_frame2_get_channel_count(const struct audio_frame2 *frame);
+const char *audio_frame2_get_data(const struct audio_frame2 *frame,
+                                  int                        channel);
+size_t audio_frame2_get_data_len(const struct audio_frame2 *frame, int channel);
+int         audio_frame2_get_sample_count(const struct audio_frame2 *frame);
+int         audio_frame2_get_sample_rate(const struct audio_frame2 *frame);
+int64_t     audio_frame2_get_timestamp(const struct audio_frame2 *frame);
+struct audio_frame2_resampler *audio_frame2_resampler_init();
+void delete_resampler(struct audio_frame2_resampler *resampler);
+bool audio_frame2_resample(struct audio_frame2_resampler *resampler,
+                           struct audio_frame2 *frame, int new_sample_rate);
+bool
+audio_frame2_resample_fake(struct audio_frame2_resampler *resampler,
+                           struct audio_frame2 *frame, int new_sample_rate_num,
+                           int                   new_sample_rate_den,
+                           struct audio_frame2 **remainder_out);
+#ifdef __cplusplus
+}
 #endif // __cplusplus
 
 #endif // defined AUDIO_TYPES_H
