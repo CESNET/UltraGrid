@@ -239,6 +239,8 @@ size_t audio_frame2_get_data_len(const struct audio_frame2 *frame, int channel);
 int         audio_frame2_get_sample_count(const struct audio_frame2 *frame);
 int         audio_frame2_get_sample_rate(const struct audio_frame2 *frame);
 int64_t     audio_frame2_get_timestamp(const struct audio_frame2 *frame);
+void        audio_frame2_replace(struct audio_frame2  *dst,
+                                 struct audio_frame2 **src);
 struct audio_frame2_resampler *audio_frame2_resampler_init();
 void delete_resampler(struct audio_frame2_resampler *resampler);
 bool audio_frame2_resample(struct audio_frame2_resampler *resampler,

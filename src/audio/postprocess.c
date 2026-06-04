@@ -345,6 +345,14 @@ decode_audio_frame_postprocess(struct state_audio_postprocess *postprocess,
                         audio_frame2_change_bps(decompressed,resampler_bps);
                 }
                 if (postprocess->req_resample_to != 0) {
+                        if (postprocess->resample_remainder) {
+                                audio_frame2_append(
+                                    postprocess->resample_remainder,
+                                    decompressed);
+                                audio_frame2_replace(
+                                    decompressed,
+                                    &postprocess->resample_remainder);
+                        }
                         struct audio_frame2 *remainder = nullptr;
                         bool                 ret = audio_frame2_resample_fake(
                             postprocess->resampler, decompressed,

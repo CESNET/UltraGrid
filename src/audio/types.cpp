@@ -491,6 +491,14 @@ audio_frame2_get_timestamp(const struct audio_frame2 *frame)
         return frame->get_timestamp();
 }
 
+/// replaces contents of dst with contents of src setting src=nullptr
+void
+audio_frame2_replace(struct audio_frame2 *dst, struct audio_frame2 **src)
+{
+        *dst = std::move(**src);
+        src = nullptr;
+}
+
 struct audio_frame2_resampler *
 audio_frame2_resampler_init()
 {
@@ -510,6 +518,10 @@ audio_frame2_resample(struct audio_frame2_resampler *resampler,
         return frame->resample(*resampler, new_sample_rate);
 }
 
+/**
+ * @param[out] remainder_out  eventual remainder from resample (SpeexDSP only);
+ *                            nullptr if empty
+ */
 bool
 audio_frame2_resample_fake(struct audio_frame2_resampler *resampler,
                            struct audio_frame2 *frame, int new_sample_rate_num,
@@ -521,8 +533,7 @@ audio_frame2_resample_fake(struct audio_frame2_resampler *resampler,
         if (!ret) {
                 return false;
         }
-        if (remainder) {
-                *remainder_out = new audio_frame2(std::move(remainder));
-        }
+        *remainder_out =
+            remainder ? new audio_frame2(std::move(remainder)) : nullptr;
         return true;
 }
