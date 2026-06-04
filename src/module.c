@@ -234,6 +234,8 @@ module_class_name(enum module_class cls)
                 return "exporter";
         case MODULE_CLASS_KEYCONTROL:
                 return "keycontrol";
+        case MODULE_CLASS_POSTPROCESS:
+                return "postprocess";
         }
         MSG(ERROR, "No name for module class %d!\n", (int) cls);
         abort();

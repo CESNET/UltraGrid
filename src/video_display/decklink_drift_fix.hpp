@@ -49,6 +49,7 @@
 #include "debug.h"
 #include "host.h"
 #include "messaging.h"
+#include "module.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"       // for snprintf_ch
 
@@ -452,7 +453,9 @@ public:
                             << MOD_NAME "Sending resample request "
                             << dst_frame_rate << "/" << BASE << "\n";
                         assert(m_root != nullptr);
-                        auto *response = send_message_sync(m_root, "audio.receiver.decoder", reinterpret_cast<message *>(m), 100, SEND_MESSAGE_FLAG_NO_STORE);
+                        char path[1024];
+                        set_message_path(path, sizeof(path), path_audio_postprocess);
+                        auto *response = send_message_sync(m_root, path, reinterpret_cast<message *>(m), 100, SEND_MESSAGE_FLAG_NO_STORE);
                         if (!RESPONSE_SUCCESSFUL(response_get_status(response))) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unable to send resample message: " << response_get_text(response) << " (" << response_get_status(response) << ")\n";
                         } else {

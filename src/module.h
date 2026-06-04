@@ -91,9 +91,11 @@ enum module_class {
         MODULE_CLASS_DECODER,
         MODULE_CLASS_EXPORTER,
         MODULE_CLASS_KEYCONTROL,
+        MODULE_CLASS_POSTPROCESS,
 };
 
 // common paths declaration
+extern const enum module_class path_audio_postprocess[]; // defined in audio/postprocess.c
 extern const enum module_class path_audio_send_module[]; // defined in audio.cpp
 extern const enum module_class path_sender_audio[]; // defined in rtp_comomn.c
 extern const enum module_class path_sender_video[]; // defined in rtp_comomn.c
