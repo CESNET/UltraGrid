@@ -3687,36 +3687,26 @@ fi
 
 # for every dep ensure also that the depending file exists (to avoid forgetting
 # to update when moved or deleted)
-assert_present() { test -f $srcdir/$1 || { echo "$srcdir/$1 missing!" 2>&1; exit 20; }; }
+set_dep() {
+        assert_present() { test -f $srcdir/$1 || { echo "$srcdir/$1 missing!" 2>&1; exit 20; }; }
+        assert_present "$1"
+        var_name=$(printf '%s.o_dep' "${1%.*}" | tr -c '_@<:@:alnum:@:>@' '@<:@_*@:>@')
+        eval "$var_name=\"$2\""
+}
 
-assert_present src/capture_filter/preview.cpp
-src_capture_filter_preview_o_dep="tools/ipc_frame.o
-                                    tools/ipc_frame_ug.o
-                                    tools/ipc_frame_unix.o"
-
-assert_present src/audio/capture/aes67.cpp
-src_audio_capture_aes67_o_dep=src/utils/sdp_parser.o
-
-assert_present src/audio/capture/wav.c
-src_audio_capture_wav_o_dep=src/audio/wav_reader.o
-
-assert_present src/audio/capture/testcard.c
-src_audio_capture_testcard_o_dep=src/audio/wav_reader.o
-
-assert_present src/video_capture/import.c
-src_video_capture_import_o_dep=src/audio/wav_reader.o
-
-assert_present src/video_capture/testcard.c
-src_video_capture_testcard_o_dep="src/utils/video_pattern_generator.o
-                                  src/video_capture/testcard_common.o"
-
-assert_present src/video_display/unix_sock.cpp
-src_video_display_unix_sock_o_dep="tools/ipc_frame.o
-                                     tools/ipc_frame_ug.o
-                                     tools/ipc_frame_unix.o"
-
-assert_present src/video_rxtx/h264_sdp.cpp
-src_video_rxtx_h264_sdp_o_dep=src/utils/sdp.o
+set_dep src/capture_filter/preview.cpp "tools/ipc_frame.o
+                                        tools/ipc_frame_ug.o
+                                        tools/ipc_frame_unix.o"
+set_dep src/audio/capture/aes67.cpp src/utils/sdp_parser.o
+set_dep src/audio/capture/testcard.c src/audio/wav_reader.o
+set_dep src/audio/capture/wav.c src/audio/wav_reader.o
+set_dep src/video_capture/import.c src/audio/wav_reader.o
+set_dep src/video_capture/testcard.c "src/utils/video_pattern_generator.o
+                                      src/video_capture/testcard_common.o"
+set_dep src/video_display/unix_sock.cpp "tools/ipc_frame.o
+                                         tools/ipc_frame_ug.o
+                                         tools/ipc_frame_unix.o"
+set_dep src/video_rxtx/h264_sdp.cpp src/utils/sdp.o
 
 if test "$build_default" != no || test "$req_files" = all; then
         CAPTURE_FILTERS="
