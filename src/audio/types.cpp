@@ -456,6 +456,12 @@ audio_frame2_get_bps(const struct audio_frame2 *frame)
         return frame->get_bps();
 }
 
+audio_codec_t
+audio_frame2_get_codec(const struct audio_frame2 *frame)
+{
+        return frame->get_codec();
+}
+
 int
 audio_frame2_get_channel_count(const struct audio_frame2 *frame)
 {
@@ -471,6 +477,20 @@ size_t
 audio_frame2_get_data_len(const struct audio_frame2 *frame, int channel)
 {
         return frame->get_data_len(channel);
+}
+
+struct fec_desc
+audio_frame2_get_fec_params(const struct audio_frame2 *frame, int channel)
+{
+
+        return frame->get_fec_params(channel);
+}
+
+double
+audio_frame2_get_duration(const struct audio_frame2 *frame)
+{
+
+        return frame->get_duration();
 }
 
 int

@@ -55,15 +55,16 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+#include "transmit.h"
 
-#include <algorithm>
-#include <array>
-#include <cassert>
-#include <cmath>
-#include <ctime>
-#include <iostream>
-#include <sstream>
-#include <vector>
+#include <assert.h>
+#include <math.h>
+#include <stdio.h>                   // for snprintf, fprintf, stderr
+#include <stdlib.h>
+#include <string.h>                  // for memcpy, strlen, strchr, strstr
+#include <strings.h>                 // for strcasecmp
+#include <time.h>
+
 #ifdef _WIN32
 #include <windef.h>                   // for LARGE_INTEGER
 #endif
@@ -71,6 +72,7 @@
 #include "audio/codec.h"
 #include "audio/types.h"
 #include "audio/utils.h"
+#include "compat/c23.h"              // IWYU pragma: keep
 #include "compat/net.h"              // for htonl etc.
 #include "control_socket.h"
 #include "crypto/openssl_encrypt.h"
@@ -81,17 +83,20 @@
 #include "module.h"
 #include "rtp/fec.h"
 #include "rtp/rtp.h"
-#include "rtp/rtp_callback.h"
+#include "rtp/rtp_types.h"           // for fec_payload_hdr_t, crypto_payloa...
+#include "rtp/rtpdec_h264.h"         // for hevc_nal_type
 #include "rtp/rtpenc_h264.h"
-#include "transmit.h"
 #include "tv.h"
 #include "types.h"
+#include "utils/color_out.h"
 #include "utils/jpeg_reader.h"
 #include "utils/macros.h"
 #include "utils/misc.h" // unit_evaluate
 #include "utils/random.h"
-#include "video.h"
 #include "video_codec.h"
+#include "video_frame.h"             // for vf_get_tile
+
+struct audio_frame2;
 
 #define MOD_NAME "[transmit] "
 #define TRANSMIT_MAGIC	0xe80ab15f
@@ -104,11 +109,14 @@
 #define GET_STOPTIME  clock_gettime(CLOCK_MONOTONIC, &stop)
 #define GET_DELTA delta = (stop.tv_sec - start.tv_sec) * 1000000000l + stop.tv_nsec - start.tv_nsec
 
-using std::array;
-using std::vector;
-
 static void tx_update(struct tx *tx, struct video_frame *frame, int substream);
 static uint32_t format_interl_fps_hdr_row(enum interlacing_t interlacing, double input_fps);
+
+// rtp_send_data_hdr() needs (char *) but sometimes we have ptr to const data
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual"
+#endif
 
 static void
 tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
@@ -123,8 +131,8 @@ static void fec_check_messages(struct tx *tx);
 struct rate_limit_dyn {
         unsigned long avg_frame_size;   ///< moving average
         long long last_excess; ///< nr of frames last excessive frame was emitted
-        static constexpr int EXCESS_GAP = 4; ///< minimal gap between excessive frames
 };
+enum { EXCESS_GAP = 4 }; ///< minimal gap between excessive frames
 
 struct tx {
         struct module mod;
@@ -148,9 +156,9 @@ struct tx {
 
         int last_fragment;
 
-        struct control_state *control = nullptr;
-        size_t sent_since_report = 0;
-        uint64_t last_stat_report = 0;
+        struct control_state *control;
+        size_t sent_since_report;
+        uint64_t last_stat_report;
 
         const struct openssl_encrypt_info *enc_funcs;
         struct openssl_encrypt *encryption;
@@ -239,8 +247,10 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                 }
         }
         if (encryption != nullptr && strlen(encryption) > 0) {
-                tx->enc_funcs = static_cast<const struct openssl_encrypt_info *>(load_library("openssl_encrypt",
-                                        LIBRARY_CLASS_UNDEFINED, OPENSSL_ENCRYPT_ABI_VERSION));
+                tx->enc_funcs =
+                    (const struct openssl_encrypt_info *) load_library(
+                        "openssl_encrypt", LIBRARY_CLASS_UNDEFINED,
+                        OPENSSL_ENCRYPT_ABI_VERSION);
                 if (!tx->enc_funcs) {
                         fprintf(stderr, "UltraGrid was build without OpenSSL support!\n");
                         tx_done(tx);
@@ -355,10 +365,10 @@ static void fec_check_messages(struct tx *tx)
 {
         struct message *msg;
         while ((msg = check_message(&tx->mod))) {
-                auto *data = reinterpret_cast<struct msg_universal *>(msg);
+                struct msg_universal *data = (struct msg_universal *) msg;
                 const char *text = data->text;
                 if (strstr(text, MSG_UNIVERSAL_TAG_TX) != text) {
-                        LOG(LOG_LEVEL_ERROR) << "[Transmit] Unexpected TX message: " << text << "\n";
+                        MSG(ERROR, "Unexpected TX message: %s\n", text);
                         free_message(msg, new_response(RESPONSE_BAD_REQUEST, "Unexpected message"));
                         continue;
                 }
@@ -368,25 +378,25 @@ static void fec_check_messages(struct tx *tx)
                         text += strlen("fec ");
                         if (set_fec(tx, text)) {
                                 r = new_response(RESPONSE_OK, nullptr);
-                                LOG(LOG_LEVEL_NOTICE) << "[Transmit] FEC set to new setting: " << text << "\n";
+                                MSG(NOTICE, "FEC set to new setting: %s\n", text);
                         } else {
                                 r = new_response(RESPONSE_INT_SERV_ERR, "cannot set FEC");
-                                LOG(LOG_LEVEL_ERROR) << "[Transmit] Unable to reconfiure FEC to: " << text << "\n";
+                                MSG(ERROR, "Unable to reconfiure FEC to: %s\n", text);
                         }
                 } else if (strstr(text, "rate ") == text) {
                         text += strlen("rate ");
-                        auto new_rate = unit_evaluate(text, nullptr);
+                        long long new_rate = unit_evaluate(text, nullptr);
                         if (new_rate >= RATE_MIN) {
                                 tx->bitrate = new_rate;
                                 r = new_response(RESPONSE_OK, nullptr);
-                                LOG(LOG_LEVEL_NOTICE) << "[Transmit] Bitrate set to: " << text << (new_rate > 0 ? "B" : "") << "\n";
+                                MSG(NOTICE, "Bitrate set to: %s%s\n", text, new_rate > 0 ? "B" : "");
                         } else {
                                 r = new_response(RESPONSE_BAD_REQUEST, "Wrong value for bitrate");
-                                LOG(LOG_LEVEL_ERROR) << "[Transmit] Wrong bitrate: " << text << "\n";
+                                MSG(ERROR, "Wrong bitrate: %s\n", text);
                         }
                 } else {
                         r = new_response(RESPONSE_BAD_REQUEST, "Unknown TX message");
-                        LOG(LOG_LEVEL_ERROR) << "[Transmit] Unknown TX message: " << text << "\n";
+                        MSG(ERROR, "Unknown TX message: %s\n", text);
                 }
 
                 free_message(msg, r);
@@ -459,22 +469,22 @@ format_video_header(const struct video_frame *frame, int tile_idx,
         video_hdr[5] = format_interl_fps_hdr_row(frame->interlacing, frame->fps);
 }
 
-void format_audio_header(const audio_frame2 *frame, int channel, int buffer_idx, uint32_t *audio_hdr)
+void format_audio_header(const struct audio_frame2 *frame, int channel, int buffer_idx, uint32_t *audio_hdr)
 {
         uint32_t tmp = 0;
         tmp = channel << 22U; /* bits 0-9 */
         tmp |= buffer_idx; /* bits 10-31 */
         audio_hdr[0] = htonl(tmp);
 
-        audio_hdr[2] = htonl(frame->get_data_len(channel));
+        audio_hdr[2] = htonl(audio_frame2_get_data_len(frame, channel));
 
         /* fourth word */
-        tmp = (frame->get_bps() * 8) << 26U;
-        tmp |= frame->get_sample_rate();
+        tmp = (audio_frame2_get_bps(frame) * 8) << 26U;
+        tmp |= audio_frame2_get_sample_rate(frame);
         audio_hdr[3] = htonl(tmp);
 
         /* fifth word */
-        audio_hdr[4] = htonl(get_audio_tag(frame->get_codec()));
+        audio_hdr[4] = htonl(get_audio_tag(audio_frame2_get_codec(frame)));
 }
 
 static uint32_t format_interl_fps_hdr_row(enum interlacing_t interlacing, double input_fps)
@@ -503,25 +513,24 @@ static uint32_t format_interl_fps_hdr_row(enum interlacing_t interlacing, double
 
 static inline void check_symbol_size(int fec_symbol_size, int payload_len)
 {
-        thread_local static bool status_printed = false;
+        _Thread_local static bool status_printed = false;
 
         if (status_printed && log_level < LOG_LEVEL_DEBUG2) {
                 return;
         }
 
         if (fec_symbol_size > payload_len) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME
+                MSG(WARNING,
                     "Warning: FEC symbol size exceeds payload size! "
-                    "FEC symbol size: " << fec_symbol_size
-                                       << "\n";
+                    "FEC symbol size: %d\n", fec_symbol_size);
         } else {
                 const int ll =
                     status_printed ?  LOG_LEVEL_DEBUG2 : LOG_LEVEL_INFO;
-                LOG(ll) << MOD_NAME "FEC symbol size: " << fec_symbol_size
-                        << ", symbols per packet: "
-                        << payload_len / fec_symbol_size << ", payload size: "
-                        << payload_len / fec_symbol_size * fec_symbol_size
-                        << "\n";
+                log_msg(ll,
+                        MOD_NAME "FEC symbol size: %d, symbols per packet: %d, "
+                                 "payload size: %d\n",
+                        fec_symbol_size, payload_len / fec_symbol_size,
+                        payload_len / fec_symbol_size * fec_symbol_size);
         }
         status_printed = true;
 }
@@ -551,7 +560,10 @@ static inline int get_video_pkt_len(int mtu,
 }
 
 /// @param mtu is tx->mtu - hdrs_len
-static vector<int> get_packet_sizes(struct video_frame *frame, int substream, int mtu) {
+static size_t
+get_packet_sizes(struct video_frame *frame, unsigned substream, int mtu,
+                 size_t max_count, uint16_t pkt_sz[static max_count])
+{
         if (frame->fec_params.type != FEC_NONE) {
                 check_symbol_size(frame->fec_params.symbol_size, mtu);
         }
@@ -566,21 +578,22 @@ static vector<int> get_packet_sizes(struct video_frame *frame, int substream, in
         } else if (frame->fec_params.type != FEC_NONE) {
                 symbol_size = frame->fec_params.symbol_size;
         }
-        vector<int> ret;
+        size_t pkt_cnt = 0;
         unsigned pos = 0;
         do {
                 int len = symbol_size == 1
                         ? mtu
                         : get_video_pkt_len(mtu, symbol_size, &symbol_offset);
                 pos += len;
-                ret.push_back(len);
+                assert(pkt_cnt < max_count);
+                pkt_sz[pkt_cnt++] = len;
         } while (pos < frame->tiles[substream].data_len);
 
         if (pos > frame->tiles[substream].data_len) {
-                ret[ret.size() - 1] -=
+                pkt_sz[pkt_cnt - 1] -=
                     (int) (pos - frame->tiles[substream].data_len);
         }
-        return ret;
+        return pkt_cnt;
 }
 
 static void
@@ -600,11 +613,10 @@ report_stats(struct tx *tx, struct rtp *rtp_session, long data_sent)
 
         const char *media =
             tx->media_type == TX_MEDIA_VIDEO ? "video" : "audio";
-        std::ostringstream oss;
-        oss << "tx_send " << std::hex << rtp_my_ssrc(rtp_session) << std::dec
-            << " " << media << " " << tx->sent_since_report;
-
-        control_report_stats(tx->control, oss.str().c_str());
+        char buf[STR_LEN];
+        snprintf_ch(buf, "tx_send %x %s %zu", rtp_my_ssrc(rtp_session), media,
+                    tx->sent_since_report);
+        control_report_stats(tx->control, buf);
         tx->last_stat_report  = current_time_ns;
         tx->sent_since_report = 0;
 }
@@ -624,15 +636,15 @@ get_packet_rate(struct tx *tx, struct video_frame *frame, int substream, long pa
         // can minimize risk of swapping packets between 2 frames (out-of-order ones)
         interval_between_pkts = interval_between_pkts * 0.75;
         // prevent bitrate to be "too low", here 1 Mbps at minimum
-        interval_between_pkts = std::min<double>(interval_between_pkts, tx->mtu / 1000'000.0);
-        long packet_rate_auto = interval_between_pkts * 1000'000'000L;
+        interval_between_pkts = MIN(interval_between_pkts, tx->mtu / (1000.0 * 1000.0));
+        long packet_rate_auto = interval_between_pkts * 1000L * 1000 * 1000;
 
         if (tx->bitrate == RATE_AUTO) { // adaptive (spread packets to 75% frame time)
                return packet_rate_auto;
         }
         if (tx->bitrate == RATE_DYNAMIC) {
                 if (frame->tiles[substream].data_len > 2 * tx->dyn_rate_limit_state.avg_frame_size
-                                && tx->dyn_rate_limit_state.last_excess > rate_limit_dyn::EXCESS_GAP) {
+                                && tx->dyn_rate_limit_state.last_excess > EXCESS_GAP) {
                         packet_rate_auto /= 2; // double packet rate for this frame
                         tx->dyn_rate_limit_state.last_excess = 0;
                 } else {
@@ -643,9 +655,9 @@ get_packet_rate(struct tx *tx, struct video_frame *frame, int substream, long pa
         }
         long long int bitrate = tx->bitrate & ~RATE_FLAG_FIXED_RATE;
         int avg_packet_size = frame->tiles[substream].data_len / packet_count;
-        long packet_rate = 1000'000'000L * avg_packet_size * 8 / bitrate; // fixed rate
+        long packet_rate = 1000L * 1000 * 1000L * avg_packet_size * 8 / bitrate; // fixed rate
         if ((tx->bitrate & RATE_FLAG_FIXED_RATE) == 0) { // adaptive capped rate
-                packet_rate = std::max(packet_rate, packet_rate_auto);
+                packet_rate = MAX(packet_rate, packet_rate_auto);
         }
         return packet_rate;
 }
@@ -708,8 +720,13 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 rtp_hdr_len += sizeof(crypto_payload_hdr_t);
         }
 
-        vector<int> packet_sizes = get_packet_sizes(frame, substream, tx->mtu - hdrs_len);
-        long mult_pkt_cnt = (long) packet_sizes.size() * tx->mult_count;
+        int netto_len = tx->mtu - hdrs_len;
+        uint16_t
+            packet_sizes[1000 + ((size_t) 4 * frame->tiles[substream].data_len /
+                                 netto_len)];
+        const size_t nr_packets = get_packet_sizes(
+            frame, substream, netto_len, countof(packet_sizes), packet_sizes);
+        size_t     mult_pkt_cnt = nr_packets * tx->mult_count;
         const long packet_rate =
             get_packet_rate(tx, frame, (int) substream, mult_pkt_cnt);
 
@@ -719,11 +736,11 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         uint32_t *rtp_hdr_packet = (uint32_t *) rtp_headers;
         for (int m = 0; m < tx->mult_count; ++m) {
                 unsigned pos = 0;
-                for (unsigned i = 0; i < packet_sizes.size(); ++i) {
+                for (unsigned i = 0; i < nr_packets; ++i) {
                         memcpy(rtp_hdr_packet, rtp_hdr, rtp_hdr_len);
                         rtp_hdr_packet[1] = htonl(pos);
                         rtp_hdr_packet += rtp_hdr_len / sizeof(uint32_t);
-                        pos += packet_sizes.at(i);
+                        pos += packet_sizes[i];
                 }
         }
         if (tx->fec_dup_1st_pkt) { // dup 1st pkt with RS/LDGM
@@ -737,11 +754,11 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         }
 
         rtp_hdr_packet = (uint32_t *) rtp_headers;
-        for (long i = 0; i < mult_pkt_cnt; ++i) {
+        for (unsigned i = 0; i < mult_pkt_cnt; ++i) {
                 GET_STARTTIME;
                 const int m        = i == mult_pkt_cnt - 1 ? send_m : 0;
                 char     *data     = tile->data + ntohl(rtp_hdr_packet[1]);
-                int       data_len = packet_sizes.at(i % packet_sizes.size());
+                int       data_len = packet_sizes[i % nr_packets];
 
                 char encrypted_data[RTP_MAX_PACKET_LEN + MAX_CRYPTO_EXCEED];
                 if (tx->encryption != nullptr) {
@@ -784,7 +801,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 }
 
 static void audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session,
-                               uint32_t timestamp, const audio_frame2 *buffer,
+                               uint32_t timestamp, const struct audio_frame2 *buffer,
                                int channel, bool send_m);
 
 /* 
@@ -793,7 +810,7 @@ static void audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session,
  */
 void
 audio_tx_send(struct tx *tx, struct rtp *rtp_session,
-              const audio_frame2 *buffer)
+              const struct audio_frame2 *buffer)
 {
         if (!rtp_has_receiver(rtp_session)) {
                 return;
@@ -802,14 +819,14 @@ audio_tx_send(struct tx *tx, struct rtp *rtp_session,
         fec_check_messages(tx);
 
         const uint32_t timestamp =
-            buffer->get_timestamp() == -1
+            audio_frame2_get_timestamp(buffer) == -1
                 ? get_local_mediatime()
-                : get_local_mediatime_offset() + buffer->get_timestamp();
+                : get_local_mediatime_offset() + audio_frame2_get_timestamp(buffer);
 
         for (int iter = 0; iter < tx->mult_count; ++iter) {
-                for (int chan = 0; chan < buffer->get_channel_count(); ++chan) {
+                for (int chan = 0; chan < audio_frame2_get_channel_count(buffer); ++chan) {
                         bool send_m = iter == tx->mult_count - 1 &&
-                                      chan == buffer->get_channel_count() - 1;
+                                      chan == audio_frame2_get_channel_count(buffer) - 1;
                         audio_tx_send_chan(tx, rtp_session, timestamp, buffer,
                                            chan, send_m);
                 }
@@ -820,10 +837,12 @@ audio_tx_send(struct tx *tx, struct rtp *rtp_session,
 
 static void
 audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
-                   const audio_frame2 *buffer, int channel, bool send_m)
+                   const struct audio_frame2 *buffer, int channel, bool send_m)
 {
+        const struct fec_desc fec_desc =
+            audio_frame2_get_fec_params(buffer, channel);
         int pt = fec_pt_from_fec_type(
-            TX_MEDIA_AUDIO, buffer->get_fec_params(0).type,
+            TX_MEDIA_AUDIO, fec_desc.type,
             tx->encryption); /* PT set for audio in our packet format */
         unsigned m = 0U;
         // see definition in rtp_callback.h
@@ -831,13 +850,12 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
 
         int rtp_hdr_len = 0;
         int hdrs_len = get_tx_hdr_len(rtp_is_ipv6(rtp_session));
-        unsigned int fec_symbol_size =
-            buffer->get_fec_params(channel).symbol_size;
+        unsigned int fec_symbol_size = fec_desc.symbol_size;
 
-        const char *chan_data = buffer->get_data(channel);
+        const char *chan_data = audio_frame2_get_data(buffer, channel);
         unsigned    pos       = 0U;
 
-        if (buffer->get_fec_params(0).type == FEC_NONE) {
+        if (fec_desc.type == FEC_NONE) {
                 hdrs_len += (sizeof(audio_payload_hdr_t));
                 rtp_hdr_len = sizeof(audio_payload_hdr_t);
                 format_audio_header(buffer, channel, tx->buffer, rtp_hdr);
@@ -848,11 +866,11 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
                 tmp |= 0x3fffff & tx->buffer;
                 // see definition in rtp_callback.h
                 rtp_hdr[0] = htonl(tmp);
-                rtp_hdr[2] = htonl(buffer->get_data_len(channel));
-                rtp_hdr[3] = htonl(buffer->get_fec_params(channel).k << 19 |
-                                   buffer->get_fec_params(channel).m << 6 |
-                                   buffer->get_fec_params(channel).c);
-                rtp_hdr[4] = htonl(buffer->get_fec_params(channel).seed);
+                rtp_hdr[2] = htonl(audio_frame2_get_data_len(buffer, channel));
+                rtp_hdr[3] = htonl(fec_desc.k << 19 |
+                                   fec_desc.m << 6 |
+                                   fec_desc.c);
+                rtp_hdr[4] = htonl(fec_desc.seed);
         }
 
         if (tx->encryption) {
@@ -863,7 +881,7 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
                 rtp_hdr_len += sizeof(crypto_payload_hdr_t);
         }
 
-        if (buffer->get_fec_params(0).type != FEC_NONE) {
+        if (fec_desc.type != FEC_NONE) {
                 check_symbol_size(fec_symbol_size, tx->mtu - hdrs_len);
         }
 
@@ -873,8 +891,8 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
                 const char *data     = chan_data + pos;
                 int         data_len = max_len;
                 if (pos + data_len >=
-                    (unsigned int) buffer->get_data_len(channel)) {
-                        data_len = buffer->get_data_len(channel) - pos;
+                    (unsigned int) audio_frame2_get_data_len(buffer, channel)) {
+                        data_len = audio_frame2_get_data_len(buffer, channel) - pos;
                         if (send_m) {
                                 m = 1;
                         }
@@ -885,7 +903,7 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
                 char encrypted_data[RTP_MAX_PACKET_LEN + MAX_CRYPTO_EXCEED];
                 if (tx->encryption) {
                         data_len = tx->enc_funcs->encrypt(
-                            tx->encryption, const_cast<char *>(data), data_len,
+                            tx->encryption, (char *) data, data_len,
                             (char *) rtp_hdr,
                             rtp_hdr_len - sizeof(crypto_payload_hdr_t),
                             encrypted_data);
@@ -901,18 +919,19 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
                                   0, /* contributing sources */
                                   0, /* contributing sources length */
                                   (char *) rtp_hdr, rtp_hdr_len,
-                                  const_cast<char *>(data), data_len, 0, 0, 0);
+                                  (char *) data, data_len, 0, 0, 0);
 
-        } while (pos < buffer->get_data_len(channel));
+        } while (pos < audio_frame2_get_data_len(buffer, channel));
 
         report_stats(tx, rtp_session, data_sent);
 
-        if (buffer->get_fec_params(0).type == FEC_NONE) {
+        if (fec_desc.type == FEC_NONE) {
                 return;
         }
         // issue a warning if R-S is inadequate
         const int packet_count =
-            (buffer->get_data_len(channel) + max_len - 1) / max_len;
+            (audio_frame2_get_data_len(buffer, channel) + max_len - 1) /
+            max_len;
         if (packet_count > 3) {
                 return;
         }
@@ -926,21 +945,22 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
 }
 
 static bool
-validate_std_audio(const audio_frame2 * buffer, int payload_size)
+validate_std_audio(const struct audio_frame2 * buffer, size_t payload_size)
 {
-        if ((buffer->get_codec() == AC_MP3 ||
-             buffer->get_codec() == AC_OPUS) &&
-            buffer->get_channel_count() > 1) { // we cannot interleave Opus here
+        const audio_codec_t audio_codec = audio_frame2_get_codec(buffer);
+        if ((audio_codec == AC_MP3 ||
+             audio_codec == AC_OPUS) &&
+            audio_frame2_get_channel_count(buffer) > 1) { // we cannot interleave Opus here
                 const uint32_t msg_id = to_fourcc('t', 'x', 'v', 'a');
                 log_msg_once(LOG_LEVEL_ERROR, msg_id,
                              MOD_NAME
                              "%s can currently have only 1 channel in "
                              "RFC-compliant mode! Discarding channels but the "
                              "first one...\n",
-                             get_name_to_audio_codec(buffer->get_codec()));
+                             get_name_to_audio_codec(audio_codec));
         }
-        if (buffer->get_codec() == AC_OPUS &&
-            payload_size < (int) buffer->get_data_len(0)) {
+        if (audio_codec == AC_OPUS &&
+            payload_size < audio_frame2_get_data_len(buffer, 0)) {
                 MSG(ERROR, "Opus frame larger than packet! Discarding...\n");
                 return false;
         }
@@ -952,12 +972,15 @@ validate_std_audio(const audio_frame2 * buffer, int payload_size)
  *                       	as the mulaw and A-law standards (dynamic or std PT).
  */
 void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
-		const audio_frame2 * buffer) {
+		const struct audio_frame2 * buffer) {
+        const audio_codec_t audio_codec = audio_frame2_get_codec(buffer);
+        const int ch_count = audio_frame2_get_channel_count(buffer);
+        const size_t data_len0 = audio_frame2_get_data_len(buffer, 0);
 	//TODO to be more abstract in order to accept A-law too and other supported standards with such implementation
-        assert(buffer->get_codec() == AC_MULAW ||
-               buffer->get_codec() == AC_ALAW ||
-               buffer->get_codec() == AC_MP3 ||
-               buffer->get_codec() == AC_OPUS);
+        assert(audio_codec == AC_MULAW ||
+               audio_codec == AC_ALAW ||
+               audio_codec == AC_MP3 ||
+               audio_codec == AC_OPUS);
 
 	uint32_t ts;
 	static uint32_t ts_prev = 0;
@@ -969,33 +992,33 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
                                 // asses the decmopressed sample size.
         };
         const bool is_pcma_u =
-            buffer->get_codec() == AC_MULAW || buffer->get_codec() == AC_ALAW;
+            audio_codec == AC_MULAW || audio_codec == AC_ALAW;
 	// Configure the right Payload type,
 	// 8000 Hz, 1 channel PCMU/A is the ITU-T G.711 standard
 	// Other channels or Hz goes to DynRTP-Type97
 	int pt = PT_DynRTP_Type97;
-        if (is_pcma_u && buffer->get_channel_count() == 1 &&
-            buffer->get_sample_rate() == kHz8) {
-                pt = buffer->get_codec() == AC_MULAW ? PT_ITU_T_G711_PCMU
+        if (is_pcma_u && ch_count == 1 &&
+            audio_frame2_get_sample_rate(buffer) == kHz8) {
+                pt = audio_codec == AC_MULAW ? PT_ITU_T_G711_PCMU
                                                      : PT_ITU_T_G711_PCMA;
         }
-        if (buffer->get_codec() == AC_MP3) {
+        if (audio_codec == AC_MP3) {
                 pt = PT_MPA;
         }
 
-	int data_len = buffer->get_data_len(0); 	/* Number of samples to send 			*/
-	int payload_size = tx->mtu - 40 - 8 - 12; /* Max size of an RTP payload field (minus IPv6, UDP and RTP header lengths) */
+        size_t data_len = data_len0;                 /* Number of samples to send 			*/
+        size_t payload_size = tx->mtu - 40 - 8 - 12; /* Max size of an RTP payload field (minus IPv6, UDP and RTP header lengths) */
 
         if (is_pcma_u) { // we may split the data into more packets, compute
                          //  chunk size
-                const int frame_size = buffer->get_channel_count() * PCMA_U_BPS;
+                const int frame_size = ch_count * PCMA_U_BPS;
                 payload_size = payload_size / frame_size * frame_size; // align to frame size
                 // The sizes for the different channels must be the same.
-                for (int i = 1; i < buffer->get_channel_count(); i++) {
-                        assert(buffer->get_data_len(0) ==
-                               buffer->get_data_len(i));
+                for (int i = 1; i < ch_count; i++) {
+                        assert(data_len0 ==
+                               audio_frame2_get_data_len(buffer, i));
                 }
-                data_len *= buffer->get_channel_count();
+                data_len *= ch_count;
         } else if (pt == PT_MPA) {
                 payload_size -= sizeof(mpa_hdr_t);
         }
@@ -1004,38 +1027,41 @@ void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
                 return;
         }
 
-	int pos = 0;
+	size_t pos = 0;
 	do {
-                int pkt_len = std::min(payload_size, data_len - pos);
+                const char *data0 = audio_frame2_get_data(buffer, 0);
+                int pkt_len = MIN(payload_size, data_len - pos);
 
-                if (buffer->get_codec() == AC_OPUS) {
-                        memcpy(tx->tmp_packet, buffer->get_data(0), pkt_len);
-                } else if (buffer->get_codec() == AC_MP3) {
+                if (audio_codec == AC_OPUS) {
+                        memcpy(tx->tmp_packet, data0, pkt_len);
+                } else if (audio_codec == AC_MP3) {
                         memset(tx->tmp_packet, 0, 2);
                         const uint16_t offset = htons(pos);
                         memcpy(tx->tmp_packet + 2, &offset, sizeof offset);
                         pkt_len += sizeof(mpa_hdr_t);
-                        memcpy(tx->tmp_packet + 4, buffer->get_data(0), pkt_len);
+                        memcpy(tx->tmp_packet + 4, data0, pkt_len);
                 } else { // interleave
-                        for (int ch = 0; ch < buffer->get_channel_count(); ch++) {
+                        for (int ch = 0; ch < ch_count; ch++) {
                                 remux_channel(
                                     tx->tmp_packet,
-                                    buffer->get_data(ch) +
-                                        pos / buffer->get_channel_count(),
-                                    PCMA_U_BPS,
-                                    pkt_len / buffer->get_channel_count(), 1,
-                                    buffer->get_channel_count(), 0, ch);
+                                    audio_frame2_get_data(buffer, ch) +
+                                        (pos / ch_count),
+                                    PCMA_U_BPS, pkt_len / ch_count, 1, ch_count,
+                                    0, ch);
                         }
                 }
 
                 // Update first sample timestamp
-                if (buffer->get_codec() == AC_OPUS) {
+                if (audio_codec == AC_OPUS) {
                         /* OPUS packet will be the whole contained in one packet
                          * according to RFC 7587. For PCMA/PCMU there may be more
                          * packets so we cannot use the whole frame duration. */
-                        ts = get_std_audio_local_mediatime(buffer->get_duration(), 48000);
+                        ts = get_std_audio_local_mediatime(audio_frame2_get_duration(buffer), kHz48);
                 } else {
-                        ts = get_std_audio_local_mediatime((double) pkt_len / (double) buffer->get_channel_count() / (double) buffer->get_sample_rate(), buffer->get_sample_rate());
+                        const int sr = audio_frame2_get_sample_rate(buffer);
+                        ts           = get_std_audio_local_mediatime(
+                            (double) pkt_len / (double) ch_count / (double) sr,
+                            sr);
                 }
                 rtp_send_ctrl(rtp_session, ts_prev, 0, get_time_in_ns()); //send RTCP SR
                 ts_prev = ts;
@@ -1078,7 +1104,7 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
                 bool eof = endptr == start + data_len;
                 bool lastNALUnitFragment = false; // by default
                 unsigned curNALOffset = 0;
-                char *nalc = const_cast<char *>(reinterpret_cast<const char *>(nal));
+                char *nalc = (char *) nal;
 
 		while(!lastNALUnitFragment){
 			// We have NAL unit data in the buffer.  There are three cases to consider:
@@ -1252,8 +1278,7 @@ void tx_send_h265(struct tx *tx, struct video_frame *frame,
                 }
 
                 if (nalsize <= maxPacketSize) { // single NALU packet
-                        char *payload = const_cast<char *>(
-                            reinterpret_cast<const char *>(nal));
+                        char *payload = (char *) nal;
                         if (rtp_send_data_hdr(rtp_session, ts, pt, 1 /* m */, 0,
                                               nullptr, (char *) nullptr, 0,
                                               payload, (int) nalsize, nullptr,
@@ -1278,8 +1303,7 @@ void tx_send_h265(struct tx *tx, struct video_frame *frame,
                                 } else {
                                         size = maxPacketSize;
                                 }
-                                char *payload = const_cast<char *>(
-                                    reinterpret_cast<const char *>(nal));
+                                char *payload = (char *) nal;
                                 if (rtp_send_data_hdr(
                                         rtp_session, ts, pt, m, 0, nullptr,
                                         (char *) hdr, sizeof hdr,

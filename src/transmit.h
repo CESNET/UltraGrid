@@ -57,8 +57,6 @@
 #ifndef TRANSMIT_H_
 #define TRANSMIT_H_
 
-#include "audio/types.h"
-#include "rtp/rtpenc_h264.h"
 #include "types.h"
 
 #ifndef __cplusplus
@@ -72,7 +70,6 @@ struct audio_frame2;
 struct module;
 struct rtp;
 struct tx;
-struct video_frame;
 
 struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media_type,
                 const char *fec, const char *encryption, long long bitrate);
@@ -90,16 +87,16 @@ void tx_send_jpeg(struct tx *tx_session, struct video_frame *frame, struct rtp *
  */
 int tx_get_buffer_id(struct tx *tx_session);
 
-#ifdef __cplusplus
-}
-#endif
-
-#ifdef __cplusplus
-void             audio_tx_send(struct tx *tx_session, struct rtp *rtp_session, const audio_frame2 *buffer);
-void             audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session, const audio_frame2 * buffer);
+void audio_tx_send(struct tx *tx_session, struct rtp *rtp_session,
+                   const struct audio_frame2 *buffer);
+void audio_tx_send_standard(struct tx *tx, struct rtp *rtp_session,
+                            const struct audio_frame2 *buffer);
 
 void format_audio_header(const struct audio_frame2 *frame, int channel,
                          int buffer_idx, uint32_t *audio_hdr);
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif // TRANSMIT_H_
