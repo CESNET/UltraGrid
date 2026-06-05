@@ -2910,6 +2910,31 @@ fi
 
 ENSURE_FEATURE_PRESENT([$jack_req], [$jack], [JACK not found])
 
+# -----------------------------------------------------------------------------
+# AES67 playback
+# -----------------------------------------------------------------------------
+aes67_play=no
+AC_ARG_ENABLE(aes67_play,
+        AS_HELP_STRING([--disable-aes67-playback], [Disable AES67 playback (default is auto)]),
+        [aes67_play_req=$enableval],
+        [aes67_play_req=$build_default])
+
+if test "${aes67_play_req?}" != no; then
+        AC_LANG_PUSH(C++)
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
+                [[#include <charconv>]],
+                [[char buf[] = "";
+                std::to_chars(buf, buf, 0.0, std::chars_format::fixed);]])],
+                std_chars_format=yes, std_chars_format=no)
+        AC_LANG_POP(C++)
+        if test "${std_chars_format?}" = yes; then
+                aes67_play=yes
+                add_module aplay_aes67 "src/audio/playback/aes67.o src/utils/ptp.o" ""
+        fi
+fi
+
+ENSURE_FEATURE_PRESENT([$aes67_play_req], [$aes67_play], [AES67 not supported (old libc++)])
+
 # -------------------------------------------------------------------------------------------------
 #
 # ALSA
@@ -3683,9 +3708,6 @@ src_audio_capture_testcard_o_dep=src/audio/wav_reader.o
 assert_present src/video_capture/import.c
 src_video_capture_import_o_dep=src/audio/wav_reader.o
 
-assert_present src/audio/playback/aes67.cpp
-src_audio_playback_aes67_o_dep=src/utils/ptp.o
-
 assert_present src/video_capture/testcard.c
 src_video_capture_testcard_o_dep="src/utils/video_pattern_generator.o
                                   src/video_capture/testcard_common.o"
@@ -3721,7 +3743,6 @@ if test "$build_default" != no || test "$req_files" = all; then
         src/audio/capture/passive.o
         src/audio/capture/testcard.o
         src/audio/capture/wav.o
-        src/audio/playback/aes67.o
         src/audio/playback/dummy.o
         src/audio/playback/dump.o
         src/audio/playback/mixer.o
@@ -3892,6 +3913,7 @@ end_section
 
 # audio
 start_section "Audio"
+add_column "AES67 playback" "${aes67_play?}"
 add_column "ALSA" "${alsa?}"
 add_column "CoreAudio" "${coreaudio?}"
 add_column "FluidSynth" "${fluidsynth?}"
