@@ -82,6 +82,7 @@
 #include <sys/stat.h>                   // for stat
 #include <sys/types.h>                  // for ssize_t
 #include <tuple>                        // for tuple, get, make_tuple
+#include <unordered_map>                // for unordered_map
 #include <unistd.h>                     // for STDERR_FILENO
 
 #include "audio/audio_capture.h"

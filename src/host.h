@@ -174,12 +174,6 @@ struct common_opts {
                 .exporter         = nullptr, \
         }
 
-#ifdef __cplusplus
-#include <string>
-#include <unordered_map>
-extern std::unordered_map<std::string, std::string> commandline_params;
-#endif
-
 #define MERGE_(a,b)  a##b
 #define LABEL_(a) MERGE_(unique_name_, a)
 #define UNIQUE_LABEL LABEL_(__COUNTER__)

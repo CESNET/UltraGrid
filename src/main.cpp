@@ -949,7 +949,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                 case OPT_WINDOW_TITLE:
                         log_msg(LOG_LEVEL_WARNING, "Deprecated option used, please use "
                                         "--param window-title=<title>\n");
-                        commandline_params["window-title"] = optarg;
+                        set_commandline_param("window-title", optarg);
                         break;
                 case 'b':
                         opt->requested_capabilities = optarg ? optarg : "";
@@ -1126,7 +1126,7 @@ adjust_params_holepunch(struct ug_options *opt)
                 return -EXIT_FAILURE;
         }
 
-        commandline_params["udp-disable-multi-socket"] = string();
+        set_commandline_param("udp-disable-multi-socket", "");
 
         if (strcmp("none", vidcap_params_get_driver(opt->vidcap_params_head)) == 0
                         && strcmp("none", opt->requested_display) != 0)
@@ -1178,7 +1178,7 @@ adjust_params(struct ug_options *opt)
         struct rxtx_medium_params *audio = &opt->rxtx.medium[TX_MEDIA_AUDIO];
         struct rxtx_medium_params *video = &opt->rxtx.medium[TX_MEDIA_VIDEO];
         if (opt->is_server) {
-                commandline_params["udp-disable-multi-socket"] = string();
+                set_commandline_param("udp-disable-multi-socket", "");
                 if (opt->rxtx.receiver != nullptr) {
                         if (strcmp(opt->rxtx.receiver, "help") == 0) {
                                 ultragrid_rtp_server_mode_help();
@@ -1196,7 +1196,7 @@ adjust_params(struct ug_options *opt)
                 }
         }
         if (opt->is_client) {
-                commandline_params["udp-disable-multi-socket"] = string();
+                set_commandline_param("udp-disable-multi-socket", "");
                 if (opt->rxtx.receiver == nullptr) {
                         LOG(LOG_LEVEL_ERROR) << "Server address required in client mode!\n";
                         return -EXIT_FAIL_USAGE;

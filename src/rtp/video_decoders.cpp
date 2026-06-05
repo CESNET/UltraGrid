@@ -626,18 +626,18 @@ static void *decompress_thread(void *args) {
         int tile_height = decoder->received_vid_desc.height; // get_video_mode_tiles_y(decoder->video_mode);
 
         long long force_putf_timeout = []() {
-                auto drop_policy = commandline_params.find("decoder-drop-policy"s);
-                if (drop_policy == commandline_params.end()) {
+                const char *drop_policy = get_commandline_param("decoder-drop-policy");
+                if (drop_policy == nullptr) {
                         return -1LL;
                 }
-                if (drop_policy->second == "nonblock") {
+                if (strcmp(drop_policy, "nonblock") == 0) {
                         return PUTF_NONBLOCK;
                 }
-                if (drop_policy->second == "blocking") {
+                if (strcmp(drop_policy, "blocking") == 0) {
                         return PUTF_BLOCKING;
                 }
                 return static_cast<long long>(
-                    unit_evaluate_dbl(drop_policy->second.c_str(), true,
+                    unit_evaluate_dbl(drop_policy, true,
                                       nullptr) *
                     NS_IN_SEC);
         }();

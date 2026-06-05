@@ -311,9 +311,9 @@ class AudioDriftFixer {
 public:
         void enable() {
                 m_enabled = true;
-                if (commandline_params.find("resampler") == commandline_params.end()) {
+                if (get_commandline_param("resampler") == nullptr) {
                         LOG(LOG_LEVEL_INFO) << MOD_NAME << "Using SoxR resampler by default when DecKlink audio drift fixer is enabled.\n";
-                        commandline_params["resampler"] = "soxr";
+                        set_commandline_param("resampler", "soxr");
                 }
         }
         /**

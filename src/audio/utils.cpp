@@ -257,7 +257,7 @@ ADD_TO_PARAM(NO_DITHER_PARAM, "* " NO_DITHER_PARAM "\n"
                 "  Disable audio dithering when reducing bit depth\n");
 
 void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */) {
-        static const bool dither = commandline_params.find(NO_DITHER_PARAM) == commandline_params.end();
+        static const bool dither = get_commandline_param(NO_DITHER_PARAM) == nullptr;
         change_bps2(out, out_bps, in, in_bps, in_len, dither);
 }
 

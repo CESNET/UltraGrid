@@ -45,7 +45,7 @@
 #include "compat/c23.h"   // IWYU pragma: keep
 #include "compat/strings.h" // for strlcpy
 #include "debug.h"        // for LOG, LOG_LEVEL_VERBOSE
-#include "host.h"         // for commandline_params, ADD_TO_PARAM
+#include "host.h"         // for get_commandline_param, ADD_TO_PARAM
 #include "lib_common.h"   // for get_libraries_for_class, library_class
 #include "utils/macros.h" // for to_fourcc
 #include "video_codec.h"  // for get_codec_from_name

@@ -60,7 +60,7 @@ static void gpujpeg_test_setup()
         ret = compress_init(nullptr, "GPUJPEG", &compress);
         assert(ret >= 0 && "Compression initialization failed");
 
-        commandline_params["decompress"] = "gpujpeg";
+        set_commandline_param("decompress", "gpujpeg");
         atexit(gpujpeg_test_teardown);
 }
 

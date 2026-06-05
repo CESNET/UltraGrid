@@ -50,7 +50,7 @@
 #include "audio/audio_capture.h"  // for AUDIO_CAPTURE_ABI_VERSION, audio_ca...
 #include "audio/types.h"          // for audio_frame
 #include "debug.h"                // for LOG, LOG_LEVEL_WARNING, UNUSED
-#include "host.h"                 // for commandline_params, INIT_NOERR
+#include "host.h"                 // for get_commandline_param, INIT_NOERR
 #include "lib_common.h"           // for REGISTER_MODULE, library_class
 #include "types.h"                // for device_info, frame_flags_common
 
@@ -67,12 +67,6 @@ using std::stol;
 using std::unique_lock;
 
 struct state_sdi_capture {
-        state_sdi_capture() {
-                if (commandline_params.find("audio-buffer-len") != commandline_params.end()) {
-                        buf_size_ms = stol(commandline_params.at("audio-buffer-len"));
-                }
-        }
-
         long buf_size_ms{DEFAULT_BUF_SIZE_MS};
         struct audio_frame audio_frame[2]{};
         mutex lock;
@@ -121,8 +115,15 @@ static void * audio_cap_sdi_init(struct module *parent, const char *cfg)
                                 "to be taken audio from.\n");
                 return INIT_NOERR;
         }
-        
-        return new state_sdi_capture();
+
+        auto *s = new state_sdi_capture();
+
+        const char *buf_len = get_commandline_param("audio-buffer-len");
+        if (buf_len != nullptr) {
+                s->buf_size_ms = stol(buf_len);
+        }
+
+        return s;
 }
 
 static const struct audio_frame *
