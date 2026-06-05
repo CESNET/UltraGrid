@@ -3685,28 +3685,31 @@ if test -n "$req_files" && test "$req_files" != all; then
         OBJS="$OBJS $(echo "$req_files" | sed 's/,/ /g')"
 fi
 
-# for every dep ensure also that the depending file exists (to avoid forgetting
-# to update when moved or deleted)
-set_dep() {
-        assert_present() { test -f $srcdir/$1 || { echo "$srcdir/$1 missing!" 2>&1; exit 20; }; }
-        assert_present "$1"
-        var_name=$(printf '%s.o_dep' "${1%.*}" | tr -c '_@<:@:alnum:@:>@' '@<:@_*@:>@')
+## @param  $1 object file used later in $ULTRAGRID_OBJS or $REFLECTOR_OBJS
+## @param  $2 dependencies (in a single var separated by $IFS)
+[set_dep() {
+        ## ensure that the depending file exists (to avoid forgetting to update
+        ## when moved or deleted)
+        assert_src_present() { n=$(echo $srcdir/${1%.o}.[cm]*)
+                test -f $n || { echo "source for $1 missing!" 2>&1; exit 20; }; }
+        assert_src_present "$1"
+        var_name=$(printf '%s.o_dep' "${1%.*}" | tr -c '_[:alnum:]' '[_*]')
         eval "$var_name=\"$2\""
-}
+}]
 
-set_dep src/capture_filter/preview.cpp "tools/ipc_frame.o
-                                        tools/ipc_frame_ug.o
-                                        tools/ipc_frame_unix.o"
-set_dep src/audio/capture/aes67.cpp src/utils/sdp_parser.o
-set_dep src/audio/capture/testcard.c src/audio/wav_reader.o
-set_dep src/audio/capture/wav.c src/audio/wav_reader.o
-set_dep src/video_capture/import.c src/audio/wav_reader.o
-set_dep src/video_capture/testcard.c "src/utils/video_pattern_generator.o
+set_dep src/capture_filter/preview.o "tools/ipc_frame.o
+                                      tools/ipc_frame_ug.o
+                                      tools/ipc_frame_unix.o"
+set_dep src/audio/capture/aes67.o src/utils/sdp_parser.o
+set_dep src/audio/capture/testcard.o src/audio/wav_reader.o
+set_dep src/audio/capture/wav.o src/audio/wav_reader.o
+set_dep src/video_capture/import.o src/audio/wav_reader.o
+set_dep src/video_capture/testcard.o "src/utils/video_pattern_generator.o
                                       src/video_capture/testcard_common.o"
-set_dep src/video_display/unix_sock.cpp "tools/ipc_frame.o
-                                         tools/ipc_frame_ug.o
-                                         tools/ipc_frame_unix.o"
-set_dep src/video_rxtx/h264_sdp.cpp src/utils/sdp.o
+set_dep src/video_display/unix_sock.o "tools/ipc_frame.o
+                                       tools/ipc_frame_ug.o
+                                       tools/ipc_frame_unix.o"
+set_dep src/video_rxtx/h264_sdp.o src/utils/sdp.o
 
 if test "$build_default" != no || test "$req_files" = all; then
         CAPTURE_FILTERS="
@@ -3810,10 +3813,11 @@ TOREMOVE="$LIB_OBJS $UG_LIB_OBJS"
 REFLECTOR_OBJS="$REFLECTOR_OBJS $OBJS"
 ULTRAGRID_OBJS="$ULTRAGRID_OBJS $OBJS"
 
-add_depends() (
+## @param  $1 list of objects (in single var separated by $IFS)
+[add_deps() (
         print_file_deps() (
                 escaped_name=$(printf '%s' "${1?}" |
-                        tr -c '_@<:@:alnum:@:>@' '@<:@_*@:>@')
+                        tr -c '_[:alnum:]' '[_*]')
                 eval "deps=\$${escaped_name}_dep"
                 echo $deps
         )
@@ -3821,10 +3825,10 @@ add_depends() (
                 echo $n
                 print_file_deps $n
         done
-)
-ULTRAGRID_OBJS=$(add_depends "$ULTRAGRID_OBJS")
-REFLECTOR_OBJS=$(add_depends "$REFLECTOR_OBJS")
-TEST_OBJS=$(add_depends "$TEST_OBJS")
+)]
+ULTRAGRID_OBJS=$(add_deps "$ULTRAGRID_OBJS")
+REFLECTOR_OBJS=$(add_deps "$REFLECTOR_OBJS")
+TEST_OBJS=$(add_deps "$TEST_OBJS")
 
 # remove duplicite objs
 REFLECTOR_OBJS=$(echo $REFLECTOR_OBJS | tr ' ' '\n' | sort | uniq | tr '\n' ' ')
