@@ -192,13 +192,11 @@ if test $system = Windows; then
         COMMON_FLAGS="${COMMON_FLAGS:+$COMMON_FLAGS }-D_GNU_SOURCE"
 fi
 
+# replace C++ standard for older Clang ver that need gnu++2b
 clang_ver_major=$($CC --version | sed -n \
  '/clang version/ s/.*version \(@<:@0-9@:>@*\).*/\1/p')
-if test "${clang_ver_major:-17}" -lt 17; then
-        CFLAGS="-std=gnu2x${CFLAGS:+ $CFLAGS}"
-fi
 if test "${clang_ver_major:-16}" -lt 16; then
-        CXXFLAGS=$(echo "$CXXFLAGS" | sed 's/-std=gnu\+\+23/-std=gnu++2b/')
+        CXXFLAGS=$(echo "$CXXFLAGS" | sed 's/-std=gnu++23/-std=gnu++2b/')
 fi
 
 LINKER=$CXX
@@ -304,7 +302,7 @@ m4_if(m4_version_compare(m4_defn([AC_AUTOCONF_VERSION]), [2.73]), [-1],
                         CFLAGS_S=$CFLAGS
                         CFLAGS="$c23_fl${CFLAGS:+ $CFLAGS}"
                         AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],
-                                           [[ ${c23_program?} ]])],
+                                           [[]])],
                         c23_w_flags=yes, c23_w_flags=)
                         if test "${c23_w_flags?}"; then
                                 break
