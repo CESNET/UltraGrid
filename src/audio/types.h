@@ -143,7 +143,7 @@ class audio_frame2_resampler;
  *
  * Can hold also compressed audio data. Audio channels are non-interleaved.
  */
-class audio_frame2
+struct audio_frame2
 {
 public:
         audio_frame2() = default;

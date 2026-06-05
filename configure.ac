@@ -272,51 +272,47 @@ $TARGET: $2
 # C23 support
 #
 # c23 support checked and flags added if needed to support as much of c23
-# as possible. <= 201710L and not < 202311L is intentional - compiler may
-# use values in-between, like 202003L in case of Clang 15.
+# as possible.
 #
-# TODO: TOREMOVE when not needed - autoconf since 2.73 checks c23 and adds
-# needed flags in AC_PROG_CC automatically:
+# autoconf 2.73 checks c23 and adds needed flags in AC_PROG_CC automatically:
 # <https://lists.gnu.org/archive/html/autotools-announce/2026-03/msg00000.html>.
+# But it doesn't work all the time - eg. in macOS with clang < 17 it detects
+# that C23 is unsupported and doesn't add any flags although -std=gnu2x
+# recognized (it doesn't have all features required by AC to qualify).
 # --------------------------------------------------------------------------
 
-m4_if(m4_version_compare(m4_defn([AC_AUTOCONF_VERSION]), [2.73]), [-1],
-[
-        AC_MSG_NOTICE([Autoconf < 2.73 - checking additional flags for C23])
-        AC_MSG_CHECKING([additional flags for C23])
+AC_MSG_CHECKING([additional flags for C23])
 
-        c23_program=$(cat<<-'EOF'
-		#if __STDC_VERSION__ <= 201710L
-		#error "not c23"
-		#endif
-		EOF
-	)
-        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],
-                           [[ ${c23_program?} ]])],
-        c23_wo_flags=yes, c23_wo_flags=)
+c23_program=$(cat<<-'EOF'
+	#if __STDC_VERSION__ <= 201710L
+	#error "not c23"
+	#endif
+	EOF
+)
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],
+                   [[ ${c23_program?} ]])],
+c23_wo_flags=yes, c23_wo_flags=)
 
-        if test "${c23_wo_flags?}"; then
-                AC_MSG_RESULT([none needed]);
-        else
-                for c23_fl in -std=gnu23 -std=gnu2x; do
-                        CFLAGS_S=$CFLAGS
-                        CFLAGS="$c23_fl${CFLAGS:+ $CFLAGS}"
-                        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],
-                                           [[]])],
-                        c23_w_flags=yes, c23_w_flags=)
-                        if test "${c23_w_flags?}"; then
-                                break
-                        fi
-                        CFLAGS=$CFLAGS_S
-                done
+if test "${c23_wo_flags?}"; then
+        AC_MSG_RESULT([none needed]);
+else
+        for c23_fl in -std=gnu23 -std=gnu2x; do
+                CFLAGS_S=$CFLAGS
+                CFLAGS="$c23_fl${CFLAGS:+ $CFLAGS}"
+                AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],
+                                   [[]])],
+                c23_w_flags=yes, c23_w_flags=)
                 if test "${c23_w_flags?}"; then
-                        AC_MSG_RESULT([${c23_fl?}]);
-                else
-                        AC_MSG_ERROR([not found]);
+                        break
                 fi
+                CFLAGS=$CFLAGS_S
+        done
+        if test "${c23_w_flags?}"; then
+                AC_MSG_RESULT([${c23_fl?}]);
+        else
+                AC_MSG_ERROR([not found]);
         fi
-],
-[ ])
+fi
 
 # ---------------------------------------------------------------------
 # Dylib bundler
