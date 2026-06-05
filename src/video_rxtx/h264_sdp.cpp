@@ -125,7 +125,7 @@ h264_sdp_video_rxtx::h264_sdp_video_rxtx(const struct vrxtx_params *params,
 
         bool is_ipv6 = rtp_rxtx_common_is_ipv6(m_rtp_common);
         sdp_state =
-            sdp_init(opts, is_ipv6, common->receiver,
+            sdp_init(opts, is_ipv6, params->receiver,
                      SENDS_MEDIUM(params, TX_MEDIA_VIDEO),
                      SENDS_MEDIUM(params, TX_MEDIA_AUDIO),
                      h264_sdp_video_rxtx::change_address_callback, this);
@@ -133,7 +133,7 @@ h264_sdp_video_rxtx::h264_sdp_video_rxtx(const struct vrxtx_params *params,
                 this->~h264_sdp_video_rxtx();
                 throw strcmp(opts, "help") == 0 ? 1 : -1;
         }
-        m_saved_addr = common->receiver;
+        m_saved_addr = params->receiver;
 }
 
 h264_sdp_video_rxtx::~h264_sdp_video_rxtx() {

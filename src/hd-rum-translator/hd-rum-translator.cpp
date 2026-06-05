@@ -82,6 +82,7 @@
 #include "utils/misc.h" // format_in_si_units, unit_evaluate
 #include "utils/net.h"
 #include "utils/pthread.h" // for CHK_PTHR
+#include "video_rxtx.h"
 
 using std::invalid_argument;
 using std::stoi;
@@ -332,13 +333,13 @@ static VOID CALLBACK wsa_deleter(DWORD /* dwErrorCode */,
 
 static int create_output_port(struct hd_rum_translator_state *s,
         const char *addr, int rx_port, int tx_port, int bufsize,
-        struct common_opts *common, const char *compression, const char *fec,
+        struct vrxtx_params *opts,const char *compression, const char *fec,
         int bitrate, bool use_server_sock = false)
 {
         struct replica *rep;
         try {
             rep = new replica(addr, rx_port, tx_port, bufsize, &s->mod,
-                              common->force_ip_version);
+                              opts->force_ip_version);
             if(use_server_sock){
                     rep->sock = s->server_socket;
             }
@@ -350,12 +351,10 @@ static int create_output_port(struct hd_rum_translator_state *s,
         }
         s->replicas.push_back(rep);
 
-        struct common_opts com_opts = *common;
-        com_opts.parent = &rep->mod;
         rep->type = compression ? replica::type_t::RECOMPRESS : replica::type_t::USE_SOCK;
         int idx = recompress_add_port(s->recompress,
                 addr, compression ? compression : "none",
-                0, tx_port, &com_opts, fec, bitrate);
+                0, tx_port, opts, &rep->mod, fec, bitrate);
         if (idx < 0) {
             fprintf(stderr, "Initializing output port '%s' compression failed!\n", addr);
 
@@ -450,7 +449,7 @@ static void *writer(void *arg)
                 }
                 char *compress = strtok_r(NULL, " ", &save_ptr);
 
-                struct common_opts opts = COMMON_OPTS_INIT;
+                struct vrxtx_params opts = VRXTX_INIT;
                 int idx = create_output_port(s,
                         host, 0, tx_port, s->bufsize, &opts,
                         compress, nullptr, RATE_UNLIMITED, s->server_socket != nullptr);
@@ -610,7 +609,7 @@ struct host_opts {
     const char *compression;
     char *fec;
     long long int bitrate;
-    struct common_opts common_opts = COMMON_OPTS_INIT;
+    struct vrxtx_params rxtx_opts = VRXTX_INIT;
 };
 
 struct cmdline_parameters {
@@ -797,7 +796,7 @@ parse_fmt(int argc, char **argv,
                             }
                             break;
                     case 'm':
-                            parsed->hosts[parsed->host_count].common_opts.mtu =
+                            parsed->hosts[parsed->host_count].rxtx_opts.mtu =
                                 stoi(optarg);
                             break;
                     case 'c':
@@ -815,11 +814,11 @@ parse_fmt(int argc, char **argv,
                             break;
                     case '4':
                             parsed->hosts[parsed->host_count]
-                                .common_opts.force_ip_version = 4;
+                                .rxtx_opts.force_ip_version = 4;
                             break;
                     case '6':
                             parsed->hosts[parsed->host_count]
-                                .common_opts.force_ip_version = 6;
+                                .rxtx_opts.force_ip_version = 6;
                             break;
                     default:
                             MSG(FATAL, "Error: invalid host option.\nn");
@@ -1131,7 +1130,7 @@ int main(int argc, char **argv)
         }
 
         int idx = create_output_port(&state,
-                h.addr, rx_port, tx_port, state.bufsize, &h.common_opts,
+                h.addr, rx_port, tx_port, state.bufsize, &h.rxtx_opts,
                 h.compression, h.compression ? h.fec : nullptr, h.bitrate);
         if(idx < 0) {
             EXIT(EXIT_FAILURE);

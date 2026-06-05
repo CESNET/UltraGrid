@@ -149,7 +149,7 @@ ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(
         m_send_bytes_total(0),
         m_control(get_control_state(common->parent)),
         m_parent(common->parent),
-        m_start_time(common->start_time),
+        m_start_time(params->start_time),
         m_receiver_mod(params->receiver_mod)
 {
 

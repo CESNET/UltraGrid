@@ -4,7 +4,7 @@
  * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2022 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,12 +39,18 @@
 #define HD_RUM_RECOMPRESS_H_270dffd1fb25
 
 #ifdef __cplusplus
+#include <cstdint>
+#else
+#include <stdint.h>
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
-struct common_opts;
 struct module;
 struct video_frame;
+struct vrxtx_params;
 
 struct state_recompress;
 
@@ -56,7 +62,7 @@ uint32_t recompress_get_port_ssrc(struct state_recompress *s, int idx);
 
 int recompress_add_port(struct state_recompress *s,
 		const char *host, const char *compress, unsigned short rx_port,
-                unsigned short tx_port, const struct common_opts *common,
+                unsigned short tx_port, const struct vrxtx_params *params, struct module *parent,
                 const char *fec, long long bitrate);
 
 void recompress_remove_port(struct state_recompress *s, int index);

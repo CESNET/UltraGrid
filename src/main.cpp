@@ -123,7 +123,6 @@ struct video_rxtx;
 
 constexpr char MOD_NAME[] = "[main] ";
 
-constexpr char DEFAULT_AUDIO_CODEC[]       = "PCM";
 constexpr int  PORT_BASE                   = 5004;
 #define RATE_DEFAULT \
         (-3) ///< imaginary value, must not be passed to transmit module
@@ -542,7 +541,7 @@ struct ug_options {
                 vidcap_params_set_device(vidcap_params_head, "none");
                 // will be adjusted later
                 audio.codec_cfg = nullptr;
-                common.mtu = 0;
+                rxtx.mtu = 0;
         }
         ~ug_options() {
                 vidcap_params_free(vidcap_params_head);
@@ -573,7 +572,7 @@ struct ug_options {
 
         const char *requested_capabilities = nullptr;
 
-        const char *video_protocol = "ultragrid_rtp";
+        const char *net_protocol = "ultragrid_rtp";
 
         char *nat_traverse_config = nullptr;
 };
@@ -678,16 +677,9 @@ static bool parse_protocol(int ch, char *optarg, struct ug_options *opt) {
                 vrxtx_list_protocols(strcmp(optarg, "fullhelp") == 0);
                 return false;
         }
-        if (set_audio) {
-                opt->audio.proto = proto;
-                opt->audio.proto_cfg = cfg;
+        opt->net_protocol = proto;
+        opt->rxtx.protocol_opts = cfg;
 
-        }
-        if (set_video) {
-                opt->video_protocol = proto;
-                opt->rxtx.protocol_opts = cfg;
-
-        }
         return true;
 }
 
@@ -803,8 +795,8 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         opt->vidcap_params_tail = vidcap_params_allocate_next(opt->vidcap_params_tail);
                         break;
                 case 'm':
-                        opt->common.mtu = parse_mtu(optarg);
-                        if (opt->common.mtu == -1) {
+                        opt->rxtx.mtu = parse_mtu(optarg);
+                        if (opt->rxtx.mtu == -1) {
                                 return -EXIT_FAIL_USAGE;
                         }
                         break;
@@ -827,7 +819,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         log_msg(LOG_LEVEL_WARNING, "Option \"--rtsp-server[=args]\" "
                                         "is deprecated and will be removed in future.\n"
                                         "Please use \"-x rtsp[:args]\"instead.\n");
-                        opt->video_protocol = "rtsp";
+                        opt->net_protocol = "rtsp";
                         opt->rxtx.protocol_opts = optarg ? optarg : "";
                         break;
                 case OPT_AUDIO_PROTOCOL:
@@ -887,7 +879,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         break;
                 case '4':
                 case '6':
-                        opt->common.force_ip_version = ch - '0';
+                        opt->rxtx.force_ip_version = ch - '0';
                         break;
                 case 'U':
                         opt->audio.channel_map = optarg;
@@ -927,7 +919,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         }
                         break;
                 case OPT_MCAST_IF:
-                        snprintf_ch(opt->common.mcast_if, "%s", optarg);
+                        snprintf_ch(opt->rxtx.mcast_if, "%s", optarg);
                         break;
                 case OPT_AUDIO_HOST:
                         bug_msg(LOG_LEVEL_ERROR,
@@ -962,7 +954,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                             opt->vidcap_params_tail, optarg);
                         break;
                 case 'e':
-                        snprintf_ch(opt->common.encryption, "%s", optarg);
+                        snprintf_ch(opt->rxtx.encryption, "%s", optarg);
                         break;
                 case 'n':
                         if (!parse_control_port(optarg, opt)) {
@@ -1010,7 +1002,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         opt->is_server = true;
                         break;
                 case 'T':
-                        opt->common.ttl = stoi(optarg);
+                        opt->rxtx.ttl = stoi(optarg);
                         break;
                 case '?':
                 default:
@@ -1031,7 +1023,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
         }
 
         if (argc > 0) {
-                opt->common.receiver = argv[0];
+                opt->rxtx.receiver = argv[0];
         }
 
         return 0;
@@ -1070,7 +1062,7 @@ adjust_ports(struct ug_options *opt)
 
         // use dyn ports if unset, sending only to ourselves or neither
         // sending nor receiving
-        if (is_host_loopback(opt->common.receiver)) {
+        if (is_host_loopback(opt->rxtx.receiver)) {
                 const unsigned mode_both = MODE_RECEIVER | MODE_SENDER;
                 const bool     v_send_and_rcv =
                     (video->rxtx_mode & mode_both) == mode_both;
@@ -1191,7 +1183,7 @@ adjust_params_holepunch(struct ug_options *opt)
 
         log_msg(LOG_LEVEL_INFO, "[holepunch] remote: %s\n rx: %d\n tx: %d\n",
                         punched_host, video->rx_port, video->tx_port);
-        opt->common.receiver = punched_host;
+        opt->rxtx.receiver = punched_host;
         return 0;
 #endif //HAVE_LIBJUICE
 }
@@ -1204,15 +1196,15 @@ adjust_params(struct ug_options *opt)
         struct rxtx_medium_params *video = &opt->rxtx.medium[TX_MEDIA_VIDEO];
         if (opt->is_server) {
                 commandline_params["udp-disable-multi-socket"] = string();
-                if (opt->common.receiver != nullptr) {
-                        if (strcmp(opt->common.receiver, "help") == 0) {
+                if (opt->rxtx.receiver != nullptr) {
+                        if (strcmp(opt->rxtx.receiver, "help") == 0) {
                                 ultragrid_rtp_server_mode_help();
                                 return 1;
                         }
                         LOG(LOG_LEVEL_ERROR) << "Receiver must not be given in server mode!\n";
                         return -EXIT_FAIL_USAGE;
                 }
-                opt->common.receiver = IN6_BLACKHOLE_SERVER_MODE_STR;
+                opt->rxtx.receiver = IN6_BLACKHOLE_SERVER_MODE_STR;
                 if (strcmp(opt->requested_display, "none") == 0 && strcmp("none", vidcap_params_get_driver(opt->vidcap_params_head)) != 0) {
                         opt->requested_display = "dummy";
                 }
@@ -1222,7 +1214,7 @@ adjust_params(struct ug_options *opt)
         }
         if (opt->is_client) {
                 commandline_params["udp-disable-multi-socket"] = string();
-                if (opt->common.receiver == nullptr) {
+                if (opt->rxtx.receiver == nullptr) {
                         LOG(LOG_LEVEL_ERROR) << "Server address required in client mode!\n";
                         return -EXIT_FAIL_USAGE;
                 }
@@ -1235,25 +1227,19 @@ adjust_params(struct ug_options *opt)
                 }
         }
 
-        if (opt->common.receiver == nullptr) {
-                opt->common.receiver = "localhost";
+        if (opt->rxtx.receiver == nullptr) {
+                opt->rxtx.receiver = "localhost";
         }
 
         if (!is_ipv6_supported()) {
                 LOG(LOG_LEVEL_WARNING) << "IPv6 support missing, setting IPv4-only mode.\n";
-                opt->common.force_ip_version = 4;
+                opt->rxtx.force_ip_version = 4;
         }
 
-        const bool tx_audio_std = strcasecmp(opt->audio.proto, "rtsp") == 0 ||
-                                  strcasecmp(opt->audio.proto, "sdp") == 0;
-        if (opt->audio.codec_cfg == nullptr) {
-                opt->audio.codec_cfg =
-                    tx_audio_std ? "mp3" : DEFAULT_AUDIO_CODEC;
-        }
-
-        if (tx_audio_std && audio_capture_channels == 0) {
-                audio_capture_channels = 1; // needed to be known early
-        }
+        opt->audio.codec_cfg =
+            rxtx_get_acompression(opt->net_protocol, opt->audio.codec_cfg);
+        audio_capture_channels =
+            rxtx_get_achannels(opt->net_protocol, audio_capture_channels);
 
         if(opt->nat_traverse_config && strncmp(opt->nat_traverse_config, "holepunch", strlen("holepunch")) == 0){
                 int rc = adjust_params_holepunch(opt);
@@ -1286,18 +1272,18 @@ adjust_params(struct ug_options *opt)
         // If we are sure that this UltraGrid is sending to itself we can optimize some parameters
         // (aka "-m 9000 -l unlimited"). If ports weren't equal it is possible that we are sending
         // to a reflector, that is why we require equal ports (we are a receiver as well).
-        if (is_host_loopback(opt->common.receiver) &&
+        if (is_host_loopback(opt->rxtx.receiver) &&
             (video->rx_port == video->tx_port || video->tx_port == 0) &&
             (audio->rx_port == audio->tx_port ||
              audio->tx_port == 0)) {
-                opt->common.mtu = opt->common.mtu == 0 ? min(RTP_MAX_MTU, 65535)
-                                                       : opt->common.mtu;
+                opt->rxtx.mtu = opt->rxtx.mtu == 0 ? min(RTP_MAX_MTU, 65535)
+                                                       : opt->rxtx.mtu;
                 opt->rxtx.bitrate_limit =
                     opt->rxtx.bitrate_limit == RATE_DEFAULT
                         ? RATE_UNLIMITED
                         : opt->rxtx.bitrate_limit;
         } else {
-                opt->common.mtu = opt->common.mtu == 0 ? 1500 : opt->common.mtu;
+                opt->rxtx.mtu = opt->rxtx.mtu == 0 ? 1500 : opt->rxtx.mtu;
                 opt->rxtx.bitrate_limit =
                     opt->rxtx.bitrate_limit == RATE_DEFAULT
                         ? RATE_DYNAMIC
@@ -1341,16 +1327,6 @@ validate_params(struct ug_options *opt)
                         MSG(WARNING,
                             "Audio compression specified but not capturing!\n");
                 }
-        }
-
-        if((strcmp("none", opt->audio.send_cfg) != 0 || strcmp("none", opt->audio.recv_cfg) != 0) && strcmp(opt->video_protocol, "rtsp") == 0){
-            //TODO: to implement a high level rxtx struct to manage different standards (i.e.:H264_STD, VP8_STD,...)
-            if (strcmp(opt->audio.proto, "rtsp") != 0) {
-                    LOG(LOG_LEVEL_WARNING) << "Using RTSP for video but not for audio is not recommended. Consider adding '--audio-protocol rtsp'.\n";
-            }
-        }
-        if (strcmp(opt->audio.proto, "rtsp") == 0 && strcmp(opt->video_protocol, "rtsp") != 0) {
-                LOG(LOG_LEVEL_WARNING) << "Using RTSP for audio but not for video is not recommended and might not work.\n";
         }
 }
 
@@ -1417,15 +1393,15 @@ int main(int argc, char *argv[])
                 col() << TBOLD("Capture device   : ") << vidcap_params_get_driver(opt.vidcap_params_head) << "\n";
                 col() << TBOLD("Audio capture    : ") << opt.audio.send_cfg << "\n";
                 col() << TBOLD("Audio playback   : ") << opt.audio.recv_cfg << "\n";
-                col() << TBOLD("MTU              : ") << opt.common.mtu << " B\n";
+                col() << TBOLD("MTU              : ") << opt.rxtx.mtu << " B\n";
                 col() << TBOLD("Video compression: ")
-                      << vrxtx_get_compression(opt.video_protocol,
+                      << rxtx_get_vcompression(opt.net_protocol,
                                                opt.rxtx.compression)
                       << "\n";
                 col() << TBOLD("Audio codec      : ")
                       << get_name_to_audio_codec(ac_params.codec) << "\n";
                 col() << TBOLD("Network protocol : ")
-                      << vrxtx_get_proto_long_name(opt.video_protocol) << "\n";
+                      << vrxtx_get_proto_long_name(opt.net_protocol) << "\n";
                 col() << TBOLD("Audio FEC        : ") << audio->fec << "\n";
                 col() << TBOLD("Video FEC        : ") << video->fec << "\n";
                 col() << "\n";
@@ -1440,7 +1416,7 @@ int main(int argc, char *argv[])
         }
 
         if (control_init(opt.control_port, opt.connection_type, &control,
-                         &uv.root_module, opt.common.force_ip_version) != 0) {
+                         &uv.root_module, opt.rxtx.force_ip_version) != 0) {
                 LOG(LOG_LEVEL_FATAL) << "Error: Unable to initialize remote control!\n";
                 EXIT(EXIT_FAIL_CONTROL_SOCK);
         }
@@ -1448,7 +1424,7 @@ int main(int argc, char *argv[])
         if(!opt.nat_traverse_config
                         || strncmp(opt.nat_traverse_config, "holepunch", strlen("holepunch")) != 0){
                 nat_traverse = start_nat_traverse(
-                    opt.nat_traverse_config, opt.common.receiver,
+                    opt.nat_traverse_config, opt.rxtx.receiver,
                     video->rx_port, audio->rx_port);
                 if(!nat_traverse){
                         exit_uv(1);
@@ -1506,7 +1482,7 @@ int main(int argc, char *argv[])
         opt.rxtx.capture_device = uv.capture_device; // iHDTV
         opt.rxtx.display_device = uv.display_device; // UltraGrid RTP, iHDTV
 
-        ret = vrxtx_init(opt.video_protocol, &opt.rxtx, &opt.common,
+        ret = vrxtx_init(opt.net_protocol, &opt.rxtx, &opt.common,
                         &uv.state_video_rxtx);
         if (ret != 0) {
                 exit_uv(ret < 0 ? EXIT_FAILURE : EXIT_SUCCESS);

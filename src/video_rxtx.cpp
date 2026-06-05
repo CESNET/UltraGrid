@@ -64,6 +64,7 @@
 #include "video_frame.h"     // for video_desc_from_frame
 #include "video_rxtx.h"
 
+constexpr char DEFAULT_AUDIO_CODEC[]       = "PCM";
 constexpr char DEFAULT_VIDEO_COMPRESSION[] = "none";
 
 #define MOD_NAME "[vrxtx] "
@@ -123,19 +124,39 @@ private:
         std::atomic<codec_t> m_input_codec{};
 };
 
+#define TX_IS_STD(proto)                                                       \
+        (strcasecmp((proto), "rtsp") == 0 || strcasecmp((proto), "sdp") == 0)
+
+unsigned int
+rxtx_get_achannels(const char *net_protocol, unsigned int req_channels)
+{
+        if (req_channels != 0) {
+                return req_channels;
+        }
+        const bool tx_audio_std = TX_IS_STD(net_protocol);
+        return tx_audio_std ? 1 : 0 /*default*/;
+}
+
+const char *
+rxtx_get_acompression(const char *net_protocol, const char *req_codec) {
+        if (req_codec != nullptr) {
+                return req_codec;
+        }
+        return TX_IS_STD(net_protocol) ? "mp3" : DEFAULT_AUDIO_CODEC;
+}
+
 /**
  * @returns req_compression if specified (!= 0); protocol default compression
  * otherwise
  */
 const char *
-vrxtx_get_compression(const char *video_protocol, const char *req_compression)
+rxtx_get_vcompression(const char *net_protocol, const char *req_compression)
 {
         if (req_compression != nullptr) {
                 return req_compression;
         }
         // default values for different RXTX protocols
-        if (strcasecmp(video_protocol, "rtsp") == 0 ||
-            strcasecmp(video_protocol, "sdp") == 0) {
+        if (TX_IS_STD(net_protocol)) {
                 return "none"; // will be set later by video_rxtx::send_frame()
         }
         // UG RTP or loopback
@@ -152,7 +173,7 @@ video_rxtx::video_rxtx(const char                *protocol_name,
         module_register(&m_sender_mod, common->parent);
 
         const char *compression =
-            vrxtx_get_compression(protocol_name, params->compression);
+            rxtx_get_vcompression(protocol_name, params->compression);
         int ret = compress_init(&m_sender_mod, compression, &m_compression);
         if(ret != 0) {
                 module_done(&m_sender_mod);

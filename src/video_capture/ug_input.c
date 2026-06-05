@@ -190,7 +190,7 @@ static int vidcap_ug_input_init(const struct vidcap_params *cap_params, void **s
 
         //RTP
         // should be localhost and RX TX ports the same (here dynamic) in order to work like a pipe
-        common.receiver = "localhost";
+        params.receiver = "localhost";
         params.medium[TX_MEDIA_AUDIO].rx_port = port + 2;
         params.medium[TX_MEDIA_AUDIO].tx_port = 0;
         params.medium[TX_MEDIA_VIDEO].rx_port = port;
@@ -208,7 +208,6 @@ static int vidcap_ug_input_init(const struct vidcap_params *cap_params, void **s
         if (vidcap_params_get_flags(cap_params) & VIDCAP_FLAG_AUDIO_ANY) {
                 struct audio_options opt = AUDIO_OPTIONS_INIT;
                 opt.recv_cfg             = "embedded";
-                opt.proto                = "ultragrid_rtp";
                 opt.display              = s->display;
                 opt.vrxtx                = s->video_rxtx;
 

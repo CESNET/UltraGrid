@@ -40,6 +40,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "hd-rum-translator/hd-rum-recompress.h"
+
 #include <cassert>
 #include <cinttypes>
 #include <chrono>
@@ -47,9 +49,6 @@
 #include <memory>
 #include <thread>
 #include <string>
-
-
-#include "hd-rum-translator/hd-rum-recompress.h"
 
 #include "debug.h"
 #include "host.h"
@@ -76,7 +75,8 @@ struct recompress_output_port {
         recompress_output_port() = default;
         recompress_output_port(
                 std::string host, unsigned short rx_port,
-                unsigned short tx_port, const struct common_opts *common,
+                unsigned short tx_port, const struct vrxtx_params *p,
+                struct module *parent,
                 const char *fec, long long bitrate);
 
         std::unique_ptr<struct video_rxtx, decltype(&vrxtx_destroy)> video_rxtx{
@@ -112,22 +112,22 @@ struct state_recompress {
 
 recompress_output_port::recompress_output_port(
                 std::string host, unsigned short rx_port,
-                unsigned short tx_port, const struct common_opts *common,
+                unsigned short tx_port, const struct vrxtx_params *p,
+                struct module *parent,
                 const char *fec, long long bitrate) :
         host(std::move(host)),
         tx_port(tx_port),
         frames(0),
         active(true)
 {
-        struct vrxtx_params params = VRXTX_INIT;
-
-        // common
-        params.compression = "none";
-        params.medium[TX_MEDIA_VIDEO].rxtx_mode = MODE_SENDER;
+        struct vrxtx_params params = *p;
+        struct common_opts  common = COMMON_OPTS_INIT;
+        common.parent              = parent;
 
         //RTP
-        struct common_opts common_copy = *common;
-        common_copy.receiver = this->host.c_str();
+        params.compression = "none";
+        params.medium[TX_MEDIA_VIDEO].rxtx_mode = MODE_SENDER;
+        params.receiver = this->host.c_str();
         params.medium[TX_MEDIA_VIDEO].rx_port = rx_port;
         params.medium[TX_MEDIA_VIDEO].tx_port = tx_port;
         params.medium[TX_MEDIA_VIDEO].fec = fec;
@@ -138,7 +138,7 @@ recompress_output_port::recompress_output_port(
         // params["display_device"].ptr = nullptr;
 
         struct video_rxtx *rxtx = nullptr;
-        int rc = vrxtx_init("ultragrid_rtp", &params, &common_copy, &rxtx);
+        int rc = vrxtx_init("ultragrid_rtp", &params, &common, &rxtx);
         if (rc != 0) {
                 throw rc;
         }
@@ -216,16 +216,17 @@ static int move_port_to_worker(struct state_recompress *s, const char *compress,
         return index_in_worker;
 }
 
-int recompress_add_port(struct state_recompress *s,
-		const char *host, const char *compress, unsigned short rx_port,
-                unsigned short tx_port, const struct common_opts *common,
-                const char *fec, long long bitrate)
+int
+recompress_add_port(struct state_recompress *s, const char *host,
+                    const char *compress, unsigned short rx_port,
+                    unsigned short tx_port, const struct vrxtx_params *params,
+                    struct module *parent, const char *fec, long long bitrate)
 {
         recompress_output_port port;
 
         try{
                 port = recompress_output_port(host, rx_port, tx_port,
-                                common, fec, bitrate);
+                                params, parent, fec, bitrate);
         } catch(...) {
                 return -1;
         }

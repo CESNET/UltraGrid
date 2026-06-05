@@ -96,8 +96,6 @@ struct state_transcoder_decompress final {
         void worker();
 
         struct capture_filter *capture_filter_state = nullptr;
-
-        struct common_opts common = COMMON_OPTS_INIT;
 };
 
 void state_transcoder_decompress::frame_arrived(void *state, struct video_frame *f, struct audio_frame *a)
@@ -183,8 +181,6 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
         auto *s = new state_transcoder_decompress();
 
         s->recompress = recompress;
-        s->common.force_ip_version = 0;
-        s->common.start_time = get_time_in_ns();
 
         const struct pipe_frame_recv_delegate dlg = {
                 .state = s, .frame_arrived = state_transcoder_decompress::frame_arrived
@@ -212,12 +208,16 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
         struct vrxtx_params params = VRXTX_INIT;
 
         // common
-        s->common.parent = parent;
+        struct common_opts common = COMMON_OPTS_INIT;
+        common.parent = parent;
+
         params.medium[TX_MEDIA_VIDEO].rxtx_mode = MODE_RECEIVER;
 
         //RTP
         // should be localhost and RX TX ports the same (here dynamic) in order to work like a pipe
-        s->common.receiver = "localhost";
+        params.receiver = "localhost";
+        params.force_ip_version = 0;
+        params.start_time = get_time_in_ns();
         params.medium[TX_MEDIA_VIDEO].rx_port = 0;
         params.medium[TX_MEDIA_VIDEO].tx_port = 0;
         // params["video_delay"].vptr = nullptr;
@@ -227,7 +227,7 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
         params.display_device = s->display;
 
         ret =
-            vrxtx_init("ultragrid_rtp", &params, &s->common, &s->video_rxtx);
+            vrxtx_init("ultragrid_rtp", &params, &common, &s->video_rxtx);
         assert(ret == 0 && MOD_NAME "Unable to initialize RXTX");
         size_t len = sizeof s->rtp_common_state; // NOLINT(bugprone-sizeof-expression)
         bool ctl_rc = rxtx_ctl_property(s->video_rxtx, GET_RTP_COMMON_STATE,

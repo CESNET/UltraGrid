@@ -98,7 +98,7 @@ struct h264_rtp_video_rxtx {
 h264_rtp_video_rxtx::h264_rtp_video_rxtx(const struct vrxtx_params *params,
                             const struct common_opts *common, int rtsp_port) :
         m_parent(common->parent),
-        m_start_time(common->start_time)
+        m_start_time(params->start_time)
 {
         rtsp_params.rtsp_port = (unsigned) rtsp_port;
         rtsp_params.parent = common->parent;

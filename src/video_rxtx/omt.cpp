@@ -110,10 +110,10 @@ bool parse_params(omt_rxtx_state *s, std::string_view cfg){
         return true;
 }
 
-void init_recv(const vrxtx_params *params, const common_opts *common, omt_rxtx_state *s){
+void init_recv(const vrxtx_params *params, omt_rxtx_state *s){
         s->display_device = params->display_device;
-        log_msg(LOG_LEVEL_INFO, MOD_NAME "Create omt receive with address %s\n", common->receiver);
-        s->omt_recv_handle.reset(omt_receive_create(common->receiver, static_cast<OMTFrameType>(OMTFrameType_Audio | OMTFrameType_Video),
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Create omt receive with address %s\n", params->receiver);
+        s->omt_recv_handle.reset(omt_receive_create(params->receiver, static_cast<OMTFrameType>(OMTFrameType_Audio | OMTFrameType_Video),
                 OMTPreferredVideoFormat_UYVY, OMTReceiveFlags_None));
 }
 
@@ -137,7 +137,7 @@ void *omt_rxtx_create(const vrxtx_params *params, const common_opts *common){
         ug_register_omt_log_callback();
 
         if(params_video->rxtx_mode & MODE_RECEIVER)
-            init_recv(params, common, s.get());
+            init_recv(params, s.get());
 
         if(params_video->rxtx_mode & MODE_SENDER)
             init_send(s.get());

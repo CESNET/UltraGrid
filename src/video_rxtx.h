@@ -64,6 +64,14 @@ struct rxtx_medium_params  {
 struct vrxtx_params {
         struct rxtx_medium_params medium[NUM_TX_MEDIA];
 
+        const char     *receiver;
+        char            encryption[STR_LEN];
+        char            mcast_if[STR_LEN];
+        int             mtu;
+        int             ttl;
+        int             force_ip_version;
+        time_ns_t       start_time;
+
         const char     *compression; ///< nullptr selects proto dfl
         struct display *display_device; ///< only iHDTV, UG RTP
         struct vidcap  *capture_device; ///< iHDTV only
@@ -87,6 +95,13 @@ struct vrxtx_params {
                                         .tx_port   = -1, \
                                         .fec       = "none", \
                                     } }, \
+                .receiver         = nullptr, \
+                .encryption       = "", \
+                .mcast_if         = "", \
+                .mtu              = 1500, \
+                .ttl              = -1, \
+                .force_ip_version = 0, \
+                .start_time       = get_time_in_ns(), \
                 .compression    = nullptr, \
                 .display_device = nullptr, \
                 .capture_device = nullptr, \
@@ -171,8 +186,6 @@ int  vrxtx_init(const char *proto_name, const struct vrxtx_params *params,
 void vrxtx_destroy(struct video_rxtx *state);
 void        vrxtx_list_protocols(bool full);
 const char *vrxtx_get_proto_long_name(const char *short_name);
-const char *vrxtx_get_compression(const char *video_protocol,
-                                  const char *req_compression);
 void        vrxtx_join(struct video_rxtx *state);
 bool        rxtx_ctl_property(struct video_rxtx *state, enum rxtx_property p,
                               void *val, size_t *len);
@@ -184,6 +197,15 @@ enum rxtx_mode rxtx_get_mode(struct video_rxtx *s, enum tx_media_type t);
 
 // utils
 const char *get_tx_name(enum tx_media_type);
+
+// get protocol eligible params if user doesn't specify any
+// (passthrough otherwise)
+unsigned int rxtx_get_achannels(const char  *net_protocol,
+                                unsigned int req_channels);
+const char  *rxtx_get_acompression(const char *net_protocol,
+                                   const char *req_codec);
+const char  *rxtx_get_vcompression(const char *net_protocol,
+                                   const char *req_compression);
 
 #ifdef __cplusplus
 } // extern "C"

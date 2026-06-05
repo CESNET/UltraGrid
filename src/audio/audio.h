@@ -64,8 +64,6 @@ struct state_audio;
 struct audio_options {
         const char        *recv_cfg;
         const char        *send_cfg;
-        const char        *proto;
-        const char        *proto_cfg;
         const char        *channel_map;
         const char        *scale;
         bool               echo_cancellation;
@@ -79,8 +77,6 @@ struct audio_options {
         { \
                 .recv_cfg          = "none", \
                 .send_cfg          = "none", \
-                .proto             = "ultragrid_rtp", \
-                .proto_cfg         = "", \
                 .channel_map       = nullptr, \
                 .scale             = DEFAULT_AUDIO_SCALE, \
                 .echo_cancellation = false, \

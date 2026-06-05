@@ -271,7 +271,6 @@ rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *pub,
 
 static bool
 init_medium_state(struct rtp_rxtx_common_priv_state *s,
-                  const struct common_opts          *opts,
                   const struct vrxtx_params *params, enum tx_media_type t)
 {
         const struct rxtx_medium_params *params_medium = &params->medium[t];
@@ -296,7 +295,7 @@ init_medium_state(struct rtp_rxtx_common_priv_state *s,
         }
         medium_priv->rx_port = params_medium->rx_port;
         medium_priv->tx_port = params_medium->tx_port;
-        medium_priv->requested_receiver = strdup(opts->receiver),
+        medium_priv->requested_receiver = strdup(params->receiver),
 
         module_init_default(&medium_priv->sender_mod);
         medium_priv->sender_mod.cls = mod_cls;
@@ -305,16 +304,16 @@ init_medium_state(struct rtp_rxtx_common_priv_state *s,
         medium_pub->rxtx_mode      = params_medium->rxtx_mode;
         medium_pub->participants   = pdb_init(medium_str, medium_offset);
         medium_pub->network_device = initialize_network(
-            opts->receiver, medium_priv->rx_port, medium_priv->tx_port,
-            medium_pub->participants, opts->force_ip_version, opts->mcast_if,
-            opts->ttl, t);
+            params->receiver, medium_priv->rx_port, medium_priv->tx_port,
+            medium_pub->participants, params->force_ip_version, params->mcast_if,
+            params->ttl, t);
         if (medium_pub->network_device == nullptr) {
                 MSG(ERROR, "Unable to open %s network!\n",  medium_str);
                 return false;
         }
         if (params_medium->rxtx_mode & MODE_SENDER) {
-                medium_pub->tx = tx_init(&medium_priv->sender_mod, opts->mtu, t,
-                                         params_medium->fec, opts->encryption,
+                medium_pub->tx = tx_init(&medium_priv->sender_mod, params->mtu, t,
+                                         params_medium->fec, params->encryption,
                                          bitrate_limit);
                 if (medium_pub->tx == nullptr) {
                         MSG(ERROR, "Unable to open %s transmitter!\n",  medium_str);
@@ -336,16 +335,16 @@ struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
         pub->magic = RTP_COMMON_MAGIC;
 
         pub->priv = s;
-        pub->encryption       = strdup(common->encryption);
+        pub->encryption       = strdup(params->encryption);
         s->magic              = MAGIC;
         s->parent             = common->parent;
-        s->force_ip_version   = common->force_ip_version,
-        s->mcast_if           = strdup(common->mcast_if);
-        s->ttl                = common->ttl;
-        s->start_time         = common->start_time;
+        s->force_ip_version   = params->force_ip_version,
+        s->mcast_if           = strdup(params->mcast_if);
+        s->ttl                = params->ttl;
+        s->start_time         = params->start_time;
 
         for (unsigned i = 0; i < NUM_TX_MEDIA; ++i) {
-                bool rc = init_medium_state(s, common, params, i);
+                bool rc = init_medium_state(s, params, i);
                 if (!rc) {
                         rtp_rxtx_common_done(pub);
                         return nullptr;

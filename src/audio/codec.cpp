@@ -412,6 +412,7 @@ get_audio_codec(const char *codec)
 struct audio_codec_params
 parse_audio_codec_params(const char *ccfg)
 {
+        assert(ccfg != nullptr);
         struct audio_codec_params params {
         };
         std::string_view sv = ccfg;
