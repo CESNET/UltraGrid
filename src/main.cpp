@@ -637,43 +637,26 @@ static bool parse_port(char *optarg, struct ug_options *opt) {
 }
 
 static bool parse_protocol(int ch, char *optarg, struct ug_options *opt) {
-        bool set_audio = true;
-        bool set_video = true;
-        if (strlen(optarg) > 2 && optarg[1] == ':') {
-                set_audio = toupper(optarg[0]) == 'A';
-                set_video = toupper(optarg[0]) == 'V';
-                if (!set_audio && !set_video) {
-                        MSG(ERROR, "Wrong protocol setting: %s\n", optarg);
-                        return false;
-                }
-                optarg += 2;
+        if ((strlen(optarg) > 2 && optarg[1] == ':') ||
+            ch == OPT_AUDIO_PROTOCOL || ch == OPT_VIDEO_PROTOCOL) {
+                MSG(ERROR, "Separate audio and video protocol setting no "
+                           "longer available!\n");
+                return false;
         }
+
         char *proto = optarg;
         const char *cfg = "";
-        if (strchr(optarg, ':')) {
-                char *delim = strchr(optarg, ':');
+        char *delim = strchr(optarg, ':');
+        if (delim != nullptr) {
                 *delim = '\0';
                 cfg = delim + 1;
         }
-        switch (ch) {
-                case OPT_AUDIO_PROTOCOL:
-                        MSG(WARNING,
-                            "--audio-protocol deprecated, use '-x A:proto'\n");
-                        set_video = false;
-                        break;
-                case OPT_VIDEO_PROTOCOL:
-                        MSG(WARNING,
-                            "--video-protocol deprecated, use '-x V:proto'\n");
-                        set_audio = false;
-                        break;
-        }
         if (strcmp(optarg, "help") == 0 ||
                 strcmp(optarg, "fullhelp") == 0) {
-                col() << "Specify a transmission protocol.\nUsage:\n";
-                col() << SBOLD("\t-x proto") "   - use common protocol for audio and video\n";
-                col() << SBOLD("\t-x A:proto") " - use specified audio protocol\n";
-                col() << SBOLD("\t-x V:proto") " - use specified audio protocol\n";
-                col() << "\nAudio protocol can be one of: " << TBOLD(AUDIO_PROTOCOLS) " (not all must be available)\n";
+                color_printf("Specify a network transmission protocol.\n\n");
+                color_printf("Usage:\n");
+                color_printf(TBOLD("\t--protocol/-x proto[:opts]") "\n");
+                color_printf("\n");
                 vrxtx_list_protocols(strcmp(optarg, "fullhelp") == 0);
                 return false;
         }
