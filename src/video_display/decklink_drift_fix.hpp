@@ -4,7 +4,7 @@
  * @author Andrew Walker    <andrew.walker@sohonet.com>
  */
 /*
- * Copyright (c) 2021-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2021-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -50,6 +50,7 @@
 #include "messaging.h"
 #include "rtp/audio_decoders.h"
 #include "utils/color_out.h"
+#include "utils/macros.h"       // for snprintf_ch
 
 #define MAX_RESAMPLE_DELTA_DEFAULT 30
 #define MIN_RESAMPLE_DELTA_DEFAULT 1
@@ -442,7 +443,11 @@ public:
 
                 if (dst_frame_rate != 0 &&
                     dst_frame_rate != dst_frame_rate_set) {
-                        auto *m = new msg_universal((std::string(MSG_UNIVERSAL_TAG_AUDIO_DECODER) + std::to_string(dst_frame_rate << ADEC_CH_RATE_SHIFT | BASE)).c_str());
+                        char text[128];
+                        snprintf_ch(
+                            text, MSG_UNIVERSAL_TAG_AUDIO_DECODER "%lld",
+                            dst_frame_rate << ADEC_CH_RATE_SHIFT | BASE);
+                        auto *m = new_message_universal(text);
                         LOG(LOG_LEVEL_DEBUG)
                             << MOD_NAME "Sending resample request "
                             << dst_frame_rate << "/" << BASE << "\n";

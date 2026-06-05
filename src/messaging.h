@@ -67,8 +67,8 @@ struct response;
 
 #define RESPONSE_SUCCESSFUL(code) ((code) >= 200 && (code) < 300)
 
-struct message;
-
+/// message must be allocated with dedicated function - new_message() or
+/// new_message_universal()
 struct message {
         alignas(8) uint32_t magic;
         /**
@@ -148,17 +148,16 @@ struct msg_stats {
  * msg_universal::text to identify the receiving module.
  */
 struct msg_universal {
-#ifdef __cplusplus
-        msg_universal(const char *contents) {
-                memset(&m, 0, sizeof m);
-                strncpy(text, contents, sizeof text - 1);
-        }
-#endif
         struct message m;
         char text[8192];
 };
 
 #define MSG_UNIVERSAL_TAG_TX "TX_msg "
+
+/// allocate new message
+struct message *new_message(size_t length);
+struct msg_universal *new_message_universal(const char *contents);
+void free_message(struct message *m, struct response *r);
 
 struct response *new_response(int status, const char *optional_message);
 void free_response(struct response *r);
@@ -173,8 +172,6 @@ struct response *send_message(struct module *, const char *path, struct message 
 #define SEND_MESSAGE_FLAG_NO_STORE (1<<1) ///< if receiver doesn't exist, doesn't store it and return 404 instead
 struct response *send_message_sync(struct module *, const char *path, struct message *msg, int timeout_ms, int flags) __attribute__ ((warn_unused_result));
 struct response *send_message_to_receiver(struct module *, struct message *msg) __attribute__ ((warn_unused_result));
-struct message *new_message(size_t length) __attribute__ ((warn_unused_result));
-void free_message(struct message *m, struct response *r);
 const char *response_status_to_text(int status);
 
 struct message *check_message(struct module *);

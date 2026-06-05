@@ -331,6 +331,16 @@ struct message *new_message(size_t len)
         return ret;
 }
 
+struct msg_universal *
+new_message_universal(const char *contents)
+{
+        struct msg_universal *msg = nullptr;
+        struct message *m = new_message(sizeof *msg);
+        msg = (struct msg_universal *) m;
+        strcpy_ch(msg->text, contents);
+        return msg;
+}
+
 /**
  * Frees message
  *
