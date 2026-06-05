@@ -521,7 +521,7 @@ AC_ARG_ENABLE(libbacktrace,
 
 if test "${libbacktrace_req?}" != no; then
         AC_CHECK_HEADER(backtrace.h)
-        AC_CHECK_LIB(backtrace, backtrace_pcinfo)
+        AC_CHECK_LIB(backtrace, backtrace_pcinfo, [ ])
         if test "${ac_cv_header_backtrace_h?}" = yes && \
                 test "${ac_cv_lib_backtrace_backtrace_pcinfo?}" = yes;
         then
