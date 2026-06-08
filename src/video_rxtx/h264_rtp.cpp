@@ -76,8 +76,7 @@ using std::shared_ptr;
 
 struct h264_rtp_video_rxtx {
         uint32_t magic = MAGIC;
-        h264_rtp_video_rxtx(const struct vrxtx_params *params,
-                            const struct common_opts  *common, int rtsp_port);
+        h264_rtp_video_rxtx(const struct vrxtx_params *params, int rtsp_port);
         ~h264_rtp_video_rxtx();
         void join();
         void send_frame(std::shared_ptr<video_frame>) noexcept;
@@ -96,12 +95,11 @@ struct h264_rtp_video_rxtx {
 };
 
 h264_rtp_video_rxtx::h264_rtp_video_rxtx(const struct vrxtx_params *params,
-                            const struct common_opts *common, int rtsp_port) :
-        m_parent(common->parent),
-        m_start_time(params->start_time)
+                                         int                        rtsp_port)
+    : m_parent(params->parent), m_start_time(params->start_time)
 {
         rtsp_params.rtsp_port = (unsigned) rtsp_port;
-        rtsp_params.parent = common->parent;
+        rtsp_params.parent = params->parent;
 
         auto avType = (rtsp_types_t) (SENDS_MEDIUM(params, TX_MEDIA_AUDIO)
                                           ? rtsp_type_audio
@@ -117,7 +115,7 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(const struct vrxtx_params *params,
 
         rtsp_params.rtp_audio_src_port = params->medium[TX_MEDIA_AUDIO].rx_port;
         rtsp_params.rtp_video_src_port = params->medium[TX_MEDIA_VIDEO].rx_port;
-        m_rtp_common                   = rtp_rxtx_common_init(params, common);
+        m_rtp_common                   = rtp_rxtx_common_init(params);
         if (m_rtp_common == nullptr) {
                 throw -1;
         }
@@ -249,8 +247,7 @@ static int get_rtsp_server_port(const char *config) {
 }
 
 static void *
-create_video_rxtx_h264_std(const struct vrxtx_params *params,
-                           const struct common_opts  *common)
+create_video_rxtx_h264_std(const struct vrxtx_params *params)
 {
         int rtsp_port;
         const char *rtsp_port_str = params->protocol_opts;
@@ -266,7 +263,7 @@ create_video_rxtx_h264_std(const struct vrxtx_params *params,
                         return nullptr;
                 }
         }
-        return new h264_rtp_video_rxtx(params, common, rtsp_port);
+        return new h264_rtp_video_rxtx(params, rtsp_port);
 }
 
 static void done(void *state) {

@@ -544,7 +544,6 @@ struct ug_options {
         ~ug_options() {
                 vidcap_params_free(vidcap_params_head);
         }
-        struct common_opts common = COMMON_OPTS_INIT;
         struct vrxtx_params rxtx = VRXTX_INIT;
         struct audio_options audio = AUDIO_OPTIONS_INIT;
         std::string audio_filter_cfg;
@@ -1391,13 +1390,16 @@ int main(int argc, char *argv[])
                 col() << "\n";
         }
 
-        opt.common.parent = &uv.root_module;
+        opt.audio.parent = &uv.root_module;
+        opt.rxtx.parent = &uv.root_module;
 
-        opt.common.exporter = export_init(&uv.root_module, opt.export_opts, opt.should_export);
-        if (!opt.common.exporter) {
+        struct exporter *exporter =
+            export_init(&uv.root_module, opt.export_opts, opt.should_export);
+        if (exporter == nullptr) {
                 log_msg(LOG_LEVEL_ERROR, "Export initialization failed.\n");
                 EXIT(EXIT_FAILURE);
         }
+        opt.audio.exporter = opt.rxtx.video_exporter = exporter;
 
         if (control_init(opt.control_port, opt.connection_type, &control,
                          &uv.root_module, opt.rxtx.force_ip_version) != 0) {
@@ -1466,8 +1468,7 @@ int main(int argc, char *argv[])
         opt.rxtx.capture_device = uv.capture_device; // iHDTV
         opt.rxtx.display_device = uv.display_device; // UltraGrid RTP, iHDTV
 
-        ret = vrxtx_init(opt.net_protocol, &opt.rxtx, &opt.common,
-                        &uv.state_video_rxtx);
+        ret = vrxtx_init(opt.net_protocol, &opt.rxtx, &uv.state_video_rxtx);
         if (ret != 0) {
                 exit_uv(ret < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
                 goto cleanup;
@@ -1475,7 +1476,7 @@ int main(int argc, char *argv[])
 
         opt.audio.vrxtx   = uv.state_video_rxtx;
         opt.audio.display = uv.display_device;
-        ret               = audio_init(&uv.audio, &opt.audio, &opt.common);
+        ret               = audio_init(&uv.audio, &opt.audio);
         if (ret != 0) {
                 exit_uv(ret < 0 ? EXIT_FAIL_AUDIO : 0);
                 goto cleanup;
@@ -1514,7 +1515,7 @@ cleanup:
                 vrxtx_join(uv.state_video_rxtx);
         }
 
-        export_destroy(opt.common.exporter);
+        export_destroy(exporter);
 
         signal(SIGINT, SIG_DFL);
         signal(SIGTERM, SIG_DFL);

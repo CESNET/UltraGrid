@@ -64,6 +64,8 @@ struct rxtx_medium_params  {
 struct vrxtx_params {
         struct rxtx_medium_params medium[NUM_TX_MEDIA];
 
+        struct module  *parent;
+        struct exporter *video_exporter;
         const char     *receiver;
         char            encryption[STR_LEN];
         char            mcast_if[STR_LEN];
@@ -95,6 +97,8 @@ struct vrxtx_params {
                                         .tx_port   = -1, \
                                         .fec       = "none", \
                                     } }, \
+                .parent           = nullptr, \
+                .video_exporter   = nullptr, \
                 .receiver         = nullptr, \
                 .encryption       = "", \
                 .mcast_if         = "", \
@@ -131,8 +135,7 @@ enum rxtx_property {
  * vrxtx_params.protocol_opts is "help"). If unsure, throw 1 on help and -1 on
  * error.
  */
-typedef void *rxtx_create_fn(const struct vrxtx_params *params,
-                             const struct common_opts  *common);
+typedef void *rxtx_create_fn(const struct vrxtx_params *params);
 typedef void  rxtx_done_fn(void *state);
 typedef void  rxtx_send_audio_frame_fn(void                      *state,
                                        const struct audio_frame2 *frame);
@@ -182,9 +185,9 @@ struct audio_frame2;
 struct video_rxtx;
 
 int  vrxtx_init(const char *proto_name, const struct vrxtx_params *params,
-                const struct common_opts *opts, struct video_rxtx **state);
+                struct video_rxtx **state);
 void vrxtx_destroy(struct video_rxtx *state);
-void        vrxtx_list_protocols(bool full);
+void vrxtx_list_protocols(bool full);
 const char *vrxtx_get_proto_long_name(const char *short_name);
 void        vrxtx_join(struct video_rxtx *state);
 bool        rxtx_ctl_property(struct video_rxtx *state, enum rxtx_property p,

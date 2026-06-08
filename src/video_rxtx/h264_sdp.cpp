@@ -75,8 +75,7 @@ constexpr uint32_t MAGIC = to_fourcc('V', 'X', 'h', 's');
 struct h264_sdp_video_rxtx {
         uint32_t magic = MAGIC;
         struct sdp *sdp_state = nullptr;
-        h264_sdp_video_rxtx(const struct vrxtx_params *params,
-                            const struct common_opts  *common);
+        h264_sdp_video_rxtx(const struct vrxtx_params *params) noexcept(false);
         ~h264_sdp_video_rxtx();
         void send_frame(std::shared_ptr<video_frame>) noexcept;
         void set_audio_spec(const struct audio_desc *desc, int audio_rx_port,
@@ -101,9 +100,8 @@ using std::exception;
 using std::shared_ptr;
 using std::string;
 
-h264_sdp_video_rxtx::h264_sdp_video_rxtx(const struct vrxtx_params *params,
-                                         const struct common_opts  *common)
-        : m_parent(common->parent)
+h264_sdp_video_rxtx::h264_sdp_video_rxtx(const struct vrxtx_params *params)
+        : m_parent(params->parent)
 {
         const struct rxtx_medium_params *audio =
             &params->medium[TX_MEDIA_AUDIO];
@@ -118,7 +116,7 @@ h264_sdp_video_rxtx::h264_sdp_video_rxtx(const struct vrxtx_params *params,
                 m_video_tx_port = video->tx_port;
         }
 
-        m_rtp_common = rtp_rxtx_common_init(params, common);
+        m_rtp_common = rtp_rxtx_common_init(params);
         if (m_rtp_common == nullptr) {
                 throw -1;
         }
@@ -255,10 +253,9 @@ h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 }
 
 static void *
-create_video_rxtx_h264_sdp(const struct vrxtx_params *params,
-                           const struct common_opts  *common)
+create_video_rxtx_h264_sdp(const struct vrxtx_params *params)
 {
-        return new h264_sdp_video_rxtx(params, common);
+        return new h264_sdp_video_rxtx(params);
 }
 
 static void done(void *state) {

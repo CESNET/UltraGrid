@@ -67,8 +67,7 @@
 
 class ihdtv_video_rxtx {
 public:
-        ihdtv_video_rxtx(const struct vrxtx_params *params,
-                         const struct common_opts  *common);
+        ihdtv_video_rxtx(const struct vrxtx_params *params);
         ~ihdtv_video_rxtx();
         void send_frame(std::shared_ptr<video_frame>) noexcept;
         static void *receiver_thread(void *arg) {
@@ -139,9 +138,8 @@ static void *ihdtv_sender_thread(void *arg)
 }
 #endif
 
-ihdtv_video_rxtx::ihdtv_video_rxtx(const struct vrxtx_params *params,
-                                   const struct common_opts  *common)
-    : m_parent(common->parent), m_tx_connection(), m_rx_connection()
+ihdtv_video_rxtx::ihdtv_video_rxtx(const struct vrxtx_params *params)
+    : m_parent(params->parent), m_tx_connection(), m_rx_connection()
 {
         const struct rxtx_medium_params *params_video =
             &params->medium[TX_MEDIA_VIDEO];
@@ -192,12 +190,11 @@ ihdtv_video_rxtx::~ihdtv_video_rxtx()
 }
 
 static void *
-create_video_rxtx_ihdtv(const struct vrxtx_params *params,
-                        const struct common_opts  *common)
+create_video_rxtx_ihdtv(const struct vrxtx_params *params)
 {
         bug_msg(LOG_LEVEL_WARNING,
                 "Warning: iHDTV support may be currently broken. ");
-        return new ihdtv_video_rxtx(params, common);
+        return new ihdtv_video_rxtx(params);
 }
 
 static void done(void *state) {

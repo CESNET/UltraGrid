@@ -86,8 +86,7 @@ public:
          */
         virtual void       join() noexcept;
         static video_rxtx *create(std::string const         &name,
-                                  const struct vrxtx_params *params,
-                                  const struct common_opts  *opts) noexcept(false);
+                                  const struct vrxtx_params *params) noexcept(false);
         static void        list(bool full) noexcept;
         void set_audio_spec(const struct audio_desc *desc, int audio_rx_port,
                             int audio_tx_port, bool ipv6) noexcept;
@@ -99,14 +98,14 @@ public:
 
 protected:
         video_rxtx(const char *protocol_name,
-                   const struct vrxtx_params *params,
-                   const struct common_opts *opts) noexcept(false);
+                   const struct vrxtx_params *params) noexcept(false);
         void check_sender_messages();
 
         struct module m_sender_mod;
         struct module m_receiver_mod;
         unsigned long long int m_frames_sent = 0ull;
-        struct exporter *m_exporter;
+        struct exporter *m_video_exporter; ///< currently, this is used for video,
+                                           ///< audio is exported otherwhere
 
 private:
         static void *sender_thread(void *args);
@@ -164,13 +163,12 @@ rxtx_get_vcompression(const char *net_protocol, const char *req_compression)
 }
 
 video_rxtx::video_rxtx(const char                *protocol_name,
-                       const struct vrxtx_params *params,
-                       const struct common_opts  *common) noexcept(false)
-    : m_exporter(common->exporter)
+                       const struct vrxtx_params *params) noexcept(false)
+    : m_video_exporter(params->video_exporter)
 {
         module_init_default(&m_sender_mod);
         m_sender_mod.cls = MODULE_CLASS_SENDER;
-        module_register(&m_sender_mod, common->parent);
+        module_register(&m_sender_mod, params->parent);
 
         const char *compression =
             rxtx_get_vcompression(protocol_name, params->compression);
@@ -187,7 +185,7 @@ video_rxtx::video_rxtx(const char                *protocol_name,
 
         module_init_default(&m_receiver_mod);
         m_receiver_mod.cls = MODULE_CLASS_RECEIVER;
-        module_register(&m_receiver_mod, common->parent);
+        module_register(&m_receiver_mod, params->parent);
 
         pthread_mutex_init(&m_lock, nullptr);
 }
@@ -309,7 +307,7 @@ void *video_rxtx::sender_loop() {
                 }
 
                 m_video_desc = video_desc_from_frame(tx_frame.get());
-                export_video(m_exporter, tx_frame.get());
+                export_video(m_video_exporter, tx_frame.get());
 
                 m_impl_funcs->send_video_frame(m_impl_state, std::move(tx_frame));
                 m_frames_sent += 1;
@@ -325,8 +323,8 @@ void *video_rxtx::sender_loop() {
  * @throws -1 on error
  */
 video_rxtx *
-video_rxtx::create(string const &proto, const struct vrxtx_params *params,
-                   const struct common_opts *common) noexcept(false)
+video_rxtx::create(string const              &proto,
+                   const struct vrxtx_params *params) noexcept(false)
 {
         const struct rxtx_medium_params *params_video =
             &params->medium[TX_MEDIA_VIDEO];
@@ -341,13 +339,13 @@ video_rxtx::create(string const &proto, const struct vrxtx_params *params,
                 throw 1;
         }
 
-        video_rxtx *ret = new video_rxtx(proto.c_str(), params, common);
+        video_rxtx *ret = new video_rxtx(proto.c_str(), params);
 
         auto params_c = *params;
         params_c.sender_mod  = &ret->m_sender_mod;
         params_c.receiver_mod  = &ret->m_receiver_mod;
         try {
-                ret->m_impl_state = vri->create(&params_c, common);
+                ret->m_impl_state = vri->create(&params_c);
         } catch (...) {
         }
         ret->m_impl_funcs = vri;
@@ -403,11 +401,13 @@ video_rxtx::list(bool full) noexcept
 /**
  * @retunrs -1 error; 0 OK; 1 help shown (as usual)
  */
-int vrxtx_init(const char *proto_name, const struct vrxtx_params *params,
-               const struct common_opts *opts, struct video_rxtx **state) {
+int
+vrxtx_init(const char *proto_name, const struct vrxtx_params *params,
+           struct video_rxtx **state)
+{
         static video_rxtx *ret = nullptr;
         try {
-                ret = video_rxtx::create(proto_name, params, opts);
+                ret = video_rxtx::create(proto_name, params);
         } catch (int rc) {
                 return rc;
         } catch (...) {

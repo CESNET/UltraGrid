@@ -163,16 +163,6 @@ void hang_signal_handler(int sig);
 }
 #endif
 
-struct common_opts {
-        struct module   *parent;
-        struct exporter *exporter;
-};
-
-#define COMMON_OPTS_INIT \
-        { \
-                .parent           = nullptr, \
-                .exporter         = nullptr, \
-        }
 
 #define MERGE_(a,b)  a##b
 #define LABEL_(a) MERGE_(unique_name_, a)

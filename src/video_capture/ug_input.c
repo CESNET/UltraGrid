@@ -183,8 +183,7 @@ static int vidcap_ug_input_init(const struct vidcap_params *cap_params, void **s
         struct vrxtx_params params = VRXTX_INIT;
 
         // common
-        struct common_opts common = COMMON_OPTS_INIT;
-        common.parent = vidcap_params_get_parent(cap_params);
+        params.parent = vidcap_params_get_parent(cap_params);
         params.medium[TX_MEDIA_AUDIO].rxtx_mode = MODE_RECEIVER;
         params.medium[TX_MEDIA_VIDEO].rxtx_mode = MODE_RECEIVER;
 
@@ -202,7 +201,7 @@ static int vidcap_ug_input_init(const struct vidcap_params *cap_params, void **s
         // params["decoder_mode"].l = VIDEO_NORMAL;
         params.display_device = s->display;
 
-        int rc = vrxtx_init("ultragrid_rtp", &params, &common, &s->video_rxtx);
+        int rc = vrxtx_init("ultragrid_rtp", &params, &s->video_rxtx);
         assert(rc == 0);
 
         if (vidcap_params_get_flags(cap_params) & VIDCAP_FLAG_AUDIO_ANY) {
@@ -211,7 +210,7 @@ static int vidcap_ug_input_init(const struct vidcap_params *cap_params, void **s
                 opt.display              = s->display;
                 opt.vrxtx                = s->video_rxtx;
 
-                if (audio_init(&s->audio, &opt, &common) != 0) {
+                if (audio_init(&s->audio, &opt) != 0) {
                         vidcap_ug_input_done(s);
                         return VIDCAP_INIT_FAIL;
                 }

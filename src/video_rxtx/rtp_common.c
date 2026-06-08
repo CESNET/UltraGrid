@@ -326,8 +326,7 @@ init_medium_state(struct rtp_rxtx_common_priv_state *s,
         return true;
 }
 
-struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
-                       const struct common_opts  *common)
+struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params)
 {
         struct rtp_rxtx_common_priv_state *s = calloc(
             1, sizeof(struct rtp_rxtx_common_priv_state));
@@ -337,7 +336,7 @@ struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
         pub->priv = s;
         pub->encryption       = strdup(params->encryption);
         s->magic              = MAGIC;
-        s->parent             = common->parent;
+        s->parent             = params->parent;
         s->force_ip_version   = params->force_ip_version,
         s->mcast_if           = strdup(params->mcast_if);
         s->ttl                = params->ttl;

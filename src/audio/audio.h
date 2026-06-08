@@ -61,6 +61,8 @@
 struct state_audio;
 
 struct audio_options {
+        struct module     *parent;
+        struct exporter   *exporter;
         const char        *recv_cfg;
         const char        *send_cfg;
         const char        *channel_map;
@@ -74,6 +76,8 @@ struct audio_options {
 
 #define AUDIO_OPTIONS_INIT \
         { \
+                .parent            = nullptr, \
+                .exporter          = nullptr, \
                 .recv_cfg          = "none", \
                 .send_cfg          = "none", \
                 .channel_map       = nullptr, \
@@ -90,8 +94,7 @@ extern "C" {
 #endif
 
 int audio_init(struct state_audio **state,
-               const struct audio_options *opt,
-               const struct common_opts   *common);
+               const struct audio_options *opt);
 
 void audio_start(struct state_audio *s);
 void audio_done(struct state_audio *s);

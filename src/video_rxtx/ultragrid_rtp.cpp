@@ -93,8 +93,7 @@ using ultragrid::pthread_mutex_guard;
 
 struct ultragrid_rtp_video_rxtx {
         const uint32_t magic;
-        ultragrid_rtp_video_rxtx(const struct vrxtx_params *params,
-                                 const struct common_opts  *common);
+        ultragrid_rtp_video_rxtx(const struct vrxtx_params *params);
         virtual ~ultragrid_rtp_video_rxtx();
         virtual void send_frame(std::shared_ptr<video_frame>) noexcept;
         void join();
@@ -142,13 +141,13 @@ struct ultragrid_rtp_video_rxtx {
 };
 
 ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(
-    const struct vrxtx_params *params, const struct common_opts *common) :
+    const struct vrxtx_params *params) :
         magic(MAGIC),
         m_decoder_mode(params->decoder_mode),
         m_display_device(params->display_device),
         m_send_bytes_total(0),
-        m_control(get_control_state(common->parent)),
-        m_parent(common->parent),
+        m_control(get_control_state(params->parent)),
+        m_parent(params->parent),
         m_start_time(params->start_time),
         m_receiver_mod(params->receiver_mod)
 {
@@ -157,7 +156,7 @@ ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(
                 destroy_video_decoder(new_video_decoder(m_display_device));
                 throw 1;
         }
-        m_rtp_common = rtp_rxtx_common_init(params, common);
+        m_rtp_common = rtp_rxtx_common_init(params);
         if (m_rtp_common == nullptr) {
                 throw -1;
         }
@@ -544,14 +543,13 @@ ultragrid_rtp_server_mode_help()
 }
 
 static void *
-create_video_rxtx_ultragrid_rtp(const struct vrxtx_params *params,
-                                const struct common_opts  *common)
+create_video_rxtx_ultragrid_rtp(const struct vrxtx_params *params)
 {
         if (strlen(params->protocol_opts) != 0) {
                 usage();
                 return nullptr;
         }
-        return new ultragrid_rtp_video_rxtx(params, common);
+        return new ultragrid_rtp_video_rxtx(params);
 }
 
 static void done(void *state) {

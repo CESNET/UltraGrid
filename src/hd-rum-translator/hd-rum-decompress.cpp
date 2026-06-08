@@ -208,9 +208,7 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
         struct vrxtx_params params = VRXTX_INIT;
 
         // common
-        struct common_opts common = COMMON_OPTS_INIT;
-        common.parent = parent;
-
+        params.parent = parent;
         params.medium[TX_MEDIA_VIDEO].rxtx_mode = MODE_RECEIVER;
 
         //RTP
@@ -227,7 +225,7 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
         params.display_device = s->display;
 
         ret =
-            vrxtx_init("ultragrid_rtp", &params, &common, &s->video_rxtx);
+            vrxtx_init("ultragrid_rtp", &params, &s->video_rxtx);
         assert(ret == 0 && MOD_NAME "Unable to initialize RXTX");
         size_t len = sizeof s->rtp_common_state; // NOLINT(bugprone-sizeof-expression)
         bool ctl_rc = rxtx_ctl_property(s->video_rxtx, GET_RTP_COMMON_STATE,

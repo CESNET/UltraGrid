@@ -168,8 +168,7 @@ static void should_exit_audio(void *state) {
 }
 
 static int
-audio_init_real(struct state_audio *s, const struct audio_options *opt,
-                const struct common_opts *common)
+audio_init_real(struct state_audio *s, const struct audio_options *opt)
 {
         assert(opt->send_cfg != NULL);
         assert(opt->recv_cfg != NULL);
@@ -177,7 +176,7 @@ audio_init_real(struct state_audio *s, const struct audio_options *opt,
         s->rxtx = opt->vrxtx;
         s->resample_to = parse_audio_codec_params(opt->codec_cfg).sample_rate;
 
-        s->exporter = common->exporter;
+        s->exporter = opt->exporter;
 
         if (opt->echo_cancellation) {
 #ifdef HAVE_SPEEXDSP
@@ -281,12 +280,11 @@ audio_init_real(struct state_audio *s, const struct audio_options *opt,
  * @retval >0 success but no state was created (eg. help printed)
  */
 int
-audio_init(struct state_audio **state, const struct audio_options *opt,
-                const struct common_opts *common) {
-        auto *s = new state_audio(common->parent);
-        register_should_exit_callback(common->parent, should_exit_audio, s);
+audio_init(struct state_audio **state, const struct audio_options *opt) {
+        auto *s = new state_audio(opt->parent);
+        register_should_exit_callback(opt->parent, should_exit_audio, s);
 
-        int rc = audio_init_real(s, opt, common);
+        int rc = audio_init_real(s, opt);
         if (rc == 0) {
                 *state = s;
                 return 0;

@@ -69,8 +69,7 @@ static const char *MODULE_NAME = "[loopback] ";
 
 class loopback_video_rxtx {
 public:
-        loopback_video_rxtx(const struct vrxtx_params *params,
-                            const struct common_opts  *common);
+        loopback_video_rxtx(const struct vrxtx_params *params);
         void send_frame(std::shared_ptr<video_frame>) noexcept;
         static void *receiver_thread(void *arg);
 
@@ -85,9 +84,8 @@ private:
         std::mutex m_lock;
 };
 
-loopback_video_rxtx::loopback_video_rxtx(const struct vrxtx_params *params,
-                                         const struct common_opts  *common)
-    : m_parent(common->parent), m_display_device(params->display_device)
+loopback_video_rxtx::loopback_video_rxtx(const struct vrxtx_params *params)
+    : m_parent(params->parent), m_display_device(params->display_device)
 {
 }
 
@@ -151,10 +149,9 @@ void *loopback_video_rxtx::receiver_loop()
 }
 
 static void*
-create_video_rxtx_loopback(const struct vrxtx_params *params,
-                           const struct common_opts  *common)
+create_video_rxtx_loopback(const struct vrxtx_params *params)
 {
-        return new loopback_video_rxtx(params, common);
+        return new loopback_video_rxtx(params);
 }
 
 static void done(void *state) {

@@ -35,8 +35,7 @@ jack_trans_done(void *state)
 }
 
 static void *
-jack_trans_init(const struct vrxtx_params *params,
-                const struct common_opts  *common)
+jack_trans_init(const struct vrxtx_params *params)
 {
         auto *s = (struct jack_audio_rxtx *) calloc(
             1, sizeof(struct jack_audio_rxtx));
@@ -48,8 +47,8 @@ jack_trans_init(const struct vrxtx_params *params,
         }
         if (params->medium[TX_MEDIA_VIDEO].rxtx_mode != 0) {
                 struct vrxtx_params ug_rtp_params = *params;
-                int rc = vrxtx_init("ultragrid_rtp", &ug_rtp_params, common,
-                                    &s->video_rxtx);
+                int                 rc =
+                    vrxtx_init("ultragrid_rtp", &ug_rtp_params, &s->video_rxtx);
                 if (rc != 0) {
                         jack_trans_done(s);
                         return nullptr;

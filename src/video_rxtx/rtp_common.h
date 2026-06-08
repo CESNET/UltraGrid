@@ -81,11 +81,9 @@ struct rtp_rxtx_common {
         bool playback_supports_multiple_streams; // set by impl
 };
 
-struct common_opts;
 struct vrxtx_params;
 
-struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params,
-                       const struct common_opts  *common);
+struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params);
 void                    rtp_rxtx_common_done(struct rtp_rxtx_common *state);
 
 void rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *pub,
