@@ -41,7 +41,6 @@
 #include <cassert>           // for assert
 #include <cstdio>            // for printf
 #include <cstring>           // for NULL, memset, strcasecmp, strcmp
-#include <map>               // for map
 #include <memory>
 #include <pthread.h>         // for pthread_join, pthread_create, pthread_equal
 #include <sstream>
@@ -70,7 +69,6 @@ constexpr char DEFAULT_VIDEO_COMPRESSION[] = "none";
 #define MOD_NAME "[vrxtx] "
 #define MAGIC to_fourcc('R', 'X', 'T', 'X')
 
-using std::map;
 using std::shared_ptr;
 using std::ostringstream;
 using std::string;
@@ -116,7 +114,6 @@ private:
 
         pthread_t m_sender_thread_id   = PTHREAD_NULL;
         bool      m_sender_poisoned    = false;
-        bool      m_sender_joined      = true;
         pthread_t m_receiver_thread_id = PTHREAD_NULL;
 
         video_desc       m_video_desc{};
@@ -217,15 +214,15 @@ video_rxtx::join() noexcept
                 m_receiver_thread_id = PTHREAD_NULL;
         }
 
-        if (m_sender_joined) {
-                return;
+        if (!pthread_equal(m_sender_thread_id, PTHREAD_NULL)) {
+                send(nullptr); // pass poisoned pill
+                CHK_PTHR(pthread_join(m_sender_thread_id, nullptr));
+                if (m_impl_funcs != nullptr &&
+                    m_impl_funcs->join_sender != nullptr) {
+                        m_impl_funcs->join_sender(m_impl_state);
+                }
+                m_sender_thread_id = PTHREAD_NULL;
         }
-        send(NULL); // pass poisoned pill
-        CHK_PTHR(pthread_join(m_sender_thread_id, nullptr));
-        if (m_impl_funcs != nullptr && m_impl_funcs->join_sender != nullptr) {
-                m_impl_funcs->join_sender(m_impl_state);
-        }
-        m_sender_joined = true;
 }
 
 const char *
@@ -383,7 +380,6 @@ video_rxtx::create(string const              &proto,
                     pthread_create(&ret->m_sender_thread_id, nullptr,
                                    video_rxtx::sender_thread, (void *) ret);
                 assert(rc == 0);
-                ret->m_sender_joined = false;
         }
 
         return ret;
