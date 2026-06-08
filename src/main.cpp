@@ -918,9 +918,9 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         opt->audio.send_cfg = "embedded";
                         {
                                 char dev_string[1024];
-                                int ret;
-                                if ((ret = playback_set_device(dev_string, sizeof dev_string, optarg)) <= 0) {
-                                        return ret == 0 ? 1 : -EXIT_FAIL_USAGE;
+                                int ret = playback_set_device(dev_string, sizeof dev_string, optarg);
+                                if (ret != 0) {
+                                        return ret == 1 ? 1 : -EXIT_FAIL_USAGE;
                                 }
                                 vidcap_params_set_device(opt->vidcap_params_tail, dev_string);
                                 opt->vidcap_params_tail = vidcap_params_allocate_next(opt->vidcap_params_tail);

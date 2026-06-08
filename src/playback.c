@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2019-2025 CESNET, zájmové sdružení právnických osob
+ * Copyright (c) 2019-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -68,11 +68,17 @@ static void  playback_usage(void) {
         color_printf(TERM_BOLD "-t file:help" TERM_RESET " or " TERM_BOLD "-t import:help" TERM_RESET " to see further specific configuration options.\n\n");
 }
 
+/**
+ * sets video capture device according to --playback parameter - either "import"
+ * or "file"
+ *
+ * @retuns  0 on succes, 1 on help, -1 on error
+ */
 int playback_set_device(char *device_string, size_t buf_len, const char *optarg) {
         bool is_import = false;
         if (strcmp(optarg, "help") == 0) {
                 playback_usage();
-                return 0;
+                return 1;
         }
         char *path = strdup(optarg);
         if (strchr(path, ':')) {
@@ -93,7 +99,7 @@ int playback_set_device(char *device_string, size_t buf_len, const char *optarg)
 
         snprintf(device_string, buf_len, "%s:%s:opportunistic_audio", is_import ? "import" : "file", optarg);
         free(path);
-        return 1;
+        return 0;
 }
 
 /**
