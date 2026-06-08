@@ -48,7 +48,6 @@ jack_trans_init(const struct vrxtx_params *params,
         }
         if (params->medium[TX_MEDIA_VIDEO].rxtx_mode != 0) {
                 struct vrxtx_params ug_rtp_params = *params;
-                ug_rtp_params.protocol_opts       = "";
                 int rc = vrxtx_init("ultragrid_rtp", &ug_rtp_params, common,
                                     &s->video_rxtx);
                 if (rc != 0) {

@@ -80,7 +80,6 @@
 #include <string_view>                  // for operator==, basic_string_view
 #include <strings.h>                    // for strcasecmp
 #include <unistd.h>                     // for optarg, optind, STDERR...
-#include <unordered_map>                // for unordered_map
 #include <utility>                      // for move
 
 #include "audio/audio.h"                // for audio_options, additional_aud...
@@ -89,7 +88,6 @@
 #include "audio/codec.h"                // for audio_codec_params, get_name_...
 #include "audio/types.h"                // for AC_NONE, AUDIO_FRAME_DISPOSE
 #include "compat/alarm.h"               // IWYU pragma: keep for alarm
-#include "compat/misc.h"                // for PTHREAD_NULL
 #include "control_socket.h"
 #include "cuda_wrapper.h"
 #include "debug.h"
@@ -563,7 +561,6 @@ struct ug_options {
         int control_port = 0;
         int connection_type = 0;
 
-
         const char *postprocess = NULL;
         const char *requested_display = "none";
 
@@ -572,12 +569,14 @@ struct ug_options {
 
         const char *requested_capabilities = nullptr;
 
-        const char *net_protocol = "ultragrid_rtp";
+        char net_protocol[128] = "ultragrid_rtp";
 
         char *nat_traverse_config = nullptr;
 };
 
-static int parse_audio_capture(struct ug_options *opt, char *optarg) {
+static int
+parse_audio_capture(struct ug_options *opt, const char *optarg)
+{
         if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
                 audio_capture_print_help(strcmp(optarg, "full") == 0);
                 return 1;
@@ -660,8 +659,8 @@ static bool parse_protocol(int ch, char *optarg, struct ug_options *opt) {
                 vrxtx_list_protocols(strcmp(optarg, "fullhelp") == 0);
                 return false;
         }
-        opt->net_protocol = proto;
-        opt->rxtx.protocol_opts = cfg;
+        strcpy_ch(opt->net_protocol, proto);
+        strcpy_ch(opt->rxtx.protocol_opts, cfg);
 
         return true;
 }
@@ -752,6 +751,8 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
         while ((ch =
                 getopt_long(argc, argv, optstring, getopt_options,
                             NULL)) != -1) {
+                string tmp = optarg ? optarg : "";
+                char *optarg_copy = tmp.data();
                 switch (ch) {
                 case 'd':
                         if (strcmp(optarg, "help") == 0 || strcmp(optarg, "fullhelp") == 0) {
@@ -778,7 +779,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         opt->vidcap_params_tail = vidcap_params_allocate_next(opt->vidcap_params_tail);
                         break;
                 case 'm':
-                        opt->rxtx.mtu = parse_mtu(optarg);
+                        opt->rxtx.mtu = parse_mtu(optarg_copy);
                         if (opt->rxtx.mtu == -1) {
                                 return -EXIT_FAIL_USAGE;
                         }
@@ -802,13 +803,13 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         log_msg(LOG_LEVEL_WARNING, "Option \"--rtsp-server[=args]\" "
                                         "is deprecated and will be removed in future.\n"
                                         "Please use \"-x rtsp[:args]\"instead.\n");
-                        opt->net_protocol = "rtsp";
-                        opt->rxtx.protocol_opts = optarg ? optarg : "";
+                        strcpy_ch(opt->net_protocol, "rtsp");
+                        strcpy_ch(opt->rxtx.protocol_opts, optarg ? optarg : "");
                         break;
                 case OPT_AUDIO_PROTOCOL:
                 case OPT_VIDEO_PROTOCOL:
                 case 'x':
-                        if (!parse_protocol(ch, optarg, opt)) {
+                        if (!parse_protocol(ch, optarg_copy, opt)) {
                                 return 1;
                         }
                         break;
@@ -848,12 +849,12 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         usage(false);
                         return 1;
                 case 'P':
-                        if (!parse_port(optarg, opt)) {
+                        if (!parse_port(optarg_copy, opt)) {
                                 return -EXIT_FAIL_USAGE;
                         }
                         break;
                 case 'l':
-                        if (!parse_bitrate(optarg, &opt->rxtx.bitrate_limit)) {
+                        if (!parse_bitrate(optarg_copy, &opt->rxtx.bitrate_limit)) {
                                 return -EXIT_FAILURE;
                         }
                         if (opt->rxtx.bitrate_limit == RATE_DEFAULT) {
@@ -897,7 +898,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         usage(true);
                         return 1;
                 case 'D':
-                        if (int ret = parse_cuda_device(optarg)) {
+                        if (int ret = parse_cuda_device(optarg_copy)) {
                                 return ret;
                         }
                         break;
@@ -940,7 +941,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         snprintf_ch(opt->rxtx.encryption, "%s", optarg);
                         break;
                 case 'n':
-                        if (!parse_control_port(optarg, opt)) {
+                        if (!parse_control_port(optarg_copy, opt)) {
                                 return -EXIT_FAIL_USAGE;
                         }
                         break;

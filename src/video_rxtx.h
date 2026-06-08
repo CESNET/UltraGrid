@@ -77,7 +77,7 @@ struct vrxtx_params {
         struct vidcap  *capture_device; ///< iHDTV only
         long long       bitrate_limit; ///< rate limiter in bps or RATE_ constantts
         enum video_mode decoder_mode;
-        const char     *protocol_opts;
+        char            protocol_opts[STR_LEN];
         struct module  *sender_mod;   ///< set by video_rxtx::create
         struct module  *receiver_mod; ///< set by video_rxtx::create
 };
