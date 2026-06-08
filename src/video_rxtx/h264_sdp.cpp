@@ -341,15 +341,17 @@ h264_sdp_recv_audio_frame(void *state)
 }
 
 static const struct video_rxtx_info h264_sdp_video_rxtx_info = {
-        .long_name          = "RTP standard (SDP version)",
-        .create             = create_video_rxtx_h264_sdp,
-        .done               = done,
-        .send_audio_frame   = h264_sdp_send_audio_frame,
-        .recv_audio_frame   = h264_sdp_recv_audio_frame,
+        .long_name    = "RTP standard (SDP version)",
+        .create       = create_video_rxtx_h264_sdp,
+        .done         = done,
+        .ctl_property = h264_sdp_ctl_property,
+
+        .send_audio_frame = h264_sdp_send_audio_frame,
+        .recv_audio_frame = h264_sdp_recv_audio_frame,
+
         .send_video_frame   = send_frame,
         .video_recv_routine = nullptr,
-        .ctl_property       = h264_sdp_ctl_property,
-        .join_sender        = nullptr,
+        .join_video_sender  = nullptr,
 };
 
 REGISTER_MODULE(sdp, &h264_sdp_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);

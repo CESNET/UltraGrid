@@ -51,8 +51,7 @@ using namespace std;
 
 class sage_video_rxtx {
 public:
-        sage_video_rxtx(const struct vrxtx_params *params,
-                        const struct common_opts  *common);
+        sage_video_rxtx(const struct vrxtx_params *params);
         ~sage_video_rxtx();
         void send_frame(std::shared_ptr<video_frame>) noexcept;
 
@@ -61,9 +60,7 @@ private:
         struct display       *m_sage_tx_device;
 };
 
-sage_video_rxtx::sage_video_rxtx(
-    const struct vrxtx_params                 *params,
-    [[maybe_unused]] const struct common_opts *common)
+sage_video_rxtx::sage_video_rxtx(const struct vrxtx_params *params)
 {
         ostringstream oss;
 
@@ -110,10 +107,9 @@ sage_video_rxtx::~sage_video_rxtx()
 }
 
 static void *
-create_video_rxtx_sage(const struct vrxtx_params *params,
-                       const struct common_opts  *common)
+create_video_rxtx_sage(const struct vrxtx_params *params)
 {
-        return new sage_video_rxtx(params, common);
+        return new sage_video_rxtx(params);
 }
 
 static void done(void *state) {
@@ -129,15 +125,17 @@ send_frame(void *state, std::shared_ptr<video_frame> f)
 }
 
 static const struct video_rxtx_info sage_video_rxtx_info = {
-        .long_name          = "SAGE",
-        .create             = create_video_rxtx_sage,
-        .done               = done,
+        .long_name    = "SAGE",
+        .create       = create_video_rxtx_sage,
+        .done         = done,
+        .ctl_property = nullptr,
+
         .send_audio_frame   = nullptr,
         .recv_audio_frame   = nullptr,
+
         .send_video_frame   = send_frame,
         .video_recv_routine = nullptr,
-        .ctl_property       = nullptr,
-        .join_sender        = nullptr,
+        .join_video_sender  = nullptr,
 };
 
 REGISTER_MODULE(sage, &sage_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);

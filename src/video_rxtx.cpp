@@ -77,7 +77,7 @@ struct video_rxtx {
 public:
         const uint32_t magic = MAGIC;
         virtual ~video_rxtx() noexcept;
-        void               send(std::shared_ptr<struct video_frame>) noexcept;
+        void               send_vframe(std::shared_ptr<struct video_frame>) noexcept;
         static const char *get_long_name(std::string const &short_name) noexcept;
         /**
          * If overridden, children must call also video_rxtx::join()
@@ -106,18 +106,18 @@ protected:
                                            ///< audio is exported otherwhere
 
 private:
-        static void *sender_thread(void *args);
-        void *sender_loop();
+  static void *video_sender_thread(void *args);
+  void        *video_sender_loop();
 
-        struct compress_state *m_compression = nullptr;
-        pthread_mutex_t m_lock;
+  struct compress_state *m_video_compression = nullptr;
+  pthread_mutex_t        m_lock;
 
-        pthread_t m_sender_thread_id   = PTHREAD_NULL;
-        bool      m_sender_poisoned    = false;
-        pthread_t m_receiver_thread_id = PTHREAD_NULL;
+  pthread_t m_video_sender_thread_id   = PTHREAD_NULL;
+  bool      m_video_sender_poisoned    = false;
+  pthread_t m_video_receiver_thread_id = PTHREAD_NULL;
 
-        video_desc       m_video_desc{};
-        std::atomic<codec_t> m_input_codec{};
+  video_desc           m_video_desc{};
+  std::atomic<codec_t> m_input_video_codec{};
 };
 
 #define TX_IS_STD(proto)                                                       \
@@ -169,7 +169,7 @@ video_rxtx::video_rxtx(const char                *protocol_name,
 
         const char *compression =
             rxtx_get_vcompression(protocol_name, params->compression);
-        int ret = compress_init(&m_sender_mod, compression, &m_compression);
+        int ret = compress_init(&m_sender_mod, compression, &m_video_compression);
         if(ret != 0) {
                 module_done(&m_sender_mod);
                 if(ret < 0) {
@@ -192,14 +192,14 @@ video_rxtx::~video_rxtx() noexcept
         join();
         // video sender has not been created (error during init) but compression
         // was - we need to stop its thread
-        if (!m_sender_poisoned && m_compression != nullptr) {
-                send(NULL);
-                compress_pop(m_compression);
+        if (!m_video_sender_poisoned && m_video_compression != nullptr) {
+                send_vframe(NULL);
+                compress_pop(m_video_compression);
         }
         if (m_impl_funcs != nullptr && m_impl_state != nullptr) {
                 m_impl_funcs->done(m_impl_state);
         }
-        compress_done(m_compression);
+        compress_done(m_video_compression);
         module_done(&m_receiver_mod);
         module_done(&m_sender_mod);
 
@@ -209,19 +209,19 @@ video_rxtx::~video_rxtx() noexcept
 void
 video_rxtx::join() noexcept
 {
-        if (!pthread_equal(m_receiver_thread_id, PTHREAD_NULL)) {
-                CHK_PTHR(pthread_join(m_receiver_thread_id, nullptr));
-                m_receiver_thread_id = PTHREAD_NULL;
+        if (!pthread_equal(m_video_receiver_thread_id, PTHREAD_NULL)) {
+                CHK_PTHR(pthread_join(m_video_receiver_thread_id, nullptr));
+                m_video_receiver_thread_id = PTHREAD_NULL;
         }
 
-        if (!pthread_equal(m_sender_thread_id, PTHREAD_NULL)) {
-                send(nullptr); // pass poisoned pill
-                CHK_PTHR(pthread_join(m_sender_thread_id, nullptr));
+        if (!pthread_equal(m_video_sender_thread_id, PTHREAD_NULL)) {
+                send_vframe(nullptr); // pass poisoned pill
+                CHK_PTHR(pthread_join(m_video_sender_thread_id, nullptr));
                 if (m_impl_funcs != nullptr &&
-                    m_impl_funcs->join_sender != nullptr) {
-                        m_impl_funcs->join_sender(m_impl_state);
+                    m_impl_funcs->join_video_sender != nullptr) {
+                        m_impl_funcs->join_video_sender(m_impl_state);
                 }
-                m_sender_thread_id = PTHREAD_NULL;
+                m_video_sender_thread_id = PTHREAD_NULL;
         }
 }
 
@@ -239,21 +239,21 @@ video_rxtx::get_long_name(string const &short_name) noexcept
 }
 
 void
-video_rxtx::send(shared_ptr<video_frame> frame) noexcept
+video_rxtx::send_vframe(shared_ptr<video_frame> frame) noexcept
 {
-        if (!frame && m_sender_poisoned) {
+        if (!frame && m_video_sender_poisoned) {
                 return;
         }
         if (!frame) {
-                m_sender_poisoned = true;
+                m_video_sender_poisoned = true;
         } else {
-                m_input_codec = frame->color_spec;
+                m_input_video_codec = frame->color_spec;
         }
-        compress_frame(m_compression, std::move(frame));
+        compress_frame(m_video_compression, std::move(frame));
 }
 
-void *video_rxtx::sender_thread(void *args) {
-        return static_cast<video_rxtx *>(args)->sender_loop();
+void *video_rxtx::video_sender_thread(void *args) {
+        return static_cast<video_rxtx *>(args)->video_sender_loop();
 }
 
 void video_rxtx::check_sender_messages() {
@@ -268,7 +268,7 @@ void video_rxtx::check_sender_messages() {
                         } else {
                                 ostringstream oss;
                                 oss << m_video_desc
-                                    << " (input " << get_codec_name(m_input_codec)
+                                    << " (input " << get_codec_name(m_input_video_codec)
                                     << ")";
                                 r = new_response(RESPONSE_OK,
                                                  oss.str().c_str());
@@ -285,7 +285,7 @@ void video_rxtx::check_sender_messages() {
         }
 }
 
-void *video_rxtx::sender_loop() {
+void *video_rxtx::video_sender_loop() {
         set_thread_name(__func__);
         struct video_desc saved_vid_desc;
 
@@ -296,7 +296,7 @@ void *video_rxtx::sender_loop() {
 
                 shared_ptr<video_frame> tx_frame;
 
-                tx_frame = compress_pop(m_compression);
+                tx_frame = compress_pop(m_video_compression);
                 if (!tx_frame) {
                         break;
                 }
@@ -363,7 +363,7 @@ video_rxtx::create(string const              &proto,
                         delete ret;
                         throw -1;
                 }
-                int rc = pthread_create(&ret->m_receiver_thread_id, nullptr,
+                int rc = pthread_create(&ret->m_video_receiver_thread_id, nullptr,
                                         ret->m_impl_funcs->video_recv_routine,
                                         ret->m_impl_state);
                 assert(rc == 0);
@@ -377,8 +377,8 @@ video_rxtx::create(string const              &proto,
                         throw -1;
                 }
                 int rc =
-                    pthread_create(&ret->m_sender_thread_id, nullptr,
-                                   video_rxtx::sender_thread, (void *) ret);
+                    pthread_create(&ret->m_video_sender_thread_id, nullptr,
+                                   video_rxtx::video_sender_thread, (void *) ret);
                 assert(rc == 0);
         }
 
@@ -440,7 +440,7 @@ vrxtx_destroy(struct video_rxtx *state)
 void
 vrxtx_send(struct video_rxtx *state, std::shared_ptr<struct video_frame> f)
 {
-        state->send(std::move(f));
+        state->send_vframe(std::move(f));
 }
 
 bool rxtx_ctl_property(struct video_rxtx *state, enum rxtx_property p,

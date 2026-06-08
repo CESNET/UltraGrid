@@ -137,6 +137,9 @@ enum rxtx_property {
  */
 typedef void *rxtx_create_fn(const struct vrxtx_params *params);
 typedef void  rxtx_done_fn(void *state);
+typedef bool  rxtx_ctl_property_fn(void *state, enum rxtx_property p, void *val,
+                                   size_t *len);
+
 typedef void  rxtx_send_audio_frame_fn(void                      *state,
                                        const struct audio_frame2 *frame);
 struct rx_audio_frames {
@@ -152,6 +155,7 @@ struct rx_audio_frames {
  * ultragrid_rtp and aplay/mixer (@ref AUDIO_PLAYBACK_CTL_MULTIPLE_STREAMS)
  */
 typedef struct rx_audio_frames *rxtx_recv_audio_frame_fn(void *state);
+
 #ifdef __cplusplus
 typedef void  rxtx_send_shr_ptr_video_frame_fn(void *state,
                                                std::shared_ptr<video_frame>);
@@ -159,22 +163,21 @@ typedef void  rxtx_send_shr_ptr_video_frame_fn(void *state,
 typedef nullptr_t rxtx_send_shr_ptr_video_frame_fn;
 #endif // defined __cplusplus
 typedef void *rxtx_vrecv_routine_fn(void *state);
-typedef bool  rxtx_ctl_property_fn(void *state, enum rxtx_property p, void *val,
-                                   size_t *len);
-typedef void  rxtx_join_sender_fn(void *state);
+typedef void  rxtx_join_video_sender_fn(void *state);
 
 struct video_rxtx_info {
         const char     *long_name;
         rxtx_create_fn *create;
         rxtx_done_fn   *done;
+        // the callbacks below are optional
+        rxtx_ctl_property_fn *ctl_property;
 
-        // following callbacks are optional
-        rxtx_send_audio_frame_fn         *send_audio_frame;
-        rxtx_recv_audio_frame_fn         *recv_audio_frame;
+        rxtx_send_audio_frame_fn *send_audio_frame;
+        rxtx_recv_audio_frame_fn *recv_audio_frame;
+
         rxtx_send_shr_ptr_video_frame_fn *send_video_frame;
         rxtx_vrecv_routine_fn            *video_recv_routine;
-        rxtx_ctl_property_fn             *ctl_property;
-        rxtx_join_sender_fn              *join_sender;
+        rxtx_join_video_sender_fn        *join_video_sender;
 };
 
 #ifdef __cplusplus

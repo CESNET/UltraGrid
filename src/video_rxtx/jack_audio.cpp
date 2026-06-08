@@ -108,17 +108,18 @@ jack_recv_audio_frame(void *state)
         return ret;
 }
 
-
 static const struct video_rxtx_info jack_audio_rxtx_info = {
-        .long_name          = "JACK audio transport (UG RTP for video)",
-        .create             = jack_trans_init,
-        .done               = jack_trans_done,
-        .send_audio_frame   = jack_send_audio_frame,
-        .recv_audio_frame   = jack_recv_audio_frame,
+        .long_name    = "JACK audio transport (UG RTP for video)",
+        .create       = jack_trans_init,
+        .done         = jack_trans_done,
+        .ctl_property = nullptr,
+
+        .send_audio_frame = jack_send_audio_frame,
+        .recv_audio_frame = jack_recv_audio_frame,
+
         .send_video_frame   = jack_video_send_frame,
         .video_recv_routine = dummy_jack_video_receiver_thread,
-        .ctl_property       = nullptr,
-        .join_sender        = jack_video_join,
+        .join_video_sender  = jack_video_join,
 };
 
 REGISTER_MODULE(jack, &jack_audio_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX,

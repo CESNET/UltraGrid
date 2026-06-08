@@ -95,14 +95,15 @@ struct ultragrid_rtp_video_rxtx {
         const uint32_t magic;
         ultragrid_rtp_video_rxtx(const struct vrxtx_params *params);
         virtual ~ultragrid_rtp_video_rxtx();
-        virtual void send_frame(std::shared_ptr<video_frame>) noexcept;
+        virtual void send_video_frame(std::shared_ptr<video_frame>) noexcept;
         void join();
         static void *receiver_thread(void *arg);
 
         struct rtp_rxtx_common *m_rtp_common;
         void *receiver_loop();
-        static void *send_frame_async_callback(void *arg);
-        virtual void send_frame_async(std::shared_ptr<video_frame>);
+        static void *send_video_frame_async_callback(void *arg);
+        virtual void
+        send_video_frame_async(std::shared_ptr<video_frame> tx_frame);
 
         void receiver_process_messages();
         void remove_display_from_decoders();
@@ -124,7 +125,7 @@ struct ultragrid_rtp_video_rxtx {
         std::mutex       m_async_sending_lock;
         /// @}
 
-        long long int m_send_bytes_total;
+        long long int m_send_bytes_total = 0;
         struct control_state *m_control;
         struct module *m_parent;
 
@@ -145,7 +146,6 @@ ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(
         magic(MAGIC),
         m_decoder_mode(params->decoder_mode),
         m_display_device(params->display_device),
-        m_send_bytes_total(0),
         m_control(get_control_state(params->parent)),
         m_parent(params->parent),
         m_start_time(params->start_time),
@@ -186,7 +186,7 @@ void *ultragrid_rtp_video_rxtx::receiver_thread(void *arg) {
 using async_data = pair<ultragrid_rtp_video_rxtx *, shared_ptr<video_frame>>;
 
 void
-ultragrid_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
+ultragrid_rtp_video_rxtx::send_video_frame(shared_ptr<video_frame> tx_frame) noexcept
 {
         struct rtp_rxtx_medium *video =
             &m_rtp_common->medium[TX_MEDIA_VIDEO];
@@ -205,21 +205,21 @@ ultragrid_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
         unique_lock<mutex> lk(m_async_sending_lock);
         m_async_sending_cv.wait(lk, [this]{return !m_async_sending;});
         m_async_sending = true;
-        task_run_async_detached(ultragrid_rtp_video_rxtx::send_frame_async_callback,
+        task_run_async_detached(ultragrid_rtp_video_rxtx::send_video_frame_async_callback,
                         (void *) data);
 }
 
-void *ultragrid_rtp_video_rxtx::send_frame_async_callback(void *arg) {
+void *ultragrid_rtp_video_rxtx::send_video_frame_async_callback(void *arg) {
         auto *data = (async_data *) arg;
 
-        data->first->send_frame_async(data->second);
+        data->first->send_video_frame_async(data->second);
         delete data;
 
         return NULL;
 }
 
 void
-ultragrid_rtp_video_rxtx::send_frame_async(shared_ptr<video_frame> tx_frame)
+ultragrid_rtp_video_rxtx::send_video_frame_async(shared_ptr<video_frame> tx_frame)
 {
         struct rtp_rxtx_medium *video = &m_rtp_common->medium[TX_MEDIA_VIDEO];
         pthread_mutex_guard lock(video->lock);
@@ -558,10 +558,10 @@ static void done(void *state) {
 }
 
 static void
-send_frame(void *state, std::shared_ptr<video_frame> f)
+send_video_frame(void *state, std::shared_ptr<video_frame> f)
 {
         auto *s = static_cast<ultragrid_rtp_video_rxtx *>(state);
-        s->send_frame(std::move(f));
+        s->send_video_frame(std::move(f));
 }
 
 static void join(void *state) {
@@ -633,15 +633,17 @@ ultragrid_rtp_recv_audio_frame(void *state)
 }
 
 static const struct video_rxtx_info ultragrid_rtp_video_rxtx_info = {
-        .long_name          = "UltraGrid RTP",
-        .create             = create_video_rxtx_ultragrid_rtp,
-        .done               = done,
-        .send_audio_frame   = send_audio_frame,
-        .recv_audio_frame   = ultragrid_rtp_recv_audio_frame,
-        .send_video_frame   = send_frame,
+        .long_name    = "UltraGrid RTP",
+        .create       = create_video_rxtx_ultragrid_rtp,
+        .done         = done,
+        .ctl_property = ultragrid_rtp_ctl_property,
+
+        .send_audio_frame = send_audio_frame,
+        .recv_audio_frame = ultragrid_rtp_recv_audio_frame,
+
+        .send_video_frame   = send_video_frame,
         .video_recv_routine = ultragrid_rtp_video_rxtx::receiver_thread,
-        .ctl_property       = ultragrid_rtp_ctl_property,
-        .join_sender        = join,
+        .join_video_sender  = join,
 };
 
 REGISTER_MODULE(ultragrid_rtp, &ultragrid_rtp_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);

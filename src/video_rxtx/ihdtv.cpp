@@ -210,15 +210,17 @@ send_frame(void *state, std::shared_ptr<video_frame> f)
 }
 
 static const struct video_rxtx_info ihdtv_video_rxtx_info = {
-        .long_name          = "iHDTV",
-        .create             = create_video_rxtx_ihdtv,
-        .done               = done,
-        .send_audio_frame   = nullptr,
-        .recv_audio_frame   = nullptr,
+        .long_name    = "iHDTV",
+        .create       = create_video_rxtx_ihdtv,
+        .done         = done,
+        .ctl_property = nullptr,
+
+        .send_audio_frame = nullptr,
+        .recv_audio_frame = nullptr,
+
         .send_video_frame   = send_frame,
         .video_recv_routine = ihdtv_video_rxtx::receiver_thread,
-        .ctl_property       = nullptr,
-        .join_sender        = nullptr,
+        .join_video_sender  = nullptr,
 };
 
 REGISTER_MODULE(ihdtv, &ihdtv_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);
