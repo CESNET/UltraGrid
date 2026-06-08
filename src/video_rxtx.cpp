@@ -192,10 +192,6 @@ video_rxtx::video_rxtx(const char                *protocol_name,
 
 video_rxtx::~video_rxtx() noexcept
 {
-        if (!pthread_equal(m_receiver_thread_id, PTHREAD_NULL)) {
-                CHK_PTHR(pthread_join(m_receiver_thread_id, nullptr));
-        }
-
         join();
         // video sender has not been created (error during init) but compression
         // was - we need to stop its thread
