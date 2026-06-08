@@ -110,7 +110,6 @@ private:
   void        *video_sender_loop();
 
   struct compress_state *m_video_compression = nullptr;
-  pthread_mutex_t        m_lock;
 
   pthread_t m_video_sender_thread_id   = PTHREAD_NULL;
   bool      m_video_sender_poisoned    = false;
@@ -183,8 +182,6 @@ video_rxtx::video_rxtx(const char                *protocol_name,
         module_init_default(&m_receiver_mod);
         m_receiver_mod.cls = MODULE_CLASS_RECEIVER;
         module_register(&m_receiver_mod, params->parent);
-
-        ug_pthread_mutex_init(&m_lock);
 }
 
 video_rxtx::~video_rxtx() noexcept
@@ -202,8 +199,6 @@ video_rxtx::~video_rxtx() noexcept
         compress_done(m_video_compression);
         module_done(&m_receiver_mod);
         module_done(&m_sender_mod);
-
-        CHK_PTHR(pthread_mutex_destroy(&m_lock));
 }
 
 void
@@ -287,9 +282,6 @@ void video_rxtx::check_sender_messages() {
 
 void *video_rxtx::video_sender_loop() {
         set_thread_name(__func__);
-        struct video_desc saved_vid_desc;
-
-        memset(&saved_vid_desc, 0, sizeof(saved_vid_desc));
 
         while(1) {
                 check_sender_messages();
