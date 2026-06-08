@@ -360,6 +360,7 @@ static const struct video_rxtx_info h264_video_rxtx_info = {
         .recv_audio_frame   = h264_rtp_recv_audio_frame,
 
         .send_video_frame   = send_frame,
+        .send_video_frame_c = nullptr,
         .video_recv_routine = nullptr,
         .join_video_sender  = join,
 };

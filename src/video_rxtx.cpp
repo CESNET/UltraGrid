@@ -280,15 +280,44 @@ void video_rxtx::check_sender_messages() {
         }
 }
 
+namespace {
+struct shared_ptr_udata {
+        shared_ptr<video_frame> frame;
+        void (*orig_dispose)(struct video_frame *);
+        void *orig_dispose_udata;
+};
+} // namespace
+
+static void
+shared_ptr_dispose(struct video_frame *f)
+{
+        auto *d = (struct shared_ptr_udata *) f->callbacks.dispose_udata;
+        f->callbacks.dispose       = d->orig_dispose;
+        f->callbacks.dispose_udata = d->orig_dispose_udata;
+        delete d;
+}
+
+static struct video_frame *
+shared_vf_to_plain(shared_ptr<video_frame> &&frame)
+{
+        struct video_frame *f = frame.get();
+        auto *d = new shared_ptr_udata{ .frame        = std::move(frame),
+                                        .orig_dispose = f->callbacks.dispose,
+                                        .orig_dispose_udata =
+                                            f->callbacks.dispose_udata };
+        f->callbacks.dispose       = shared_ptr_dispose;
+        f->callbacks.dispose_udata = d;
+        return f;
+}
+
 void *video_rxtx::video_sender_loop() {
         set_thread_name(__func__);
 
-        while(1) {
+        while (true) {
                 check_sender_messages();
 
-                shared_ptr<video_frame> tx_frame;
-
-                tx_frame = compress_pop(m_video_compression);
+                shared_ptr<video_frame> tx_frame =
+                    compress_pop(m_video_compression);
                 if (!tx_frame) {
                         break;
                 }
@@ -296,7 +325,14 @@ void *video_rxtx::video_sender_loop() {
                 m_video_desc = video_desc_from_frame(tx_frame.get());
                 export_video(m_video_exporter, tx_frame.get());
 
-                m_impl_funcs->send_video_frame(m_impl_state, std::move(tx_frame));
+                if (m_impl_funcs->send_video_frame != nullptr) {
+                        m_impl_funcs->send_video_frame(m_impl_state,
+                                                       std::move(tx_frame));
+                } else {
+                        m_impl_funcs->send_video_frame_c(
+                            m_impl_state,
+                            shared_vf_to_plain(std::move(tx_frame)));
+                }
                 m_frames_sent += 1;
         }
 
@@ -362,7 +398,8 @@ video_rxtx::create(string const              &proto,
         }
 
         if (params_video->rxtx_mode & MODE_SENDER) {
-                if (ret->m_impl_funcs->send_video_frame == nullptr) {
+                if (ret->m_impl_funcs->send_video_frame == nullptr &&
+                    ret->m_impl_funcs->send_video_frame_c == nullptr) {
                         MSG(ERROR,
                             "Selected RX/TX mode doesn't support sending.\n");
                         delete ret;

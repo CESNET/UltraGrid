@@ -134,6 +134,7 @@ static const struct video_rxtx_info sage_video_rxtx_info = {
         .recv_audio_frame   = nullptr,
 
         .send_video_frame   = send_frame,
+        .send_video_frame_c = nullptr,
         .video_recv_routine = nullptr,
         .join_video_sender  = nullptr,
 };

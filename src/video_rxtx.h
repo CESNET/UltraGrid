@@ -162,6 +162,10 @@ typedef void  rxtx_send_shr_ptr_video_frame_fn(void *state,
 #else
 typedef nullptr_t rxtx_send_shr_ptr_video_frame_fn;
 #endif // defined __cplusplus
+/**
+ * @param f  f->callbacks.dispose(f) must be called
+ */
+typedef void  rxtx_send_video_frame_fn(void *state, struct video_frame *f);
 typedef void *rxtx_vrecv_routine_fn(void *state);
 typedef void  rxtx_join_video_sender_fn(void *state);
 
@@ -176,6 +180,7 @@ struct video_rxtx_info {
         rxtx_recv_audio_frame_fn *recv_audio_frame;
 
         rxtx_send_shr_ptr_video_frame_fn *send_video_frame;
+        rxtx_send_video_frame_fn         *send_video_frame_c;
         rxtx_vrecv_routine_fn            *video_recv_routine;
         rxtx_join_video_sender_fn        *join_video_sender;
 };

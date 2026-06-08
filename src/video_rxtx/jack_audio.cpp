@@ -118,6 +118,7 @@ static const struct video_rxtx_info jack_audio_rxtx_info = {
         .recv_audio_frame = jack_recv_audio_frame,
 
         .send_video_frame   = jack_video_send_frame,
+        .send_video_frame_c = nullptr,
         .video_recv_routine = dummy_jack_video_receiver_thread,
         .join_video_sender  = jack_video_join,
 };

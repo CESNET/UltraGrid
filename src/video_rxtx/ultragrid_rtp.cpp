@@ -642,6 +642,7 @@ static const struct video_rxtx_info ultragrid_rtp_video_rxtx_info = {
         .recv_audio_frame = ultragrid_rtp_recv_audio_frame,
 
         .send_video_frame   = send_video_frame,
+        .send_video_frame_c = nullptr,
         .video_recv_routine = ultragrid_rtp_video_rxtx::receiver_thread,
         .join_video_sender  = join,
 };
