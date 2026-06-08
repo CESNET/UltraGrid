@@ -187,16 +187,18 @@ video_rxtx::video_rxtx(const char                *protocol_name,
         m_receiver_mod.cls = MODULE_CLASS_RECEIVER;
         module_register(&m_receiver_mod, params->parent);
 
-        pthread_mutex_init(&m_lock, nullptr);
+        ug_pthread_mutex_init(&m_lock);
 }
 
 video_rxtx::~video_rxtx() noexcept
 {
         if (!pthread_equal(m_receiver_thread_id, PTHREAD_NULL)) {
-                pthread_join(m_receiver_thread_id, nullptr);
+                CHK_PTHR(pthread_join(m_receiver_thread_id, nullptr));
         }
 
         join();
+        // video sender has not been created (error during init) but compression
+        // was - we need to stop its thread
         if (!m_sender_poisoned && m_compression != nullptr) {
                 send(NULL);
                 compress_pop(m_compression);
@@ -215,7 +217,7 @@ void
 video_rxtx::join() noexcept
 {
         if (!pthread_equal(m_receiver_thread_id, PTHREAD_NULL)) {
-                pthread_join(m_receiver_thread_id, nullptr);
+                CHK_PTHR(pthread_join(m_receiver_thread_id, nullptr));
                 m_receiver_thread_id = PTHREAD_NULL;
         }
 
@@ -223,7 +225,7 @@ video_rxtx::join() noexcept
                 return;
         }
         send(NULL); // pass poisoned pill
-        pthread_join(m_sender_thread_id, NULL);
+        CHK_PTHR(pthread_join(m_sender_thread_id, nullptr));
         if (m_impl_funcs != nullptr && m_impl_funcs->join_sender != nullptr) {
                 m_impl_funcs->join_sender(m_impl_state);
         }

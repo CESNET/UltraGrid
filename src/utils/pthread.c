@@ -18,6 +18,9 @@
 
 #include "tv.h"      // for NS_IN_SEC
 
+/**
+ * as pthread_mutex_init(). If DEBUG set, adds PTHREAD_MUTEX_ERRORCHECK attr
+ */
 void
 ug_pthread_mutex_init(pthread_mutex_t *mutex)
 {
