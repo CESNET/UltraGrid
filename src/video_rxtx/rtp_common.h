@@ -70,6 +70,7 @@ struct rtp_rxtx_medium {
         struct pdb     *participants;
         int             rxtx_mode;
         struct fec     *fec_state;
+        /// the lock protects the above members if used from another thread
         pthread_mutex_t lock;
 };
 

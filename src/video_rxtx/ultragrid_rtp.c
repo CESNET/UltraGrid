@@ -213,11 +213,11 @@ static void *send_video_frame_async_callback(void *arg) {
         struct async_data *data = arg;
         struct ultragrid_rtp_video_rxtx *s    = data->s;
         struct rtp_rxtx_medium *video = &s->rtp_common->medium[TX_MEDIA_VIDEO];
+        struct video_frame *tx_frame = data->f;
+        free(data);
 
-        /// @todo this should be just around video->network device usage
         CHK_PTHR(pthread_mutex_lock(&video->lock));
 
-        struct video_frame *tx_frame = data->f;
         tx_send(video->tx, tx_frame, video->network_device);
         tx_frame->callbacks.dispose(tx_frame);
 
@@ -234,15 +234,13 @@ static void *send_video_frame_async_callback(void *arg) {
                         ret = rtcp_recv_r(video->network_device, &timeout, ts);
                 } while (!s->should_exit && ret);
         }
+        CHK_PTHR(pthread_mutex_unlock(&video->lock));
 
         CHK_PTHR(pthread_mutex_lock(&s->async_sending_lock));
         s->async_sending = false;
         CHK_PTHR(pthread_mutex_unlock(&s->async_sending_lock));
         CHK_PTHR(pthread_cond_signal(&s->async_sending_cv));
 
-        free(data);
-
-        CHK_PTHR(pthread_mutex_unlock(&video->lock));
         return nullptr;
 }
 
