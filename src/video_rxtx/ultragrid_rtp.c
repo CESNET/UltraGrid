@@ -47,7 +47,6 @@
 
 #include "audio/types.h"       // for audio_frame2_delete
 #include "compat/c23.h"        // IWYU pragma: keep
-#include "control_socket.h"
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -102,14 +101,9 @@ struct ultragrid_rtp_video_rxtx {
         /// @}
 
         long long int         send_bytes_total;
-        struct control_state *control;
         struct module        *parent;
 
         time_ns_t start_time;
-        // video
-        long long int nano_per_frame_actual_cumul;
-        long long int nano_per_frame_expected_cumul;
-        long long int compress_millis_cumul;
 
         struct module *receiver_mod;
 
@@ -149,7 +143,6 @@ init(const struct vrxtx_params *params)
         s->magic          = MAGIC;
         s->decoder_mode   = params->decoder_mode;
         s->display_device = params->display_device;
-        s->control        = get_control_state(params->parent);
         s->parent         = params->parent;
         s->start_time     = params->start_time;
         s->receiver_mod   = params->receiver_mod;
