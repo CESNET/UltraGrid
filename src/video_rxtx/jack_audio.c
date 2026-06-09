@@ -15,7 +15,6 @@
 #include "audio/utils.h"  // for audio_frame2_to_audio_frame
 #include "debug.h"        // for LOG_LEVEL_ERROR, MSG
 #include "lib_common.h"   // for REGISTER_MODULE, library_class
-#include "rtp/pbuf.h"     // for acodec_state
 #include "types.h"        // for tx_media_type, video_frame (ptr only)
 #include "video_rxtx.h"   // for vrxtx_params, rx_audio_frames, rxtx_medium_...
 
@@ -99,13 +98,12 @@ static struct rx_audio_frames *
 jack_recv_audio_frame(void *state)
 {
         struct jack_audio_rxtx *s = state;
-        struct acodec_state     jack_pbuf = { 0 };
-        bool decoded = jack_receive(s->jack_connection, &jack_pbuf);
+        struct audio_frame2 *decoded = jack_receive(s->jack_connection);
         if (!decoded) {
                 return nullptr;
         }
         struct rx_audio_frames *ret = calloc(1, sizeof(struct rx_audio_frames));
-        ret->frame                  = jack_pbuf.decoded;
+        ret->frame                  = decoded;
         return ret;
 }
 

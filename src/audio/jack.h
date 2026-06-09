@@ -43,11 +43,12 @@ extern "C" {
 #endif
 
 struct audio_frame;
+struct audio_frame2;
 
 void * jack_start(const char *cfg);
 void jack_done(void *state);
 void jack_send(void *s, const struct audio_frame *frame);
-bool jack_receive(void *state, void *data);
+struct audio_frame2 *jack_receive(void *state);
 
 #ifdef __cplusplus
 }

@@ -394,13 +394,11 @@ jack_send(void *state, const struct audio_frame *frame)
  *
  * @param[in]  state state returned by jack_init()
  * @param[out] data  @ref acodec_data
- * @retval     true  if some data are received
- * @retval     false if no data were received
+ * @returns received audio frame
  */
-bool jack_receive(void *state, void *data)
+struct audio_frame2 *jack_receive(void *state)
 {
         struct state_jack *s = (struct state_jack *) state;
-        struct acodec_state *audio_data =  data;
         struct audio_frame buffer = { 0 };
 
         /// @todo repair this
@@ -428,10 +426,10 @@ bool jack_receive(void *state, void *data)
         }
         s->rec_buffer_start = (s->rec_buffer_start + buffer.data_len) % BUFF_SIZE;
 
-        audio_data->decoded = audio_frame_to_audio_frame2(&buffer);
+        struct audio_frame2 *ret = audio_frame_to_audio_frame2(&buffer);
         free(buffer.data);
 
-        return true;
+        return ret;
 }
 
 
