@@ -349,6 +349,8 @@ video_rxtx *
 video_rxtx::create(string const              &proto,
                    const struct vrxtx_params *params) noexcept(false)
 {
+        const struct rxtx_medium_params *params_audio =
+            &params->medium[TX_MEDIA_AUDIO];
         const struct rxtx_medium_params *params_video =
             &params->medium[TX_MEDIA_VIDEO];
 
@@ -363,16 +365,28 @@ video_rxtx::create(string const              &proto,
                 throw 1;
         }
 
-        if ((params_video->rxtx_mode & MODE_RECEIVER) &&
-            vri->video_recv_routine == nullptr) {
-                MSG(ERROR, "Selected RX/TX mode doesn't support receiving.\n");
+        // check if RX/TX protocol supports needed A/V send/recv
+        if ((params_audio->rxtx_mode & MODE_RECEIVER) &&
+            vri->recv_audio_frame == nullptr) {
+                MSG(ERROR,
+                    "Selected RX/TX module doesn't support audio receiving.\n");
                 throw -1;
         }
-
+        if ((params_audio->rxtx_mode & MODE_SENDER) &&
+            vri->send_audio_frame == nullptr) {
+                MSG(ERROR,
+                    "Selected RX/TX module doesn't support audio sending.\n");
+                throw -1;
+        }
+        if ((params_video->rxtx_mode & MODE_RECEIVER) &&
+            vri->video_recv_routine == nullptr) {
+                MSG(ERROR, "Selected RX/TX module doesn't support video receiving.\n");
+                throw -1;
+        }
         if ((params_video->rxtx_mode & MODE_SENDER) &&
             (vri->send_video_frame == nullptr &&
              vri->send_video_frame_c == nullptr)) {
-                MSG(ERROR, "Selected RX/TX mode doesn't support sending.\n");
+                MSG(ERROR, "Selected RX/TX module doesn't support video sending.\n");
                 throw -1;
         }
 
@@ -423,7 +437,7 @@ video_rxtx::list(bool full) noexcept
 }
 
 /**
- * @retunrs -1 error; 0 OK; 1 help shown (as usual)
+ * @returns -1 error; 0 OK; 1 help shown (as usual)
  */
 int
 vrxtx_init(const char *proto_name, const struct vrxtx_params *params,
