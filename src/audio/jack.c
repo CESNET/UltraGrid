@@ -356,6 +356,15 @@ error:
 }
 
 void
+jack_done(void *state)
+{
+        struct state_jack *s = state;
+        s->libjack->client_close(s->client);
+        close_libjack(s->libjack);
+        free(s);
+}
+
+void
 jack_send(void *state, const struct audio_frame *frame)
 {
         //float *tmp = (char *) s->play_buffer + s->play_buffer_end;
@@ -425,13 +434,4 @@ bool jack_receive(void *state, void *data)
         return true;
 }
 
-int is_jack_sender(void *state)
-{
-        return ((struct state_jack *) state)->sender;
-}
-
-int is_jack_receiver(void *state)
-{
-        return ((struct state_jack *) state)->receiver;
-}
 

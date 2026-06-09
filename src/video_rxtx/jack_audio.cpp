@@ -31,6 +31,7 @@ static void
 jack_trans_done(void *state)
 {
         auto *s = (struct jack_audio_rxtx *) state;
+        jack_done(s->jack_connection);
         free(s);
 }
 

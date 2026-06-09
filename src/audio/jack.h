@@ -45,11 +45,9 @@ extern "C" {
 struct audio_frame;
 
 void * jack_start(const char *cfg);
+void jack_done(void *state);
 void jack_send(void *s, const struct audio_frame *frame);
 bool jack_receive(void *state, void *data);
-
-int is_jack_sender(void *state);
-int is_jack_receiver(void *state);
 
 #ifdef __cplusplus
 }
