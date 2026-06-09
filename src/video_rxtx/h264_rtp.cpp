@@ -76,7 +76,6 @@ using std::shared_ptr;
 
 struct h264_rtp_video_rxtx {
         uint32_t magic = MAGIC;
-        h264_rtp_video_rxtx(const struct vrxtx_params *params, int rtsp_port);
         ~h264_rtp_video_rxtx();
         void join();
         void send_frame(std::shared_ptr<video_frame>) noexcept;
@@ -94,12 +93,30 @@ struct h264_rtp_video_rxtx {
         time_ns_t      m_start_time;
 };
 
-h264_rtp_video_rxtx::h264_rtp_video_rxtx(const struct vrxtx_params *params,
-                                         int                        rtsp_port)
-    : m_parent(params->parent), m_start_time(params->start_time)
+// protoypes
+static void rtps_server_usage();
+static int  get_rtsp_server_port(const char *config);
+
+static void *
+create_video_rxtx_h264_std(const struct vrxtx_params *params)
 {
-        rtsp_params.rtsp_port = (unsigned) rtsp_port;
-        rtsp_params.parent = params->parent;
+        int rtsp_port = 0;
+        const char *rtsp_port_str = params->protocol_opts;
+        if (strlen(rtsp_port_str) > 0) {
+                if (strcmp(rtsp_port_str, "help") == 0) {
+                        rtps_server_usage();
+                        return INIT_NOERR;
+                }
+                rtsp_port = get_rtsp_server_port(rtsp_port_str);
+                if (rtsp_port == -1) {
+                        return nullptr;
+                }
+        }
+        auto *s = new h264_rtp_video_rxtx();
+        s->m_parent = params->parent;
+        s->m_start_time = params->start_time;
+        s->rtsp_params.rtsp_port = (unsigned) rtsp_port;
+        s->rtsp_params.parent = params->parent;
 
         auto avType = (rtsp_types_t) (SENDS_MEDIUM(params, TX_MEDIA_AUDIO)
                                           ? rtsp_type_audio
@@ -109,17 +126,19 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(const struct vrxtx_params *params,
                                                : 0));
         if (avType == rtsp_type_none) {
                 printf("[RTSP SERVER CHECK] no stream type... check capture devices input...\n");
-                throw -1;
+                return nullptr;
         }
-        rtsp_params.avType = avType;;
+        s->rtsp_params.avType = avType;;
 
-        rtsp_params.rtp_audio_src_port = params->medium[TX_MEDIA_AUDIO].rx_port;
-        rtsp_params.rtp_video_src_port = params->medium[TX_MEDIA_VIDEO].rx_port;
-        m_rtp_common                   = rtp_rxtx_common_init(params);
-        if (m_rtp_common == nullptr) {
-                throw -1;
+        s->rtsp_params.rtp_audio_src_port = params->medium[TX_MEDIA_AUDIO].rx_port;
+        s->rtsp_params.rtp_video_src_port = params->medium[TX_MEDIA_VIDEO].rx_port;
+        s->m_rtp_common                   = rtp_rxtx_common_init(params);
+        if (s->m_rtp_common == nullptr) {
+                return nullptr;
         }
+        return s;
 }
+
 
 /**
  * this function is used to configure their RTSP server either
@@ -244,26 +263,6 @@ static int get_rtsp_server_port(const char *config) {
                 return -1;
         }
         return port;
-}
-
-static void *
-create_video_rxtx_h264_std(const struct vrxtx_params *params)
-{
-        int rtsp_port;
-        const char *rtsp_port_str = params->protocol_opts;
-        if (strlen(rtsp_port_str) == 0) {
-                rtsp_port = 0;
-        } else {
-                if (strcmp(rtsp_port_str, "help") == 0) {
-                        rtps_server_usage();
-                        return nullptr;
-                }
-                rtsp_port = get_rtsp_server_port(rtsp_port_str);
-                if (rtsp_port == -1) {
-                        return nullptr;
-                }
-        }
-        return new h264_rtp_video_rxtx(params, rtsp_port);
 }
 
 static void done(void *state) {

@@ -362,6 +362,10 @@ struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params)
 void
 rtp_rxtx_common_done(struct rtp_rxtx_common *pub)
 {
+        if (pub == nullptr) {
+                return;
+        }
+
         struct rtp_rxtx_common_priv_state *s = pub->priv;
         assert(s->magic == MAGIC);
 

@@ -360,9 +360,9 @@ video_rxtx::create(string const              &proto,
                 if (proto != "help") {
                         error_msg("Requested RX/TX %s cannot be created "
                                   "(missing library?)\n", proto.c_str());
-                        throw -1;
+                        return nullptr;
                 }
-                throw 1;
+                return (video_rxtx *) INIT_NOERR;
         }
 
         // check if RX/TX protocol supports needed A/V send/recv
@@ -370,24 +370,24 @@ video_rxtx::create(string const              &proto,
             vri->recv_audio_frame == nullptr) {
                 MSG(ERROR,
                     "Selected RX/TX module doesn't support audio receiving.\n");
-                throw -1;
+                return nullptr;
         }
         if ((params_audio->rxtx_mode & MODE_SENDER) &&
             vri->send_audio_frame == nullptr) {
                 MSG(ERROR,
                     "Selected RX/TX module doesn't support audio sending.\n");
-                throw -1;
+                return nullptr;
         }
         if ((params_video->rxtx_mode & MODE_RECEIVER) &&
             vri->video_recv_routine == nullptr) {
                 MSG(ERROR, "Selected RX/TX module doesn't support video receiving.\n");
-                throw -1;
+                return nullptr;
         }
         if ((params_video->rxtx_mode & MODE_SENDER) &&
             (vri->send_video_frame == nullptr &&
              vri->send_video_frame_c == nullptr)) {
                 MSG(ERROR, "Selected RX/TX module doesn't support video sending.\n");
-                throw -1;
+                return nullptr;
         }
 
         video_rxtx *ret = new video_rxtx(proto.c_str(), params);
@@ -395,18 +395,13 @@ video_rxtx::create(string const              &proto,
         auto params_c = *params;
         params_c.sender_mod  = &ret->m_sender_mod;
         params_c.receiver_mod  = &ret->m_receiver_mod;
-        try {
-                ret->m_impl_state = vri->create(&params_c);
-        } catch (...) {
+        ret->m_impl_state = vri->create(&params_c);
+        if (ret->m_impl_state == nullptr || ret->m_impl_state == INIT_NOERR) {
+                void *retval = ret->m_impl_state;
+                delete ret;
+                return (video_rxtx *) retval;
         }
         ret->m_impl_funcs = vri;
-        if (ret->m_impl_state == nullptr) {
-                delete ret;
-                if (strcmp(params->protocol_opts, "help") == 0) {
-                        throw 1;
-                }
-                throw -1;
-        }
 
         for (int i = 0; i < NUM_TX_MEDIA; ++i) {
                 ret->rxtx_mode[i] = params->medium[i].rxtx_mode;
@@ -443,14 +438,12 @@ int
 vrxtx_init(const char *proto_name, const struct vrxtx_params *params,
            struct video_rxtx **state)
 {
-        static video_rxtx *ret = nullptr;
-        try {
-                ret = video_rxtx::create(proto_name, params);
-        } catch (int rc) {
-                return rc;
-        } catch (...) {
-                MSG(ERROR, "unexpected exception!\n");
+        static video_rxtx *ret = video_rxtx::create(proto_name, params);
+        if (ret == nullptr) {
                 return -1;
+        }
+        if (ret == INIT_NOERR) {
+                return 1;
         }
         *state = ret;
         return 0;

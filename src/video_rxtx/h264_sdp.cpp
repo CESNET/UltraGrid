@@ -75,7 +75,6 @@ constexpr uint32_t MAGIC = to_fourcc('V', 'X', 'h', 's');
 struct h264_sdp_video_rxtx {
         uint32_t magic = MAGIC;
         struct sdp *sdp_state = nullptr;
-        h264_sdp_video_rxtx(const struct vrxtx_params *params) noexcept(false);
         ~h264_sdp_video_rxtx();
         void send_frame(std::shared_ptr<video_frame>) noexcept;
         void set_audio_spec(const struct audio_desc *desc, int audio_rx_port,
@@ -95,43 +94,49 @@ struct h264_sdp_video_rxtx {
         bool audio_params_set = false;
 };
 
-
 using std::exception;
 using std::shared_ptr;
 using std::string;
 
-h264_sdp_video_rxtx::h264_sdp_video_rxtx(const struct vrxtx_params *params)
-        : m_parent(params->parent)
+static void *
+create_video_rxtx_h264_sdp(const struct vrxtx_params *params)
 {
+        auto *s = new h264_sdp_video_rxtx();
+
+        s->m_parent = params->parent;
+
         const struct rxtx_medium_params *audio =
             &params->medium[TX_MEDIA_AUDIO];
         const struct rxtx_medium_params *video =
             &params->medium[TX_MEDIA_VIDEO];
-        auto opts = params->protocol_opts;
+        const auto *opts = params->protocol_opts;
         LOG(LOG_LEVEL_WARNING) << "Warning: SDP support is experimental only. Things may be broken - feel free to report them but the support may be limited.\n";
         if (audio->rxtx_mode & MODE_SENDER) {
-                m_audio_tx_port = audio->tx_port;
+                s->m_audio_tx_port = audio->tx_port;
         }
         if (video->rxtx_mode & MODE_SENDER) {
-                m_video_tx_port = video->tx_port;
+                s->m_video_tx_port = video->tx_port;
         }
 
-        m_rtp_common = rtp_rxtx_common_init(params);
-        if (m_rtp_common == nullptr) {
-                throw -1;
+        s->m_rtp_common = rtp_rxtx_common_init(params);
+        if (s->m_rtp_common == nullptr) {
+                delete s;
+                return nullptr;
         }
 
-        bool is_ipv6 = rtp_rxtx_common_is_ipv6(m_rtp_common);
-        sdp_state =
+        bool is_ipv6 = rtp_rxtx_common_is_ipv6(s->m_rtp_common);
+        s->sdp_state =
             sdp_init(opts, is_ipv6, params->receiver,
                      SENDS_MEDIUM(params, TX_MEDIA_VIDEO),
                      SENDS_MEDIUM(params, TX_MEDIA_AUDIO),
-                     h264_sdp_video_rxtx::change_address_callback, this);
-        if (sdp_state == nullptr) {
-                this->~h264_sdp_video_rxtx();
-                throw strcmp(opts, "help") == 0 ? 1 : -1;
+                     h264_sdp_video_rxtx::change_address_callback, s);
+        if (s->sdp_state == nullptr) {
+                delete s;
+                return strcmp(opts, "help") == 0 ? INIT_NOERR : nullptr;
         }
-        m_saved_addr = params->receiver;
+        s->m_saved_addr = params->receiver;
+
+        return s;
 }
 
 h264_sdp_video_rxtx::~h264_sdp_video_rxtx() {
@@ -185,15 +190,18 @@ void h264_sdp_video_rxtx::change_address_callback(void *udata, const char *addre
         }
 }
 
-void h264_sdp_video_rxtx::sdp_add_video(codec_t codec)
+static bool
+h264_sdp_add_video(struct h264_sdp_video_rxtx *s, codec_t codec)
 {
-        const int rc = ::sdp_add_video(sdp_state, m_video_tx_port, codec);
+        const int rc = ::sdp_add_video(s->sdp_state, s->m_video_tx_port, codec);
         if (rc == -2) {
-                throw ug_runtime_error("[SDP] Unsupported video codec for SDP (allowed H.264 and JPEG)!\n");
+                MSG(ERROR, "Unsupported video codec for SDP (allowed H.264 and JPEG)!\n");
+                return false;
         }
         if (rc != 0) {
 		abort();
 	}
+	return true;
 }
 
 /**
@@ -217,14 +225,11 @@ h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 		return;
         }
         if (m_sdp_configured_codec == VIDEO_CODEC_NONE) {
-                try {
-                        sdp_add_video(tx_frame->color_spec);
-                        m_sdp_configured_codec = tx_frame->color_spec;
-                } catch (exception const &e) {
-                        LOG(LOG_LEVEL_ERROR) << e.what();
+                if (!h264_sdp_add_video(this, tx_frame->color_spec)) {
                         exit_uv(1);
                         return;
                 }
+                m_sdp_configured_codec = tx_frame->color_spec;
         }
 
         if (m_sdp_configured_codec != tx_frame->color_spec) {
@@ -250,12 +255,6 @@ h264_sdp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
                 timeout.tv_usec = 0;
                 rtp_recv_r(video->network_device, &timeout, ts);
         }
-}
-
-static void *
-create_video_rxtx_h264_sdp(const struct vrxtx_params *params)
-{
-        return new h264_sdp_video_rxtx(params);
 }
 
 static void done(void *state) {

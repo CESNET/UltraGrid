@@ -131,7 +131,8 @@ void *omt_rxtx_create(const vrxtx_params *params){
         s->parent = params->parent;
 
         if(!parse_params(s.get(), params->protocol_opts)){
-                return nullptr;
+                return strcmp(params->protocol_opts, "help") == 0 ? INIT_NOERR
+                                                                  : nullptr;
         }
 
         ug_register_omt_log_callback();

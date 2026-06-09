@@ -129,11 +129,10 @@ enum rxtx_property {
 // API for modules
 //
 /**
- * @note
- * function can throw but the actual exception type/value is not currently
- * honored (return value from vrxtx_init() currently evaluates whether
- * vrxtx_params.protocol_opts is "help"). If unsure, throw 1 on help and -1 on
- * error.
+ * creates RX/TX state
+ * @retval nullptr     on error
+ * @retval INIT_NOERR  if help requested
+ * @return the actual state
  */
 typedef void *rxtx_create_fn(const struct vrxtx_params *params);
 typedef void  rxtx_done_fn(void *state);

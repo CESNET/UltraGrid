@@ -122,9 +122,7 @@ static void done(void *state)
         for (unsigned i = 0; i < s->display_copies_count; ++i) {
                 display_done(s->display_copies[i]);
         }
-        if (s->rtp_common != nullptr) {
-                rtp_rxtx_common_done(s->rtp_common);
-        }
+        rtp_rxtx_common_done(s->rtp_common);
         CHK_PTHR(pthread_cond_destroy(&s->async_sending_cv));
         CHK_PTHR(pthread_mutex_destroy(&s->async_sending_lock));
         free(s);
@@ -135,7 +133,8 @@ init(const struct vrxtx_params *params)
 {
         if (strlen(params->protocol_opts) > 0) {
                 usage();
-                return nullptr;
+                return strcmp(params->protocol_opts, "help") == 0 ? INIT_NOERR
+                                                                  : nullptr;
         }
 
         struct ultragrid_rtp_video_rxtx *s = calloc(1, sizeof *s);

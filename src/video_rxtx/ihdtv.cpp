@@ -65,16 +65,15 @@
 #include "video_display.h"  // for PUTF_BLOCKING, display_get_frame, display...
 #include "video_rxtx.h"     // for vrxtx_params, VIDEO_RXTX_ABI_VERSION, vid...
 
+#define MOD_NAME "[rxtx/ihdtv] "
+
 class ihdtv_video_rxtx {
 public:
-        ihdtv_video_rxtx(const struct vrxtx_params *params);
-        ~ihdtv_video_rxtx();
         void send_frame(std::shared_ptr<video_frame>) noexcept;
         static void *receiver_thread(void *arg) {
                 ihdtv_video_rxtx *s = static_cast<ihdtv_video_rxtx *>(arg);
                 return s->receiver_loop();
         }
-private:
         struct module *m_parent;
         void *receiver_loop();
         ihdtv_connection m_tx_connection, m_rx_connection;
@@ -138,63 +137,65 @@ static void *ihdtv_sender_thread(void *arg)
 }
 #endif
 
-ihdtv_video_rxtx::ihdtv_video_rxtx(const struct vrxtx_params *params)
-    : m_parent(params->parent), m_tx_connection(), m_rx_connection()
+static void *
+create_video_rxtx_ihdtv(const struct vrxtx_params *params)
 {
+        bug_msg(LOG_LEVEL_WARNING,
+                "Warning: iHDTV support may be currently broken. ");
+
         const struct rxtx_medium_params *params_video =
             &params->medium[TX_MEDIA_VIDEO];
         int    argc = uv_argc;
         char **argv = uv_argv;
         if ((argc != 0) && (argc != 1) && (argc != 2)) {
-                throw string("Wrong number of parameters");
+                MSG(ERROR, "Wrong number of parameters");
+                return nullptr;
         }
 
         printf("Initializing ihdtv protocol\n");
 
         // we cannot act as both together, because parameter parsing would have to be revamped
         if (params_video->rxtx_mode == (MODE_SENDER | MODE_RECEIVER)) {
-               throw string 
-                        ("Error: cannot act as both sender and receiver together in ihdtv mode");
+                MSG(ERROR, "Error: cannot act as both sender and receiver "
+                           "together in ihdtv mode");
+                return nullptr;
         }
 
-        m_display_device = params->display_device;
+        auto *s = new ihdtv_video_rxtx();
+        s->m_parent = params->parent;
+        s->m_display_device = params->display_device;
 
         if ((params_video->rxtx_mode & MODE_RECEIVER) != 0U) {
                 assert(params->display_device != nullptr);
                 if (ihdtv_init_rx_session
-                                (&m_rx_connection, (argc == 0) ? NULL : argv[0],
+                                (&s->m_rx_connection, (argc == 0) ? NULL : argv[0],
                                  (argc ==
                                   0) ? NULL : ((argc == 1) ? argv[0] : argv[1]),
                                  3000, 3001, params->mtu) != 0) {
-                        throw string("Error initializing receiver session");
+                        MSG(ERROR, "Error initializing receiver session");
+                        delete s;
+                        return nullptr;
                 }
         }
 
         if ((params_video->rxtx_mode & MODE_SENDER) != 0U) {
                 assert(params->capture_device != nullptr);
                 if (argc == 0) {
-                        throw string("Error: specify the destination address");
+                        MSG(ERROR, "Error: specify the destination address");
+                        delete s;
+                        return nullptr;
                 }
 
                 if (ihdtv_init_tx_session
-                                (&m_tx_connection, argv[0],
+                                (&s->m_tx_connection, argv[0],
                                  (argc == 2) ? argv[1] : argv[0],
                                  params->mtu) != 0) {
-                        throw string("Error initializing sender session");
+                        MSG(ERROR, "Error initializing sender session");
+                        delete s;
+                        return nullptr;
                 }
         }
-}
-
-ihdtv_video_rxtx::~ihdtv_video_rxtx()
-{
-}
-
-static void *
-create_video_rxtx_ihdtv(const struct vrxtx_params *params)
-{
-        bug_msg(LOG_LEVEL_WARNING,
-                "Warning: iHDTV support may be currently broken. ");
-        return new ihdtv_video_rxtx(params);
+        return s;
 }
 
 static void done(void *state) {
