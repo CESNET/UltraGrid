@@ -4,21 +4,22 @@
 /**
  * @file
  * audio transport over JACK with video delegated to ultragrid_rtp
+ * @note
+ * not tested - seems like not being used much
  */
 
-#include "audio/jack.h"
-#include "audio/types.h"
-#include "audio/utils.h"
-#include "debug.h"
-#include "host.h"
-#include "rtp/pbuf.h"
-#include "lib_common.h"
-#include "utils/thread.h"
-#include "video_display.h"
-#include "video_frame.h"
+#include <stdlib.h>       // for calloc, free
 
-#include "types.h"
-#include "video_rxtx.h"
+#include "audio/jack.h"   // for jack_done, jack_receive, jack_send, jack_start
+#include "audio/types.h"  // for audio_frame
+#include "audio/utils.h"  // for audio_frame2_to_audio_frame
+#include "debug.h"        // for LOG_LEVEL_ERROR, MSG
+#include "lib_common.h"   // for REGISTER_MODULE, library_class
+#include "rtp/pbuf.h"     // for acodec_state
+#include "types.h"        // for tx_media_type, video_frame (ptr only)
+#include "video_rxtx.h"   // for vrxtx_params, rx_audio_frames, rxtx_medium_...
+
+struct audio_frame2;
 
 #define MOD_NAME "[rxtx/jack] "
 
@@ -30,7 +31,7 @@ struct jack_audio_rxtx {
 static void
 jack_trans_done(void *state)
 {
-        auto *s = (struct jack_audio_rxtx *) state;
+        struct jack_audio_rxtx *s = state;
         jack_done(s->jack_connection);
         free(s);
 }
@@ -38,7 +39,7 @@ jack_trans_done(void *state)
 static void *
 jack_trans_init(const struct vrxtx_params *params)
 {
-        auto *s = (struct jack_audio_rxtx *) calloc(
+        struct jack_audio_rxtx *s = calloc(
             1, sizeof(struct jack_audio_rxtx));
         s->jack_connection = jack_start(params->protocol_opts);
         if (s->jack_connection == nullptr) {
@@ -71,25 +72,25 @@ dummy_jack_video_receiver_thread(void * /* arg */)
 static void
 jack_video_join(void *arg)
 {
-        auto *s = (struct jack_audio_rxtx *) arg;
+        struct jack_audio_rxtx *s = arg;
         vrxtx_join(s->video_rxtx);
 }
 
 static void
 jack_video_send_frame(void *state, struct video_frame *f)
 {
-        auto *s = (struct jack_audio_rxtx *) state;
+        struct jack_audio_rxtx *s = state;
         rxtx_send_video(s->video_rxtx, f);
 }
 
 static void
 jack_send_audio_frame(void *state, const struct audio_frame2 *frame)
 {
-        auto              *s = (struct jack_audio_rxtx *) state;
-        char               data[1024 * 1024];
-        struct audio_frame f = {};
-        f.data               = data;
-        f.max_size           = sizeof data;
+        struct jack_audio_rxtx *s = state;
+        char                    data[1024 * 1024];
+        struct audio_frame      f = { 0 };
+        f.data                    = data;
+        f.max_size                = sizeof data;
         audio_frame2_to_audio_frame(&f, frame);
         jack_send(s->jack_connection, &f);
 }
@@ -97,15 +98,14 @@ jack_send_audio_frame(void *state, const struct audio_frame2 *frame)
 static struct rx_audio_frames *
 jack_recv_audio_frame(void *state)
 {
-        auto *s = (struct jack_audio_rxtx *) state;
-        struct acodec_state jack_pbuf{};
+        struct jack_audio_rxtx *s = state;
+        struct acodec_state     jack_pbuf = { 0 };
         bool decoded = jack_receive(s->jack_connection, &jack_pbuf);
         if (!decoded) {
                 return nullptr;
         }
-        auto *ret = (struct rx_audio_frames *) calloc(
-            1, sizeof(struct rx_audio_frames));
-        ret->frame = jack_pbuf.decoded;
+        struct rx_audio_frames *ret = calloc(1, sizeof(struct rx_audio_frames));
+        ret->frame                  = jack_pbuf.decoded;
         return ret;
 }
 
