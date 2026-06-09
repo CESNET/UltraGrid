@@ -336,6 +336,13 @@ print_fps(const char *prefix, steady_clock::time_point *t0, int *frames,
         *frames = 0;
 }
 
+static void
+frame_wait_obj_notify(struct video_frame *f)
+{
+        auto *wait_obj = (struct wait_obj *) f->callbacks.dispose_udata;
+        wait_obj_notify(wait_obj);
+}
+
 /**
  * This function captures video and possibly compresses it.
  * It then delegates sending to another thread.
@@ -370,21 +377,14 @@ static void *capture_thread(void *arg)
                 print_fps(print_fps_prefix, &t0, &frames, tx_frame->fps);
                 // tx_frame = vf_get_copy(tx_frame);
                 bool                    wait_for_cur_uncompressed_frame = false;
-                shared_ptr<video_frame> frame;
                 if (tx_frame->callbacks.dispose == nullptr) {
                         wait_obj_reset(wait_obj);
                         wait_for_cur_uncompressed_frame = true;
-                        frame = shared_ptr<video_frame>(
-                            tx_frame, [wait_obj](struct video_frame *) {
-                                    wait_obj_notify(wait_obj);
-                            });
-                } else {
-                        frame = shared_ptr<video_frame>(
-                            tx_frame, tx_frame->callbacks.dispose);
+                        tx_frame->callbacks.dispose = frame_wait_obj_notify;
+                        tx_frame->callbacks.dispose_udata = wait_obj;
                 }
 
-                vrxtx_send(uv->state_video_rxtx,
-                    std::move(frame)); // std::move really important here (!)
+                rxtx_send_video(uv->state_video_rxtx, tx_frame);
 
                 // wait for frame frame to be processed, eg. by compress
                 // or sender (uncompressed video). Grab invalidates previous

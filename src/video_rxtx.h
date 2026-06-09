@@ -204,6 +204,7 @@ void        rxtx_send_audio(struct video_rxtx         *state,
 struct rx_audio_frames *rxtx_recv_audio_frame(struct video_rxtx *s);
 void rxtx_free_audio_frames(struct rx_audio_frames *frames);
 enum rxtx_mode rxtx_get_mode(struct video_rxtx *s, enum tx_media_type t);
+void rxtx_send_video(struct video_rxtx *state, struct video_frame *tx_frame);
 
 // utils
 const char *get_tx_name(enum tx_media_type);

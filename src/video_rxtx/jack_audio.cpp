@@ -75,10 +75,10 @@ jack_video_join(void *arg)
 }
 
 static void
-jack_video_send_frame(void *state, std::shared_ptr<video_frame> f)
+jack_video_send_frame(void *state, struct video_frame *f)
 {
         auto *s = (struct jack_audio_rxtx *) state;
-        vrxtx_send(s->video_rxtx, std::move(f));
+        rxtx_send_video(s->video_rxtx, f);
 }
 
 static void
@@ -117,8 +117,8 @@ static const struct video_rxtx_info jack_audio_rxtx_info = {
         .send_audio_frame = jack_send_audio_frame,
         .recv_audio_frame = jack_recv_audio_frame,
 
-        .send_video_frame   = jack_video_send_frame,
-        .send_video_frame_c = nullptr,
+        .send_video_frame   = nullptr,
+        .send_video_frame_c = jack_video_send_frame,
         .video_recv_routine = dummy_jack_video_receiver_thread,
         .join_video_sender  = jack_video_join,
 };

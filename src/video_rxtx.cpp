@@ -457,7 +457,6 @@ vrxtx_list_protocols(bool full)
 
 const char *
 vrxtx_get_proto_long_name(const char *short_name)
-
 {
         return video_rxtx::get_long_name(short_name);
 }
@@ -474,6 +473,15 @@ vrxtx_destroy(struct video_rxtx *state)
         delete state;
 }
 
+/// @sa vrxtx_send for shared_ptr variant
+void
+rxtx_send_video(struct video_rxtx *state, struct video_frame *tx_frame)
+{
+        state->send_vframe(
+            shared_ptr<video_frame>(tx_frame, tx_frame->callbacks.dispose));
+}
+
+/// @sa rxtx_send_vide for plain pointer variant
 void
 vrxtx_send(struct video_rxtx *state, std::shared_ptr<struct video_frame> f)
 {
