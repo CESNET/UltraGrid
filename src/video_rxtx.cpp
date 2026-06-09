@@ -352,14 +352,28 @@ video_rxtx::create(string const              &proto,
         const struct rxtx_medium_params *params_video =
             &params->medium[TX_MEDIA_VIDEO];
 
-        auto vri = static_cast<const video_rxtx_info *>(load_library(proto.c_str(), LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION));
-        if (!vri) {
+        const auto *vri = static_cast<const video_rxtx_info *>(load_library(
+            proto.c_str(), LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION));
+        if (vri == nullptr) {
                 if (proto != "help") {
                         error_msg("Requested RX/TX %s cannot be created "
                                   "(missing library?)\n", proto.c_str());
                         throw -1;
                 }
                 throw 1;
+        }
+
+        if ((params_video->rxtx_mode & MODE_RECEIVER) &&
+            vri->video_recv_routine == nullptr) {
+                MSG(ERROR, "Selected RX/TX mode doesn't support receiving.\n");
+                throw -1;
+        }
+
+        if ((params_video->rxtx_mode & MODE_SENDER) &&
+            (vri->send_video_frame == nullptr &&
+             vri->send_video_frame_c == nullptr)) {
+                MSG(ERROR, "Selected RX/TX mode doesn't support sending.\n");
+                throw -1;
         }
 
         video_rxtx *ret = new video_rxtx(proto.c_str(), params);
@@ -385,12 +399,6 @@ video_rxtx::create(string const              &proto,
         }
 
         if ((params_video->rxtx_mode & MODE_RECEIVER) != 0U) {
-                if (ret->m_impl_funcs->video_recv_routine == nullptr) {
-                        MSG(ERROR,
-                            "Selected RX/TX mode doesn't support receiving.\n");
-                        delete ret;
-                        throw -1;
-                }
                 int rc = pthread_create(&ret->m_video_receiver_thread_id, nullptr,
                                         ret->m_impl_funcs->video_recv_routine,
                                         ret->m_impl_state);
@@ -398,13 +406,6 @@ video_rxtx::create(string const              &proto,
         }
 
         if (params_video->rxtx_mode & MODE_SENDER) {
-                if (ret->m_impl_funcs->send_video_frame == nullptr &&
-                    ret->m_impl_funcs->send_video_frame_c == nullptr) {
-                        MSG(ERROR,
-                            "Selected RX/TX mode doesn't support sending.\n");
-                        delete ret;
-                        throw -1;
-                }
                 int rc =
                     pthread_create(&ret->m_video_sender_thread_id, nullptr,
                                    video_rxtx::video_sender_thread, (void *) ret);
