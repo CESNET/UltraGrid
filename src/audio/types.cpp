@@ -319,6 +319,28 @@ void audio_frame2::set_fec_params(int channel, fec_desc const &fec_params)
         channels[channel].fec_params = fec_params;
 }
 
+/**
+ * returns deep copy of audio_frame2
+ *
+ * This is not implented as a copy constructor or assignment operator because
+ * those are deleted to avoid unintentional copy. This fn can be used explicitly
+ * instead.
+ */
+audio_frame2 audio_frame2::clone() const
+{
+        audio_frame2 ret;
+        ret.init(this->get_channel_count(), this->get_codec(), this->get_bps(), this->get_sample_rate());
+
+        for (size_t i = 0; i < ret.channels.size(); i++) {
+                ret.channels[i].len = this->get_data_len(i);
+                ret.channels[i].data = unique_ptr<char []>(new char[ret.channels[i].len]);
+                memcpy(ret.channels[i].data.get(), this->channels[i].data.get(),
+                       this->get_data_len(i));
+        }
+
+        return ret;
+}
+
 audio_frame2 audio_frame2::copy_with_bps_change(audio_frame2 const &frame, int new_bps)
 {
         audio_frame2 ret;
@@ -448,6 +470,18 @@ void
 audio_frame2_change_bps(struct audio_frame2 *frame, int new_bps)
 {
         frame->change_bps(new_bps);
+}
+
+struct audio_frame2 *
+audio_frame2_copy(const struct audio_frame2 *frame)
+{
+        return new audio_frame2(frame->clone());
+}
+
+size_t
+audio_frame2_get_all_data_len(const struct audio_frame2 *frame)
+{
+        return frame->get_data_len();
 }
 
 int

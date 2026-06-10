@@ -1242,8 +1242,11 @@ void register_should_exit_callback(struct module *mod, void (*callback)(void *),
 /**
  * Unregisters should_exit callback registered with @ref register_should_exit_callback
  *
+ * @note
  * The callback must have been registered (and not unregistered),
  * otherwise abort is (currently) called.
+ * @note
+ * This must not be called from the callback itself (lock held).
  */
 void
 unregister_should_exit_callback(struct module *mod, void (*callback)(void *),

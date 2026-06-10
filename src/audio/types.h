@@ -180,6 +180,7 @@ public:
         [[nodiscard]] bool has_same_prop_as(audio_frame const &frame) const;
         void set_duration(double duration);
         void set_fec_params(int channel, fec_desc const &);
+        [[nodiscard]] audio_frame2 clone() const;
         [[nodiscard]] static audio_frame2 copy_with_bps_change(audio_frame2 const &frame, int new_bps);
         void change_bps(int new_bps);
         void change_ch_count(int new_ch_count);
@@ -224,18 +225,22 @@ private:
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
+struct audio_frame2;
+
 struct audio_frame2 *audio_frame2_alloc(int ch_count, audio_codec_t codec,
                                         int bps, int sample_rate);
 void                 audio_frame2_delete(struct audio_frame2 *frame);
 
-void          audio_frame2_append(struct audio_frame2       *dst,
-                                  const struct audio_frame2 *src);
-void          audio_frame2_change_bps(struct audio_frame2 *frame, int new_bps);
-int           audio_frame2_get_bps(const struct audio_frame2 *frame);
-audio_codec_t audio_frame2_get_codec(const struct audio_frame2 *frame);
-int           audio_frame2_get_channel_count(const struct audio_frame2 *frame);
-const char   *audio_frame2_get_data(const struct audio_frame2 *frame,
-                                    int                        channel);
+void audio_frame2_append(struct audio_frame2       *dst,
+                         const struct audio_frame2 *src);
+void audio_frame2_change_bps(struct audio_frame2 *frame, int new_bps);
+struct audio_frame2 *audio_frame2_copy(const struct audio_frame2 *frame);
+int                  audio_frame2_get_bps(const struct audio_frame2 *frame);
+audio_codec_t        audio_frame2_get_codec(const struct audio_frame2 *frame);
+size_t      audio_frame2_get_all_data_len(const struct audio_frame2 *frame);
+int         audio_frame2_get_channel_count(const struct audio_frame2 *frame);
+const char *audio_frame2_get_data(const struct audio_frame2 *frame,
+                                  int                        channel);
 size_t audio_frame2_get_data_len(const struct audio_frame2 *frame, int channel);
 struct fec_desc audio_frame2_get_fec_params(const struct audio_frame2 *frame,
                                             int                        channel);
