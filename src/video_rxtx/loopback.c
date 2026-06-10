@@ -46,7 +46,6 @@
 #include "debug.h"         // for LOG_LEVEL_ERROR, LOG_LEVEL_WARNING, MSG
 #include "host.h"          // for register_should_exit_callback, unregister...
 #include "lib_common.h"    // for REGISTER_MODULE, library_class
-#include "tv.h"            // for MS_TO_NS, time_ns_t
 #include "utils/list.h"    // for simple_linked_list_size, simple_linked_li...
 #include "utils/pthread.h" // for CHK_PTHR, ug_pthread_cond_init, ug_pthrea...
 #include "utils/thread.h"  // for set_thread_name
@@ -67,6 +66,7 @@ struct loopback_video_rxtx {
         struct simple_linked_list *frames;
         pthread_cond_t             frame_ready;
         pthread_mutex_t            lock;
+        bool                       should_exit_sender;
 };
 
 static void*
@@ -77,7 +77,7 @@ init(const struct vrxtx_params *params)
         s->display_device = params->display_device;
         s->frames = simple_linked_list_init();
         ug_pthread_mutex_init(&s->lock);
-        ug_pthread_cond_init(&s->frame_ready);
+        pthread_cond_init(&s->frame_ready, nullptr);
         return s;
 }
 
@@ -88,6 +88,11 @@ send_frame(void *state, struct video_frame *f)
 
         CHK_PTHR(pthread_mutex_lock(&s->lock));
         {
+                if (s->should_exit_sender) {
+                        f->callbacks.dispose(f);
+                        CHK_PTHR(pthread_mutex_unlock(&s->lock));
+                        return;
+                }
                 if (simple_linked_list_size(s->frames) >= BUFF_MAX_LEN) {
                         MSG(WARNING, "Max buffer len %d exceeded.\n",
                             BUFF_MAX_LEN);
@@ -100,9 +105,16 @@ send_frame(void *state, struct video_frame *f)
 }
 
 static void
-should_exit_callback(void *should_exit)
+should_exit_callback(void *arg)
 {
-        *(bool *) should_exit = true;
+        struct loopback_video_rxtx *s = arg;
+        CHK_PTHR(pthread_mutex_lock(&s->lock));
+        {
+                s->should_exit_sender = true;
+                simple_linked_list_append(s->frames, nullptr); // poison pill
+        }
+        CHK_PTHR(pthread_mutex_unlock(&s->lock));
+        CHK_PTHR(pthread_cond_signal(&s->frame_ready));
 }
 
 static void *
@@ -112,26 +124,22 @@ receiver_thread(void *arg)
 
         struct loopback_video_rxtx *s = arg;
 
-        bool should_exit = false;
-        register_should_exit_callback(s->parent, should_exit_callback, &should_exit);
+        register_should_exit_callback(s->parent, should_exit_callback, s);
 
-        while (!should_exit) {
+        while (true) {
                 struct video_frame *frame = nullptr;
                 CHK_PTHR(pthread_mutex_lock(&s->lock));
                 {
-                        time_ns_t timeout = MS_TO_NS(100);
-                        while (simple_linked_list_size(s->frames) == 0 &&
-                               timeout != 0) {
-                                ug_pthread_cond_timedwait(&s->frame_ready,
-                                                          &s->lock, &timeout);
-                        }
-                        if (simple_linked_list_size(s->frames) == 0) {
-                                CHK_PTHR(pthread_mutex_unlock(&s->lock));
-                                continue;
+                        while (simple_linked_list_size(s->frames) == 0) {
+                                pthread_cond_wait(&s->frame_ready, &s->lock);
                         }
                         frame = simple_linked_list_pop(s->frames);
                 }
                 CHK_PTHR(pthread_mutex_unlock(&s->lock));
+
+                if (frame == nullptr) { // poison pill
+			break;
+                }
 
                 struct video_desc new_desc = video_desc_from_frame(frame);
                 if (!video_desc_eq(s->configured_desc, new_desc)) {
@@ -149,19 +157,13 @@ receiver_thread(void *arg)
                 frame->callbacks.dispose(frame);
         }
         display_put_frame(s->display_device, nullptr, PUTF_BLOCKING);
-        unregister_should_exit_callback(s->parent, should_exit_callback,
-                                        &should_exit);
+        unregister_should_exit_callback(s->parent, should_exit_callback, s);
 
         return nullptr;
 }
 
 static void done(void *state) {
         struct loopback_video_rxtx *s = state;
-
-        struct video_frame *f = nullptr;
-        while ((f = simple_linked_list_pop(s->frames))) {
-                f->callbacks.dispose(f);
-        }
 
         simple_linked_list_destroy(s->frames);
         CHK_PTHR(pthread_cond_destroy(&s->frame_ready));
