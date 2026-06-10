@@ -66,7 +66,7 @@ struct loopback_video_rxtx {
         struct simple_linked_list *frames;
         pthread_cond_t             frame_ready;
         pthread_mutex_t            lock;
-        bool                       should_exit_sender;
+        bool                       discard_in_frames;
 };
 
 static void*
@@ -78,6 +78,15 @@ init(const struct vrxtx_params *params)
         s->frames = simple_linked_list_init();
         ug_pthread_mutex_init(&s->lock);
         pthread_cond_init(&s->frame_ready, nullptr);
+        if (params->medium[TX_MEDIA_VIDEO].rxtx_mode == MODE_SENDER) {
+                MSG(WARNING,
+                    "Running as a sender only - discarding all frames...\n");
+                s->discard_in_frames = true;
+        }
+        if (params->medium[TX_MEDIA_VIDEO].rxtx_mode == MODE_RECEIVER) {
+                MSG(WARNING, "Running as a receiver only - will not receive "
+                             "anything...\n");
+        }
         return s;
 }
 
@@ -89,7 +98,7 @@ send_frame(void *state, struct video_frame *f)
 
         CHK_PTHR(pthread_mutex_lock(&s->lock));
         {
-                if (s->should_exit_sender) {
+                if (s->discard_in_frames) {
                         discard_frame = true;
                         goto unlock;
                 }
@@ -118,7 +127,7 @@ should_exit_callback(void *arg)
         struct loopback_video_rxtx *s = arg;
         CHK_PTHR(pthread_mutex_lock(&s->lock));
         {
-                s->should_exit_sender = true;
+                s->discard_in_frames = true;
                 simple_linked_list_append(s->frames, nullptr); // poison pill
         }
         CHK_PTHR(pthread_mutex_unlock(&s->lock));
