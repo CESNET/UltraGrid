@@ -85,21 +85,29 @@ static void
 send_frame(void *state, struct video_frame *f)
 {
         struct loopback_video_rxtx *s = state;
+        bool discard_frame = false;
 
         CHK_PTHR(pthread_mutex_lock(&s->lock));
         {
                 if (s->should_exit_sender) {
-                        f->callbacks.dispose(f);
-                        CHK_PTHR(pthread_mutex_unlock(&s->lock));
-                        return;
+                        discard_frame = true;
+                        goto unlock;
                 }
                 if (simple_linked_list_size(s->frames) >= BUFF_MAX_LEN) {
                         MSG(WARNING, "Max buffer len %d exceeded.\n",
                             BUFF_MAX_LEN);
+                        discard_frame = true;
+                        goto unlock;
                 }
                 simple_linked_list_append(s->frames, f);
         }
+unlock:
         CHK_PTHR(pthread_mutex_unlock(&s->lock));
+
+        if (discard_frame) {
+                f->callbacks.dispose(f);
+                return;
+        }
 
         CHK_PTHR(pthread_cond_signal(&s->frame_ready));
 }
