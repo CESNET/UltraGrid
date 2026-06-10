@@ -1,5 +1,5 @@
 /**
- * @file   video_rxtx/ultragrid_rtp.cpp
+ * @file   video_rxtx/ultragrid_rtp.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

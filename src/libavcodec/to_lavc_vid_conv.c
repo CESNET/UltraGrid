@@ -1,5 +1,5 @@
 /**
- * @file   libavcodec/lavc_video_conversions.c
+ * @file   libavcodec/to_lavc_vid_conv.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  * @author Martin Piatka    <445597@mail.muni.cz>
  */

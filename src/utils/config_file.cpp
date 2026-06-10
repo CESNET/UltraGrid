@@ -1,5 +1,5 @@
 /**
- * @file   utils/config_file.c
+ * @file   utils/config_file.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
  * @brief  Configuration file for UltraGrid

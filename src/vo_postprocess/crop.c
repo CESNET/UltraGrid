@@ -1,5 +1,5 @@
 /**
- * @file   vo_postprocess/crop.cpp
+ * @file   vo_postprocess/crop.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

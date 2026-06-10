@@ -1,5 +1,5 @@
 /**
- * @file   video_display/concurrent_queue.hpp
+ * @file   video_display/vulkan/concurrent_queue.hpp
  * @author Martin Bela      <492789@mail.muni.cz>
  */
 /*

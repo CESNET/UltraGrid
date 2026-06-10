@@ -1,5 +1,5 @@
 /**
- * @file   compat/platform_pipe.cpp
+ * @file   compat/platform_pipe.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

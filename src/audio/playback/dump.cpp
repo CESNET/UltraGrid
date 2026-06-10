@@ -1,5 +1,5 @@
 /**
- * @file audio/playback/dump.c
+ * @file audio/playback/dump.cpp
  * @author Martin Piatka     <piatka@cesnet.cz>
  */
 /*

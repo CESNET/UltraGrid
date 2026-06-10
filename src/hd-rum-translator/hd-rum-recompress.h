@@ -1,5 +1,5 @@
 /**
- * @file   hd-rum-translator/hd-rum/recompress.h
+ * @file   hd-rum-translator/hd-rum-recompress.h
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  * @author Martin Piatka    <piatka@cesnet.cz>
  */

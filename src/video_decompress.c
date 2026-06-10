@@ -1,5 +1,5 @@
 /**
- * @file   video_decompress.cpp
+ * @file   video_decompress.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

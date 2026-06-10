@@ -1,5 +1,5 @@
 /**
- * @file   video_capture/syphon.mm
+ * @file   video_capture/syphon.m
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

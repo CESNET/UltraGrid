@@ -1,5 +1,5 @@
 /**
- * @file   video_compress/j2k.cpp
+ * @file   video_compress/cmpto_j2k.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

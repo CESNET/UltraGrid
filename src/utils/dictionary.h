@@ -1,5 +1,5 @@
 /**
- * @file   utils/hash_table.h
+ * @file   utils/dictionary.h
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*

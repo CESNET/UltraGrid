@@ -1,5 +1,5 @@
 /**
- * @file   crypto/openssl_encrypt.cpp
+ * @file   crypto/openssl_encrypt.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

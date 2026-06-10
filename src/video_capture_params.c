@@ -1,5 +1,5 @@
 /**
- * @file   video_capture_params.cpp
+ * @file   video_capture_params.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
  * @ingroup vidcap

@@ -1,5 +1,5 @@
 /**
- * @file   video_capture.cpp
+ * @file   video_capture.c
  * @author Colin Perkins <csp@csperkins.org>
  * @author Martin Benes     <martinbenesh@gmail.com>
  * @author Lukas Hejtmanek  <xhejtman@ics.muni.cz>

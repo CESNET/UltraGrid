@@ -1,5 +1,5 @@
 /**
- * @file   utils/udp_holepuch.c
+ * @file   utils/udp_holepunch.c
  * @author Martin Piatka     <piatka@cesnet.cz>
  */
 /*

@@ -1,5 +1,5 @@
 /**
- * @file   utils/packet_conter.cpp
+ * @file   utils/packet_counter.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*

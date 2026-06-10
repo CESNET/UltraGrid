@@ -1,5 +1,5 @@
 /**
- * @file   video_display/vulkan_context.h
+ * @file   video_display/vulkan/vulkan_context.hpp
  * @author Martin Bela      <492789@mail.muni.cz>
  */
 /*
