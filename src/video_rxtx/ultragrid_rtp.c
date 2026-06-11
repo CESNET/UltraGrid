@@ -187,8 +187,6 @@ send_video_frame(void *state, struct video_frame *tx_frame)
         struct rtp_rxtx_medium *video =
             &s->rtp_common->medium[TX_MEDIA_VIDEO];
 
-        rtp_rxtx_sender_do_housekeeping(s->rtp_common, TX_MEDIA_VIDEO);
-
         if (video->fec_state != nullptr) {
                 struct video_frame *f = fec_encode_video_frame(
                     video->fec_state, tx_frame);
@@ -204,6 +202,7 @@ send_video_frame(void *state, struct video_frame *tx_frame)
         while (s->async_sending) {
                 pthread_cond_wait(&s->async_sending_cv, &s->async_sending_lock);
         }
+        rtp_rxtx_sender_do_housekeeping(s->rtp_common, TX_MEDIA_VIDEO);
         s->async_sending = true;
         task_run_async_detached(send_video_frame_async_callback, (void *) data);
         CHK_PTHR(pthread_mutex_unlock(&s->async_sending_lock));
@@ -217,24 +216,10 @@ static void *send_video_frame_async_callback(void *arg) {
         free(data);
 
         CHK_PTHR(pthread_mutex_lock(&video->lock));
-
         tx_send(video->tx, tx_frame, video->network_device);
-        tx_frame->callbacks.dispose(tx_frame);
-
-        if ((video->rxtx_mode & MODE_RECEIVER) == 0) { // otherwise receiver thread does the stuff...
-                time_ns_t curr_time = get_time_in_ns();
-                uint32_t ts = (curr_time - s->start_time) / (100 * 1000 * 9); // at 90000 Hz
-                rtp_update(video->network_device, curr_time);
-                rtp_send_ctrl(video->network_device, ts, nullptr, curr_time);
-
-                // receive RTCP
-                bool ret = true;
-                do {
-                        struct timeval timeout = { 0, 0 };
-                        ret = rtcp_recv_r(video->network_device, &timeout, ts);
-                } while (!s->should_exit && ret);
-        }
         CHK_PTHR(pthread_mutex_unlock(&video->lock));
+
+        tx_frame->callbacks.dispose(tx_frame);
 
         CHK_PTHR(pthread_mutex_lock(&s->async_sending_lock));
         s->async_sending = false;

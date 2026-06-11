@@ -234,19 +234,6 @@ send_frame_impl(struct h264_sdp_video_rxtx *s, struct video_frame *tx_frame)
         } else {
                 tx_send_jpeg(video->tx, tx_frame, video->network_device);
         }
-        if (video->rxtx_mode & MODE_RECEIVER) {
-                // send RTCP (receiver thread would otherwise do this)
-                uint32_t ts = get_std_video_local_mediatime();
-                time_ns_t curr_time = get_time_in_ns();
-                rtp_update(video->network_device, curr_time);
-                rtp_send_ctrl(video->network_device, ts, nullptr, curr_time);
-
-                // receive RTCP
-                struct timeval timeout;
-                timeout.tv_sec = 0;
-                timeout.tv_usec = 0;
-                rtp_recv_r(video->network_device, &timeout, ts);
-        }
 }
 
 /// wraps send_frame_impl to ensure tx_frame is disposed across all code paths

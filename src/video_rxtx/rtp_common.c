@@ -241,7 +241,7 @@ rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *pub,
                 return;
         }
 
-        s->used                                        = true;
+        s->used = true;
 
         struct message *msg_external = nullptr;
         while ((msg_external = check_message(&medium_priv->sender_mod)) !=
@@ -253,8 +253,7 @@ rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *pub,
 
         // do the house keeping if no receiver thread, otherwise it does
         // the stuff...
-        if (t == TX_MEDIA_AUDIO &&
-            (medium_pub->rxtx_mode & MODE_RECEIVER) == 0) {
+        if ((medium_pub->rxtx_mode & MODE_RECEIVER) == 0) {
                 time_ns_t curr_time = get_time_in_ns();
                 uint32_t  ts = (curr_time - s->start_time) / (100 * 1000) *
                                9; // at 90000 Hz
@@ -262,10 +261,12 @@ rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *pub,
                 rtp_send_ctrl(medium_pub->network_device, ts, 0, curr_time);
 
                 // receive RTCP
-                struct timeval timeout;
-                timeout.tv_sec  = 0;
-                timeout.tv_usec = 0;
-                rtcp_recv_r(medium_pub->network_device, &timeout, ts);
+                bool ret = true;
+                int  i   = 0; // prevent RTCP flooded by an attacker
+                do {
+                        struct timeval timeout = { 0, 0 };
+                        ret = rtcp_recv_r(medium_pub->network_device, &timeout, ts);
+                } while (ret && i++ < 100);
         }
 }
 

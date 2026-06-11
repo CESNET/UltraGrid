@@ -207,19 +207,6 @@ h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
         }
 
         tx_send_std(video->tx, tx_frame.get(), video->network_device);
-
-        if (video->rxtx_mode & MODE_RECEIVER) { // send RTCP (receiver thread would otherwise do this
-                time_ns_t curr_time = get_time_in_ns();
-                uint32_t ts = (curr_time - m_start_time) / 100'000 * 9; // at 90000 Hz
-                rtp_update(video->network_device, curr_time);
-                rtp_send_ctrl(video->network_device, ts, nullptr, curr_time);
-
-                // receive RTCP
-                struct timeval timeout;
-                timeout.tv_sec = 0;
-                timeout.tv_usec = 0;
-                rtp_recv_r(video->network_device, &timeout, ts);
-        }
 }
 
 h264_rtp_video_rxtx::~h264_rtp_video_rxtx()
