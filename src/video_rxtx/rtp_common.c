@@ -350,12 +350,6 @@ struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params)
                 }
         }
 
-        // The idea of doing that is to display help on '-f ldgm:help' even if UG would exit
-        // immediately. The encoder is actually created by a message.
-        // Also for `-x sdp:help` the message will get discarded and the warning that message quie
-        rtp_rxtx_sender_do_housekeeping(pub, TX_MEDIA_VIDEO);
-        rtp_rxtx_sender_do_housekeeping(pub, TX_MEDIA_AUDIO);
-
         return pub;
 }
 
@@ -371,6 +365,8 @@ rtp_rxtx_common_done(struct rtp_rxtx_common *pub)
 
         for (unsigned i = 0; i < NUM_TX_MEDIA; ++i) {
                 struct rtp_rxtx_medium *medium_pub = &pub->medium[i];
+                // skip unread messages - eg. gen by rtsp deleteStream
+                rtp_rxtx_sender_do_housekeeping(pub, i);
                 if (medium_pub->network_device != nullptr) {
                         destroy_rtp_device(medium_pub->network_device);
                 }
