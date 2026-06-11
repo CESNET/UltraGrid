@@ -289,8 +289,10 @@ init_medium_state(struct rtp_rxtx_common_priv_state *s,
         volatile int     *medium_offset = medium_defaults[t].medium_offset;
         long long         bitrate_limit = medium_defaults[t].bitrate_limit;
         enum module_class mod_cls       = medium_defaults[t].mod_cls;
+        bool              fec_help      = strstr(params_medium->fec, "help");
 
-        if (params_medium->rxtx_mode == 0) { // no RX or TX for medium
+        if (params_medium->rxtx_mode == 0 &&
+            !fec_help) { // no RX or TX for medium
                 return true;
         }
         medium_priv->rx_port = params_medium->rx_port;
@@ -311,7 +313,7 @@ init_medium_state(struct rtp_rxtx_common_priv_state *s,
                 MSG(ERROR, "Unable to open %s network!\n",  medium_str);
                 return false;
         }
-        if (params_medium->rxtx_mode & MODE_SENDER) {
+        if (params_medium->rxtx_mode & MODE_SENDER || fec_help) {
                 medium_pub->tx = tx_init(&medium_priv->sender_mod, params->mtu, t,
                                          params_medium->fec, params->encryption,
                                          bitrate_limit);
