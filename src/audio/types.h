@@ -241,6 +241,7 @@ size_t      audio_frame2_get_all_data_len(const struct audio_frame2 *frame);
 int         audio_frame2_get_channel_count(const struct audio_frame2 *frame);
 const char *audio_frame2_get_data(const struct audio_frame2 *frame,
                                   int                        channel);
+struct audio_desc audio_frame2_get_desc(const struct audio_frame2 *frame);
 size_t audio_frame2_get_data_len(const struct audio_frame2 *frame, int channel);
 struct fec_desc audio_frame2_get_fec_params(const struct audio_frame2 *frame,
                                             int                        channel);

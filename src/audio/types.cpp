@@ -513,6 +513,12 @@ audio_frame2_get_data_len(const struct audio_frame2 *frame, int channel)
         return frame->get_data_len(channel);
 }
 
+struct audio_desc
+audio_frame2_get_desc(const struct audio_frame2 *frame)
+{
+        return frame->get_desc();
+}
+
 struct fec_desc
 audio_frame2_get_fec_params(const struct audio_frame2 *frame, int channel)
 {
