@@ -4,7 +4,7 @@
  *          Gerard Castillo  <gerard.castillo@i2cat.net>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2019-2025 CESNET
+ * Copyright (c) 2019-2026 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -46,36 +46,22 @@
 #ifndef _BASIC_RTSP_ONLY_SERVER_HH
 #define _BASIC_RTSP_ONLY_SERVER_HH
 
-#include <RTSPServer.hh>
-#include <BasicUsageEnvironment.hh>
+#include "audio/types.h"
+#include "rtsp/rtsp_utils.h"
+#include "types.h"
 
-#include "c_basicRTSPOnlyServer.h" // for rtsp_server_parameters
-
-// compat
-#if BASICUSAGEENVIRONMENT_LIBRARY_VERSION_INT < 1752883200
-typedef char volatile EventLoopWatchVariable;
-#endif
-
-class BasicRTSPOnlyServer {
-private:
-    BasicRTSPOnlyServer(struct rtsp_server_parameters params);
-
-public:
-    static BasicRTSPOnlyServer* initInstance(struct rtsp_server_parameters params);
-    static BasicRTSPOnlyServer* getInstance();
-
-    int init_server();
-
-    static void *start_server(void *args);
-
-    int update_server();
-
-private:
-
-    static BasicRTSPOnlyServer* srvInstance;
-    struct rtsp_server_parameters params;
-    RTSPServer* rtspServer;
-    UsageEnvironment* env;
+struct rtsp_server_parameters {
+        unsigned int   rtsp_port;
+        struct module *parent;
+        rtsp_types_t   avType;
+        struct audio_desc adesc;
+        int            rtp_video_src_port;
+        int            rtp_audio_src_port;
+        codec_t        video_codec;
 };
+
+struct BasicRTSPOnlyServer *
+start_rtsp_server(struct rtsp_server_parameters rtsp_params);
+void stop_rtsp_server(struct BasicRTSPOnlyServer *srv);
 
 #endif

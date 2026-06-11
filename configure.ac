@@ -1712,7 +1712,7 @@ if test $rtsp_server_req != no; then
                 CFLAGS="$CFLAGS $RTSP_SERVER_FLAGS"
                 CXXFLAGS="$CXXFLAGS $RTSP_SERVER_FLAGS"
                 RTSP_SERVER_LIBS="-lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock"
-                RTSP_SERVER_OBJ="src/rtsp/c_basicRTSPOnlyServer.o\
+                RTSP_SERVER_OBJ="\
  src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o\
  src/utils/sdp.o src/video_rxtx/h264_rtp.o"
                 add_module video_rxtx_h264 "$RTSP_SERVER_OBJ" "$RTSP_SERVER_LIBS"

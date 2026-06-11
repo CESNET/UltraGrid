@@ -57,7 +57,7 @@
 #include "messaging.h"
 #include "rtp/audio_decoders.h"  // for decode_audio_frame_mulaw
 #include "rtp/rtp.h"
-#include "rtsp/c_basicRTSPOnlyServer.h"  // for rtsp_server_parameters, c_st...
+#include "rtsp/BasicRTSPOnlyServer.hh"
 #include "rtsp/rtsp_utils.h"  // for rtsp_types_t
 #include "transmit.h"
 #include "tv.h"
@@ -84,7 +84,7 @@ struct h264_rtp_video_rxtx {
         void                          configure_rtsp_server_video();
         struct rtsp_server_parameters rtsp_params{};
         std::atomic<bool>             audio_params_set = false;
-        rtsp_serv_t                  *m_rtsp_server    = nullptr;
+        struct BasicRTSPOnlyServer   *m_rtsp_server = nullptr;
         void (*tx_send_std)(struct tx *tx_session, struct video_frame *frame,
                             struct rtp *rtp_session) = nullptr;
 
@@ -174,7 +174,7 @@ h264_rtp_video_rxtx::configure_rtsp_server_video()
                         return;
                 }
         }
-        m_rtsp_server = c_start_server(rtsp_params);
+        m_rtsp_server = start_rtsp_server(rtsp_params);
 }
 
 void
@@ -224,13 +224,13 @@ h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
 
 h264_rtp_video_rxtx::~h264_rtp_video_rxtx()
 {
-        free(m_rtsp_server);
         rtp_rxtx_common_done(m_rtp_common);
 }
 
 void h264_rtp_video_rxtx::join()
 {
-        c_stop_server(m_rtsp_server);
+        stop_rtsp_server(m_rtsp_server);
+        m_rtsp_server = nullptr;
 }
 
 static void rtps_server_usage(){
@@ -292,7 +292,7 @@ configure_audio(struct h264_rtp_video_rxtx *s, const struct audio_frame2 *frame)
         s->audio_params_set = true;
 
         if ((s->rtsp_params.avType & rtsp_type_video) == 0U) {
-                s->m_rtsp_server = c_start_server(s->rtsp_params);
+                s->m_rtsp_server = start_rtsp_server(s->rtsp_params);
         }
 }
 

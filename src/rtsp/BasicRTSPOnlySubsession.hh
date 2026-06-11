@@ -51,7 +51,8 @@
 
 #include <liveMedia_version.hh>
 
-#include "c_basicRTSPOnlyServer.h" // for rtsp_server_parameters
+#include "BasicRTSPOnlyServer.hh" // for rtsp_server_parameters
+#include "module.h"               // for module_class
 #include "rtsp/rtsp_utils.h"
 
 // #ifndef _ON_DEMAND_SERVER_MEDIA_SUBSESSION_HH

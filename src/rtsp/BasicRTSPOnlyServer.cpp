@@ -43,12 +43,47 @@
  *
  */
 
-#include <GroupsockHelper.hh> // for "weHaveAnIPv*Address()"
+#include <BasicUsageEnvironment.hh>
+#include <BasicUsageEnvironment_version.hh> // for BASICUSAGEENVIRONMENT_LI...
+#include <GroupsockHelper.hh>               // for "weHaveAnIPv*Address()"
+#include <RTSPServer.hh>
 #include <cassert>
+#include <cstdlib>   // for NULL, exit
+#include <pthread.h> // for pthread_create, pthread_...
 
 #include "rtsp/BasicRTSPOnlyServer.hh"
 #include "rtsp/BasicRTSPOnlySubsession.hh"
 #include "rtsp/rtsp_utils.h"
+
+// compat
+#if BASICUSAGEENVIRONMENT_LIBRARY_VERSION_INT < 1752883200
+typedef char volatile EventLoopWatchVariable;
+#endif
+
+struct BasicRTSPOnlyServer {
+private:
+    BasicRTSPOnlyServer(struct rtsp_server_parameters params);
+
+public:
+    static BasicRTSPOnlyServer* initInstance(struct rtsp_server_parameters params);
+    static BasicRTSPOnlyServer* getInstance();
+
+    int init_server();
+
+    static void *start_server(void *args);
+
+    int update_server();
+
+    pthread_t              server_th;
+    EventLoopWatchVariable watch     = 0;
+
+private:
+
+    static BasicRTSPOnlyServer* srvInstance;
+    struct rtsp_server_parameters params;
+    RTSPServer* rtspServer;
+    UsageEnvironment* env;
+};
 
 BasicRTSPOnlyServer *BasicRTSPOnlyServer::srvInstance = NULL;
 
@@ -158,4 +193,26 @@ void *BasicRTSPOnlyServer::start_server(void *args){
     instance->env->reclaim();
 
 	return NULL;
+}
+
+BasicRTSPOnlyServer*
+start_rtsp_server(struct rtsp_server_parameters rtsp_params)
+{
+        BasicRTSPOnlyServer *srv =
+            BasicRTSPOnlyServer::initInstance(rtsp_params);
+        srv->init_server();
+        int ret = pthread_create(&srv->server_th, nullptr,
+                                 BasicRTSPOnlyServer::start_server,
+                                 (void *) &srv->watch);
+        assert(ret == 0);
+        return srv;
+}
+
+void stop_rtsp_server(struct BasicRTSPOnlyServer *srv) {
+
+        if (!srv) {
+                return;
+        }
+        srv->watch = 1;
+        pthread_join(srv->server_th, nullptr);
 }
