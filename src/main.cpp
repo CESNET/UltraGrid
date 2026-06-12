@@ -98,6 +98,8 @@
 #include "module.h"
 #include "playback.h"
 #include "rtp/rtp.h"
+#include "rxtx.h"
+#include "rxtx/ultragrid_rtp.h"         // for ultragrid_rtp_server_mode_help
 #include "types.h"                      // for video_frame, video_frame_call...
 #include "utils/color_out.h"
 #include "utils/macros.h"               // for snprintf_ch, to_fourcc
@@ -114,10 +116,6 @@
 #include "video_capture.h"
 #include "video_capture_params.h"       // for vidcap_params_get_driver, vid...
 #include "video_display.h"
-#include "video_rxtx.h"
-#include "video_rxtx/ultragrid_rtp.h"   // for ultragrid_rtp_server_mode_help
-
-struct video_rxtx;
 
 constexpr char MOD_NAME[] = "[main] ";
 
@@ -160,7 +158,7 @@ struct state_uv {
 
         struct module root_module;
 
-        video_rxtx *state_video_rxtx{};
+        struct rxtx *state_rxtx{};
 
         static void should_exit_capture_callback(void *udata) {
                 auto *s = (state_uv *) udata;
@@ -384,7 +382,7 @@ static void *capture_thread(void *arg)
                         tx_frame->callbacks.dispose_udata = wait_obj;
                 }
 
-                rxtx_send_video(uv->state_video_rxtx, tx_frame);
+                rxtx_send_video(uv->state_rxtx, tx_frame);
 
                 // wait for frame frame to be processed, eg. by compress
                 // or sender (uncompressed video). Grab invalidates previous
@@ -544,7 +542,7 @@ struct ug_options {
         ~ug_options() {
                 vidcap_params_free(vidcap_params_head);
         }
-        struct vrxtx_params rxtx = VRXTX_INIT;
+        struct rxtx_params rxtx = RXTX_INIT;
         struct audio_options audio = AUDIO_OPTIONS_INIT;
         std::string audio_filter_cfg;
         // NULL terminated array of capture devices
@@ -655,7 +653,7 @@ static bool parse_protocol(int ch, char *optarg, struct ug_options *opt) {
                 color_printf("Usage:\n");
                 color_printf(TBOLD("\t--protocol/-x proto[:opts]") "\n");
                 color_printf("\n");
-                vrxtx_list_protocols(strcmp(optarg, "fullhelp") == 0);
+                rxtx_list_protocols(strcmp(optarg, "fullhelp") == 0);
                 return false;
         }
         strcpy_ch(opt->net_protocol, proto);
@@ -796,7 +794,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         print_configuration();
                         return 1;
                 case 'c':
-                        opt->rxtx.compression = optarg;
+                        opt->rxtx.video_compression = optarg;
                         break;
                 case OPT_RTSP_SERVER:
                         log_msg(LOG_LEVEL_WARNING, "Option \"--rtsp-server[=args]\" "
@@ -853,10 +851,10 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         }
                         break;
                 case 'l':
-                        if (!parse_bitrate(optarg_copy, &opt->rxtx.bitrate_limit)) {
+                        if (!parse_bitrate(optarg_copy, &opt->rxtx.video_bitrate_limit)) {
                                 return -EXIT_FAILURE;
                         }
-                        if (opt->rxtx.bitrate_limit == RATE_DEFAULT) {
+                        if (opt->rxtx.video_bitrate_limit == RATE_DEFAULT) {
                                 return 1; // help written
                         }
                         break;
@@ -1261,16 +1259,16 @@ adjust_params(struct ug_options *opt)
              audio->tx_port == 0)) {
                 opt->rxtx.mtu = opt->rxtx.mtu == 0 ? min(RTP_MAX_MTU, 65535)
                                                        : opt->rxtx.mtu;
-                opt->rxtx.bitrate_limit =
-                    opt->rxtx.bitrate_limit == RATE_DEFAULT
+                opt->rxtx.video_bitrate_limit =
+                    opt->rxtx.video_bitrate_limit == RATE_DEFAULT
                         ? RATE_UNLIMITED
-                        : opt->rxtx.bitrate_limit;
+                        : opt->rxtx.video_bitrate_limit;
         } else {
                 opt->rxtx.mtu = opt->rxtx.mtu == 0 ? 1500 : opt->rxtx.mtu;
-                opt->rxtx.bitrate_limit =
-                    opt->rxtx.bitrate_limit == RATE_DEFAULT
+                opt->rxtx.video_bitrate_limit =
+                    opt->rxtx.video_bitrate_limit == RATE_DEFAULT
                         ? RATE_DYNAMIC
-                        : opt->rxtx.bitrate_limit;
+                        : opt->rxtx.video_bitrate_limit;
         }
 
         return 0;
@@ -1282,7 +1280,7 @@ validate_params(struct ug_options *opt)
 {
         struct rxtx_medium_params *video = &opt->rxtx.medium[TX_MEDIA_VIDEO];
         if (opt->vidcap_params_head == opt->vidcap_params_tail) {
-                if (opt->rxtx.compression != nullptr) {
+                if (opt->rxtx.video_compression != nullptr) {
                         MSG(WARNING,
                             "Video compression set but no vidcap given!\n");
                 }
@@ -1379,12 +1377,12 @@ int main(int argc, char *argv[])
                 col() << TBOLD("MTU              : ") << opt.rxtx.mtu << " B\n";
                 col() << TBOLD("Video compression: ")
                       << rxtx_get_vcompression(opt.net_protocol,
-                                               opt.rxtx.compression)
+                                               opt.rxtx.video_compression)
                       << "\n";
                 col() << TBOLD("Audio codec      : ")
                       << get_name_to_audio_codec(ac_params.codec) << "\n";
                 col() << TBOLD("Network protocol : ")
-                      << vrxtx_get_proto_long_name(opt.net_protocol) << "\n";
+                      << rxtx_get_proto_long_name(opt.net_protocol) << "\n";
                 col() << TBOLD("Audio FEC        : ") << audio->fec << "\n";
                 col() << TBOLD("Video FEC        : ") << video->fec << "\n";
                 col() << "\n";
@@ -1468,13 +1466,13 @@ int main(int argc, char *argv[])
         opt.rxtx.capture_device = uv.capture_device; // iHDTV
         opt.rxtx.display_device = uv.display_device; // UltraGrid RTP, iHDTV
 
-        ret = vrxtx_init(opt.net_protocol, &opt.rxtx, &uv.state_video_rxtx);
+        ret = rxtx_init(opt.net_protocol, &opt.rxtx, &uv.state_rxtx);
         if (ret != 0) {
                 exit_uv(ret < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
                 goto cleanup;
         }
 
-        opt.audio.vrxtx   = uv.state_video_rxtx;
+        opt.audio.rxtx    = uv.state_rxtx;
         opt.audio.display = uv.display_device;
         ret               = audio_init(&uv.audio, &opt.audio);
         if (ret != 0) {
@@ -1511,8 +1509,8 @@ cleanup:
 
         /* also wait for audio threads */
         audio_join(uv.audio);
-        if (uv.state_video_rxtx) {
-                vrxtx_join(uv.state_video_rxtx);
+        if (uv.state_rxtx) {
+                rxtx_join(uv.state_rxtx);
         }
 
         export_destroy(exporter);
@@ -1525,7 +1523,7 @@ cleanup:
 #endif
         alarm(5); // prevent exit hangs
 
-        vrxtx_destroy(uv.state_video_rxtx);
+        rxtx_destroy(uv.state_rxtx);
         audio_done(uv.audio);
 
         if (uv.capture_device)

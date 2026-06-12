@@ -81,7 +81,7 @@ enum library_class {
         LIBRARY_CLASS_VIDEO_DECOMPRESS,
         LIBRARY_CLASS_VIDEO_COMPRESS,
         LIBRARY_CLASS_VIDEO_POSTPROCESS,
-        LIBRARY_CLASS_VIDEO_RXTX,
+        LIBRARY_CLASS_RXTX,
         LIBRARY_CLASS_AUDIO_FILTER,
 };
 const void *load_library(const char *name, enum library_class, int abi_version);

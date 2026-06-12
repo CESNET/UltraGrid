@@ -49,6 +49,7 @@
 #include "debug.h"                 // for LOG_LEVEL_ERROR, LOG_LEVEL_WARNING
 #include "host.h"                  // for common_opts, COMMON_OPTS_INIT
 #include "lib_common.h"            // for REGISTER_MODULE, library_class
+#include "rxtx.h"                  // for rxtx, rxtx_params, RXTX_INIT
 #include "types.h"                 // for VIDEO_CODEC_NONE, codec_t, device_...
 #include "utils/color_out.h"       // for TBOLD, color_printf, TRED
 #include "utils/list.h"            // for simple_linked_list
@@ -60,7 +61,6 @@
 #include "video_display.h"         // for display_done, display_join, displa...
 #include "video_display/pipe.h"    // for pipe_frame_recv_delegate
 #include "video_frame.h"           // for VIDEO_FRAME_DISPOSE, vf_free
-#include "video_rxtx.h"            // for video_rxtx, vrxtx_params, VRXTX_INIT
 
 struct vidcap_params;
 
@@ -79,7 +79,7 @@ struct ug_input_state {
         struct simple_linked_list *frame_queue;
         struct display *display;
 
-        struct video_rxtx *video_rxtx;
+        struct rxtx        *rxtx;
         struct state_audio *audio;
 };
 
@@ -180,7 +180,7 @@ static int vidcap_ug_input_init(const struct vidcap_params *cap_params, void **s
                                      "pipe", cfg, 0, nullptr, &s->display);
         assert(ret == 0 && "Unable to initialize proxy display");
 
-        struct vrxtx_params params = VRXTX_INIT;
+        struct rxtx_params params = RXTX_INIT;
 
         // common
         params.parent = vidcap_params_get_parent(cap_params);
@@ -201,14 +201,14 @@ static int vidcap_ug_input_init(const struct vidcap_params *cap_params, void **s
         // params["decoder_mode"].l = VIDEO_NORMAL;
         params.display_device = s->display;
 
-        int rc = vrxtx_init("ultragrid_rtp", &params, &s->video_rxtx);
+        int rc = rxtx_init("ultragrid_rtp", &params, &s->rxtx);
         assert(rc == 0);
 
         if (vidcap_params_get_flags(cap_params) & VIDCAP_FLAG_AUDIO_ANY) {
                 struct audio_options opt = AUDIO_OPTIONS_INIT;
                 opt.recv_cfg             = "embedded";
                 opt.display              = s->display;
-                opt.vrxtx                = s->video_rxtx;
+                opt.rxtx                 = s->rxtx;
 
                 if (audio_init(&s->audio, &opt) != 0) {
                         vidcap_ug_input_done(s);
@@ -230,7 +230,7 @@ static void vidcap_ug_input_done(void *state)
         assert(s->magic == MAGIC);
 
         audio_join(s->audio);
-        vrxtx_join(s->video_rxtx);
+        rxtx_join(s->rxtx);
 
         // display_put_frame(s->display, nullptr, 0); // already done by ultragrid_rtp_video_rxtx::receiver_loop
         display_join(s->display);
@@ -244,7 +244,7 @@ static void vidcap_ug_input_done(void *state)
         }
 
         audio_done(s->audio);
-        vrxtx_destroy(s->video_rxtx);
+        rxtx_destroy(s->rxtx);
 
         CHK_PTHR(pthread_mutex_destroy(&s->lock));
         simple_linked_list_destroy(s->frame_queue);

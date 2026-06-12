@@ -1,5 +1,5 @@
 /**
- * @file   video_rxtx/sage.cpp
+ * @file   rxtx/sage.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -42,16 +42,16 @@
 #include <utility>          // for move
 
 #include "lib_common.h"
+#include "rxtx.h"
 #include "types.h"
 #include "video_display.h"
 #include "video_frame.h"    // for video_desc_from_frame, video_desc_eq
-#include "video_rxtx.h"
 
 using namespace std;
 
 class sage_video_rxtx {
 public:
-        sage_video_rxtx(const struct vrxtx_params *params);
+        sage_video_rxtx(const struct rxtx_params *params);
         ~sage_video_rxtx();
         void send_frame(std::shared_ptr<video_frame>) noexcept;
 
@@ -60,7 +60,7 @@ private:
         struct display       *m_sage_tx_device;
 };
 
-sage_video_rxtx::sage_video_rxtx(const struct vrxtx_params *params)
+sage_video_rxtx::sage_video_rxtx(const struct rxtx_params *params)
 {
         ostringstream oss;
 
@@ -107,7 +107,7 @@ sage_video_rxtx::~sage_video_rxtx()
 }
 
 static void *
-create_video_rxtx_sage(const struct vrxtx_params *params)
+create_video_rxtx_sage(const struct rxtx_params *params)
 {
         return new sage_video_rxtx(params);
 }
@@ -124,7 +124,7 @@ send_frame(void *state, std::shared_ptr<video_frame> f)
         s->send_frame(std::move(f));
 }
 
-static const struct video_rxtx_info sage_video_rxtx_info = {
+static const struct rxtx_info sage_video_rxtx_info = {
         .long_name    = "SAGE",
         .create       = create_video_rxtx_sage,
         .done         = done,
@@ -139,5 +139,5 @@ static const struct video_rxtx_info sage_video_rxtx_info = {
         .join_video_sender  = nullptr,
 };
 
-REGISTER_MODULE(sage, &sage_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);
+REGISTER_MODULE(sage, &sage_video_rxtx_info, LIBRARY_CLASS_RXTX, RXTX_ABI_VERSION);
 

@@ -1,5 +1,5 @@
 /**
- * @file   video_rxtx/omt.cpp
+ * @file   rxtx/omt.cpp
  * @author Martin Piatka     <piatka@cesnet.cz>
  */
 /*
@@ -42,7 +42,7 @@
 #include "omt_common.hpp"
 #include "debug.h"
 #include "lib_common.h"
-#include "video_rxtx.h"
+#include "rxtx.h"
 #include "video_codec.h"
 #include "video_display.h"
 #include "video_frame.h"
@@ -110,7 +110,7 @@ bool parse_params(omt_rxtx_state *s, std::string_view cfg){
         return true;
 }
 
-void init_recv(const vrxtx_params *params, omt_rxtx_state *s){
+void init_recv(const rxtx_params *params, omt_rxtx_state *s){
         s->display_device = params->display_device;
         log_msg(LOG_LEVEL_INFO, MOD_NAME "Create omt receive with address %s\n", params->receiver);
         s->omt_recv_handle.reset(omt_receive_create(params->receiver, static_cast<OMTFrameType>(OMTFrameType_Audio | OMTFrameType_Video),
@@ -124,7 +124,7 @@ void init_send(omt_rxtx_state *s){
         s->send_video_frame.Timestamp = -1;
 }
 
-void *omt_rxtx_create(const vrxtx_params *params){
+void *omt_rxtx_create(const rxtx_params *params){
         const struct rxtx_medium_params *params_video =
             &params->medium[TX_MEDIA_VIDEO];
         auto s    = std::make_unique<omt_rxtx_state>();
@@ -202,7 +202,7 @@ void *omt_rxtx_recv_worker(void *state){
 }
 }
 
-constexpr video_rxtx_info omt_video_rxtx_info = {
+constexpr rxtx_info omt_video_rxtx_info = {
         .long_name          = "Open media transport",
         .create             = omt_rxtx_create,
         .done               = omt_rxtx_done,
@@ -215,4 +215,4 @@ constexpr video_rxtx_info omt_video_rxtx_info = {
         .join_video_sender  = nullptr,
 };
 
-REGISTER_MODULE(omt, &omt_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);
+REGISTER_MODULE(omt, &omt_video_rxtx_info, LIBRARY_CLASS_RXTX, RXTX_ABI_VERSION);

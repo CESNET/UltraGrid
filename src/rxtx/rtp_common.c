@@ -1,5 +1,5 @@
 /**
- * @file   video_rxtx/rtp_common.c
+ * @file   rxtx/rtp_common.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -35,7 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "video_rxtx/rtp_common.h"
+#include "rxtx/rtp_common.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -55,15 +55,15 @@
 #include "rtp/pbuf.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
+#include "rxtx.h"
 #include "transmit.h"
 #include "tv.h"                  // for time_ns_t, get_time_in_ns, NS_IN_SEC
 #include "types.h"
 #include "utils/pthread.h" // for CHK_PTHR
 #include "utils/string.h"      // for strprintf
-#include "video_rxtx.h"
 
-#define MAGIC to_fourcc('V', 'X', 'r', ' ')
-#define MOD_NAME "[video_rxtx/rtp] "
+#define MAGIC to_fourcc('R', 'T', 'r', 't')
+#define MOD_NAME "[rxtx/rtp] "
 
 #if !defined _WIN32
 #define VIDEO_MT true
@@ -274,7 +274,7 @@ rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *pub,
 
 static bool
 init_medium_state(struct rtp_rxtx_common_priv_state *s,
-                  const struct vrxtx_params *params, enum tx_media_type t)
+                  const struct rxtx_params *params, enum tx_media_type t)
 {
         const struct rxtx_medium_params *params_medium = &params->medium[t];
         struct rtp_medium_priv          *medium_priv   = &s->medium[t];
@@ -285,8 +285,9 @@ init_medium_state(struct rtp_rxtx_common_priv_state *s,
                 enum module_class mod_cls;
 
         } medium_defaults[NUM_TX_MEDIA] = {
-                { &audio_offset, 0,                     MODULE_CLASS_AUDIO },
-                { &video_offset, params->bitrate_limit, MODULE_CLASS_VIDEO },
+                { &audio_offset, 0,                           MODULE_CLASS_AUDIO },
+                { &video_offset, params->video_bitrate_limit,
+                 MODULE_CLASS_VIDEO                                              },
         };
         const char       *medium_str    = get_tx_name(t);
         volatile int     *medium_offset = medium_defaults[t].medium_offset;
@@ -331,7 +332,7 @@ init_medium_state(struct rtp_rxtx_common_priv_state *s,
         return true;
 }
 
-struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params)
+struct rtp_rxtx_common *rtp_rxtx_common_init(const struct rxtx_params *params)
 {
         struct rtp_rxtx_common_priv_state *s = calloc(
             1, sizeof(struct rtp_rxtx_common_priv_state));

@@ -134,6 +134,9 @@ COMMON_OBJS     = \
 		src/lib_common.o \
 		src/module.o \
 		src/pixfmt_conv.o \
+		src/rxtx.o \
+		src/rxtx/rtp_common.o \
+		src/rxtx/ultragrid_rtp.o \
 		src/to_planar.o \
 		src/ug_runtime_error.o \
 		src/utils/audio_buffer.o \
@@ -178,9 +181,6 @@ COMMON_OBJS     = \
 		src/video_display.o \
 		src/video_display/null.o \
 		src/video_export.o \
-		src/video_rxtx.o \
-		src/video_rxtx/rtp_common.o \
-		src/video_rxtx/ultragrid_rtp.o \
 		src/vo_postprocess.o \
 
 ULTRAGRID_LIBS = @ULTRAGRID_LIBS@

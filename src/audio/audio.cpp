@@ -70,28 +70,26 @@
 #include "audio/postprocess.h"
 #include "audio/resampler.hpp"
 #include "audio/utils.h"
-#include "config.h"                     // for HAVE_SPEEXDSP
+#include "config.h" // for HAVE_SPEEXDSP
 #include "debug.h"
 #include "host.h"
-#include "messaging.h"                  // for check_message...
+#include "messaging.h" // for check_message...
 #include "module.h"
-#include "rtp/audio_decoders.h"
 #include "rtp/rtp.h"
-#include "rtp/rtp_callback.h"
+#include "rxtx.h" // for rxtx
+#include "rxtx/rtp_common.h"
 #include "transmit.h"
 #include "tv.h"
 #include "types.h"
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
-#include "video_display.h"              // for DISPLAY_FLAG_AUDIO_*
-#include "utils/macros.h"               // for STR_LEN, snprintf_ch
-#include "utils/misc.h"                 // for get_stat_color
-#include "utils/pthread.h"              // for PTHREAD_NULL
+#include "utils/macros.h"  // for STR_LEN, snprintf_ch
+#include "utils/misc.h"    // for get_stat_color
+#include "utils/pthread.h" // for PTHREAD_NULL
 #include "utils/string_view_utils.hpp"
 #include "utils/thread.h"
 #include "utils/worker.h"
-#include "video_rxtx.h"                 // for video_rxtx
-#include "video_rxtx/rtp_common.h"
+#include "video_display.h" // for DISPLAY_FLAG_AUDIO_*
 
 using std::ostringstream;
 using std::string;
@@ -146,7 +144,7 @@ struct state_audio {
 
         int recv_buf_size = DEFAULT_AUDIO_RECV_BUF_SIZE;
 
-        struct video_rxtx *rxtx = nullptr;
+        struct rxtx *rxtx = nullptr;
         struct state_audio_postprocess *pp = nullptr;
 };
 
@@ -175,7 +173,7 @@ audio_init_real(struct state_audio *s, const struct audio_options *opt)
         assert(opt->send_cfg != NULL);
         assert(opt->recv_cfg != NULL);
 
-        s->rxtx = opt->vrxtx;
+        s->rxtx = opt->rxtx;
         s->resample_to = parse_audio_codec_params(opt->codec_cfg).sample_rate;
 
         s->exporter = opt->exporter;
@@ -457,7 +455,7 @@ change_volume(bool mute, double scale, audio_frame *buffer)
 }
 
 static void
-flush_rtp_samples(struct video_rxtx *rxtx)
+flush_rtp_samples(struct rxtx *rxtx)
 {
         struct rtp_rxtx_common *rtp_common_state = nullptr;
         size_t                  len =

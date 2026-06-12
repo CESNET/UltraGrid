@@ -1,5 +1,5 @@
 /**
- * @file   video_rxtx/rtsp.c
+ * @file   rxtx/rtsp.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  * @author David Cassany    <david.cassany@i2cat.net>
  * @author Ignacio Contreras <ignacio.contreras@i2cat.net>
@@ -58,6 +58,8 @@
 #include "rtp/rtp.h"
 #include "rtsp/BasicRTSPOnlyServer.hh"
 #include "rtsp/rtsp_utils.h"  // for rtsp_types_t
+#include "rxtx.h"
+#include "rxtx/rtp_common.h"
 #include "transmit.h"
 #include "tv.h"
 #include "types.h"            // for video_frame, H264, JPEG
@@ -65,8 +67,6 @@
 #include "utils/macros.h"     // for to_fourcc
 #include "utils/sdp.h"        // for sdp_print_supported_codecs
 #include "video_codec.h"      // for get_codec_name
-#include "video_rxtx.h"
-#include "video_rxtx/rtp_common.h"
 
 struct audio_frame2;
 struct rtp;
@@ -74,7 +74,7 @@ struct tx;
 
 #define DEFAULT_RTSP_COMPRESSION "lavc:enc=libx264:safe"
 #define MOD_NAME "[vrxtx/h264_rtp] "
-#define MAGIC to_fourcc('V', 'X', 'h', 'r')
+#define MAGIC to_fourcc('R', 'T', 'r', 's')
 
 struct h264_rtp_video_rxtx {
         uint32_t magic;
@@ -96,7 +96,7 @@ static void rtps_server_usage();
 static int  get_rtsp_server_port(const char *config);
 
 static void *
-create_video_rxtx_h264_std(const struct vrxtx_params *params)
+create_video_rxtx_h264_std(const struct rxtx_params *params)
 {
         int rtsp_port = 0;
         const char *rtsp_port_str = params->protocol_opts;
@@ -331,7 +331,7 @@ h264_rtp_recv_audio_frame(void *state)
         return rtp_recv_audio_frame(s->rtp_common, decode_audio_frame_mulaw);
 }
 
-static const struct video_rxtx_info h264_video_rxtx_info = {
+static const struct rxtx_info h264_video_rxtx_info = {
         .long_name          = "RTP standard (using RTSP)",
         .create             = create_video_rxtx_h264_std,
         .done               = done,
@@ -346,5 +346,5 @@ static const struct video_rxtx_info h264_video_rxtx_info = {
         .join_video_sender  = join,
 };
 
-REGISTER_MODULE(rtsp, &h264_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);
+REGISTER_MODULE(rtsp, &h264_video_rxtx_info, LIBRARY_CLASS_RXTX, RXTX_ABI_VERSION);
 

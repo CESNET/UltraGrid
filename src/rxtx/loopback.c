@@ -46,6 +46,7 @@
 #include "debug.h"         // for LOG_LEVEL_ERROR, LOG_LEVEL_WARNING, MSG
 #include "host.h"          // for register_should_exit_callback, unregister...
 #include "lib_common.h"    // for REGISTER_MODULE, library_class
+#include "rxtx.h"          // for rxtx_medium_params, rxtx_params, rx_audio...
 #include "utils/list.h"    // for simple_linked_list_size, simple_linked_li...
 #include "utils/pthread.h" // for CHK_PTHR, ug_pthread_cond_init, ug_pthrea...
 #include "utils/thread.h"  // for set_thread_name
@@ -57,7 +58,6 @@
 static const int BUFF_MAX_LEN = 2;
 
 #include "types.h"
-#include "video_rxtx.h"
 
 struct loopback_rxtx {
         struct module             *parent;
@@ -84,7 +84,7 @@ struct loopback_rxtx {
 static void should_exit_audio(void *arg);
 
 static void*
-init(const struct vrxtx_params *params)
+init(const struct rxtx_params *params)
 {
         struct loopback_rxtx *s = calloc(1, sizeof *s);
         s->parent               = params->parent;
@@ -322,7 +322,7 @@ done(void *state)
         free(s);
 }
 
-static const struct video_rxtx_info loopback_video_rxtx_info = {
+static const struct rxtx_info loopback_video_rxtx_info = {
         .long_name    = "loopback dummy transport",
         .create       = init,
         .done         = done,
@@ -337,5 +337,5 @@ static const struct video_rxtx_info loopback_video_rxtx_info = {
         .join_video_sender  = nullptr,
 };
 
-REGISTER_MODULE(loopback, &loopback_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);
+REGISTER_MODULE(loopback, &loopback_video_rxtx_info, LIBRARY_CLASS_RXTX, RXTX_ABI_VERSION);
 

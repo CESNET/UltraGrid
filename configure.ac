@@ -1714,8 +1714,8 @@ if test $rtsp_server_req != no; then
                 RTSP_SERVER_LIBS="-lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock"
                 RTSP_SERVER_OBJ="\
  src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o\
- src/utils/sdp.o src/video_rxtx/rtsp.o"
-                add_module video_rxtx_rtsp "$RTSP_SERVER_OBJ" "$RTSP_SERVER_LIBS"
+ src/utils/sdp.o src/rxtx/rtsp.o"
+                add_module rxtx_rtsp "$RTSP_SERVER_OBJ" "$RTSP_SERVER_LIBS"
                 rtsp_server=yes
                 livemedia=yes
         fi
@@ -2708,7 +2708,7 @@ if test $sage_req != no; then
         then
             SAGE_INC=-I${SAGE_INC}
             SAGE_LIB=-"L${SAGE_LIB} -lsail -lquanta"
-            SAGE_OBJ="src/video_display/sage.o src/video_rxtx/sage.o"
+            SAGE_OBJ="src/video_display/sage.o src/rxtx/sage.o"
             CXXFLAGS="$CXXFLAGS -DQUANTA_USE_PTHREADS -DQUANTA_THREAD_SAFE -DGLSL_YUV"
             add_module display_sage "$SAGE_OBJ" "$SAGE_LIB"
             INC="$INC $SAGE_INC"
@@ -2891,7 +2891,7 @@ fi
 
 if test "${jack_trans_req?}" != no && test "${FOUND_JACK_H?}" = yes
 then
-        OBJS="$OBJS src/audio/jack.o src/video_rxtx/jack_audio.o"
+        OBJS="$OBJS src/audio/jack.o src/rxtx/jack_audio.o"
         LIBS="$LIBS${JACK_LIBS:+ $JACK_LIBS}"
         AC_DEFINE([HAVE_JACK_TRANS], [1], [Build with JACK transport support])
         jack_trans=yes
@@ -3166,7 +3166,7 @@ ihdtv=no
 
 if test $ihdtv_req = yes
 then
-        OBJS="$OBJS src/ihdtv/ihdtv.o src/video_rxtx/ihdtv.o "
+        OBJS="$OBJS src/ihdtv/ihdtv.o src/rxtx/ihdtv.o "
         ihdtv=yes
 fi
 
@@ -3573,7 +3573,7 @@ fi
 if test "${omt_req?}" != no && test "${FOUND_LIBOMT_H?}" && test "${FOUND_LIBOMT_LIB?}" = yes
 then
         omt=yes
-        add_module rxtx_omt "src/omt_common.o src/video_rxtx/omt.o src/video_display/omt.o src/video_capture/omt.o" "-lomt"
+        add_module rxtx_omt "src/omt_common.o src/rxtx/omt.o src/video_display/omt.o src/video_capture/omt.o" "-lomt"
         if libvmx=$(command -v libvmx.dll); then
                 DLL_LIBS="${DLL_LIBS:+$DLL_LIBS }${libvmx?}"
         fi
@@ -3703,13 +3703,13 @@ set_dep src/capture_filter/preview.o "tools/ipc_frame.o
 set_dep src/audio/capture/aes67.o src/utils/sdp_parser.o
 set_dep src/audio/capture/testcard.o src/audio/wav_reader.o
 set_dep src/audio/capture/wav.o src/audio/wav_reader.o
+set_dep src/rxtx/h264_sdp.o src/utils/sdp.o
 set_dep src/video_capture/import.o src/audio/wav_reader.o
 set_dep src/video_capture/testcard.o "src/utils/video_pattern_generator.o
                                       src/video_capture/testcard_common.o"
 set_dep src/video_display/unix_sock.o "tools/ipc_frame.o
                                        tools/ipc_frame_ug.o
                                        tools/ipc_frame_unix.o"
-set_dep src/video_rxtx/h264_sdp.o src/utils/sdp.o
 
 if test "$build_default" != no || test "$req_files" = all; then
         CAPTURE_FILTERS="
@@ -3747,6 +3747,8 @@ if test "$build_default" != no || test "$req_files" = all; then
         src/audio/filter/playback.o
         src/audio/filter/channel_remap.o
         src/capture_filter/preview.o
+        src/rxtx/h264_sdp.o
+        src/rxtx/loopback.o
         src/video_capture/aggregate.o
         src/video_capture/import.o
         src/video_capture/switcher.o
@@ -3759,8 +3761,6 @@ if test "$build_default" != no || test "$req_files" = all; then
         src/video_display/multiplier.o
         src/video_display/pipe.o
         src/video_display/unix_sock.o
-        src/video_rxtx/h264_sdp.o
-        src/video_rxtx/loopback.o
         src/vo_postprocess/add_frame.o
         src/vo_postprocess/3d-interlaced.o
         src/vo_postprocess/border.o

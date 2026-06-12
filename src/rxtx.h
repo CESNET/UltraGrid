@@ -1,5 +1,5 @@
 /**
- * @file   video_rxtx.h
+ * @file   rxtx.h
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -35,8 +35,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef VIDEO_RXTX_H_
-#define VIDEO_RXTX_H_
+#ifndef RXTX_H_759DF963_5411_4C73_82A2_769ED25EBEEF
+#define RXTX_H_759DF963_5411_4C73_82A2_769ED25EBEEF
 
 #ifdef __cplusplus
 #include <cstddef>    // for size_t
@@ -49,7 +49,9 @@
 #include "host.h"
 #include "types.h"    // for codec_t, video_desc, video_frame (ptr only)
 
-#define VIDEO_RXTX_ABI_VERSION 4
+enum {
+        RXTX_ABI_VERSION = 5,
+};
 
 struct audio_desc;
 struct audio_frame2;
@@ -61,7 +63,7 @@ struct rxtx_medium_params  {
         const char     *fec;
 };
 
-struct vrxtx_params {
+struct rxtx_params {
         struct rxtx_medium_params medium[NUM_TX_MEDIA];
 
         struct module  *parent;
@@ -74,46 +76,47 @@ struct vrxtx_params {
         int             force_ip_version;
         time_ns_t       start_time;
 
-        const char     *compression; ///< nullptr selects proto dfl
-        struct display *display_device; ///< only iHDTV, UG RTP
-        struct vidcap  *capture_device; ///< iHDTV only
-        long long       bitrate_limit; ///< rate limiter in bps or RATE_ constantts
+        const char     *video_compression; ///< nullptr selects proto dfl
+        struct display *display_device;    ///< only iHDTV, UG RTP
+        struct vidcap  *capture_device;    ///< iHDTV only
+        /// video rate limiter in bps or RATE_ constantts
+        long long       video_bitrate_limit;
         enum video_mode decoder_mode;
         char            protocol_opts[STR_LEN];
-        struct module  *sender_mod;   ///< set by video_rxtx::create
-        struct module  *receiver_mod; ///< set by video_rxtx::create
+        struct module  *sender_mod;   ///< set by rxtx::create
+        struct module  *receiver_mod; ///< @copydoc sender_mod
 };
 
-#define VRXTX_INIT \
-        { \
-                .medium         = { { \
-                                        .rxtx_mode = RXTX_MODE_NONE, \
-                                        .rx_port   = -1, \
-                                        .tx_port   = -1, \
-                                        .fec       = "none", \
-                                    }, { \
-                                        .rxtx_mode = RXTX_MODE_NONE, \
-                                        .rx_port   = -1, \
-                                        .tx_port   = -1, \
-                                        .fec       = "none", \
-                                    } }, \
-                .parent           = nullptr, \
-                .video_exporter   = nullptr, \
-                .receiver         = nullptr, \
-                .encryption       = "", \
-                .mcast_if         = "", \
-                .mtu              = 1500, \
-                .ttl              = -1, \
-                .force_ip_version = 0, \
-                .start_time       = get_time_in_ns(), \
-                .compression    = nullptr, \
-                .display_device = nullptr, \
-                .capture_device = nullptr, \
-                .bitrate_limit  = RATE_UNLIMITED, \
-                .decoder_mode   = VIDEO_NORMAL, \
-                .protocol_opts  = "", \
-                .sender_mod     = nullptr, \
-                .receiver_mod   = nullptr, \
+#define RXTX_INIT                                                              \
+        {                                                                      \
+                .medium              = { {                                     \
+                                             .rxtx_mode = RXTX_MODE_NONE,      \
+                                             .rx_port   = -1,                  \
+                                             .tx_port   = -1,                  \
+                                             .fec       = "none",              \
+                                         }, {                                     \
+                                             .rxtx_mode = RXTX_MODE_NONE,      \
+                                             .rx_port   = -1,                  \
+                                             .tx_port   = -1,                  \
+                                             .fec       = "none",              \
+                                         } },                                  \
+                .parent              = nullptr,                                \
+                .video_exporter      = nullptr,                                \
+                .receiver            = nullptr,                                \
+                .encryption          = "",                                     \
+                .mcast_if            = "",                                     \
+                .mtu                 = 1500,                                   \
+                .ttl                 = -1,                                     \
+                .force_ip_version    = 0,                                      \
+                .start_time          = get_time_in_ns(),                       \
+                .video_compression   = nullptr,                                \
+                .display_device      = nullptr,                                \
+                .capture_device      = nullptr,                                \
+                .video_bitrate_limit = RATE_UNLIMITED,                         \
+                .decoder_mode        = VIDEO_NORMAL,                           \
+                .protocol_opts       = "",                                     \
+                .sender_mod          = nullptr,                                \
+                .receiver_mod        = nullptr,                                \
 }
 
 #define SENDS_MEDIUM(params, medium_type)                                      \
@@ -134,7 +137,7 @@ enum rxtx_property {
  * @retval INIT_NOERR  if help requested
  * @return the actual state
  */
-typedef void *rxtx_create_fn(const struct vrxtx_params *params);
+typedef void *rxtx_create_fn(const struct rxtx_params *params);
 typedef void  rxtx_done_fn(void *state);
 typedef bool  rxtx_ctl_property_fn(void *state, enum rxtx_property p, void *val,
                                    size_t *len);
@@ -168,7 +171,7 @@ typedef void  rxtx_send_video_frame_fn(void *state, struct video_frame *f);
 typedef void *rxtx_vrecv_routine_fn(void *state);
 typedef void  rxtx_join_video_sender_fn(void *state);
 
-struct video_rxtx_info {
+struct rxtx_info {
         const char     *long_name;
         rxtx_create_fn *create;
         rxtx_done_fn   *done;
@@ -189,22 +192,21 @@ extern "C" {
 #endif
 
 struct audio_frame2;
-struct video_rxtx;
+struct rxtx;
 
-int  vrxtx_init(const char *proto_name, const struct vrxtx_params *params,
-                struct video_rxtx **state);
-void vrxtx_destroy(struct video_rxtx *state);
-void vrxtx_list_protocols(bool full);
-const char *vrxtx_get_proto_long_name(const char *short_name);
-void        vrxtx_join(struct video_rxtx *state);
-bool        rxtx_ctl_property(struct video_rxtx *state, enum rxtx_property p,
-                              void *val, size_t *len);
-void        rxtx_send_audio(struct video_rxtx         *state,
-                            const struct audio_frame2 *frame);
-struct rx_audio_frames *rxtx_recv_audio_frame(struct video_rxtx *s);
-void rxtx_free_audio_frames(struct rx_audio_frames *frames);
-enum rxtx_mode rxtx_get_mode(struct video_rxtx *s, enum tx_media_type t);
-void rxtx_send_video(struct video_rxtx *state, struct video_frame *tx_frame);
+int         rxtx_init(const char *proto_name, const struct rxtx_params *params,
+                      struct rxtx **state);
+void        rxtx_destroy(struct rxtx *state);
+void        rxtx_list_protocols(bool full);
+const char *rxtx_get_proto_long_name(const char *short_name);
+void        rxtx_join(struct rxtx *state);
+bool rxtx_ctl_property(struct rxtx *state, enum rxtx_property p, void *val,
+                       size_t *len);
+void rxtx_send_audio(struct rxtx *state, const struct audio_frame2 *frame);
+struct rx_audio_frames *rxtx_recv_audio_frame(struct rxtx *s);
+void                    rxtx_free_audio_frames(struct rx_audio_frames *frames);
+enum rxtx_mode          rxtx_get_mode(struct rxtx *s, enum tx_media_type t);
+void rxtx_send_video(struct rxtx *state, struct video_frame *tx_frame);
 
 // utils
 const char *get_tx_name(enum tx_media_type);
@@ -223,8 +225,8 @@ const char  *rxtx_get_vcompression(const char *net_protocol,
 #endif
 
 #ifdef __cplusplus
-void vrxtx_send(struct video_rxtx *state, std::shared_ptr<struct video_frame>);
+void vrxtx_send(struct rxtx *state, std::shared_ptr<struct video_frame>);
 #endif
 
-#endif // VIDEO_RXTX_H_
+#endif // !defined RXTX_H_759DF963_5411_4C73_82A2_769ED25EBEEF
 

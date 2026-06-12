@@ -1,5 +1,5 @@
 /**
- * @file   video_rxtx.cpp
+ * @file   rxtx.cpp
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -35,6 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "rxtx.h"
 
 #include "types.h"
 #include <atomic>
@@ -61,42 +62,41 @@
 #include "video_codec.h"     // for get_codec_name
 #include "video_compress.h"
 #include "video_frame.h"     // for video_desc_from_frame
-#include "video_rxtx.h"
 
 constexpr char DEFAULT_AUDIO_CODEC[]       = "PCM";
 constexpr char DEFAULT_VIDEO_COMPRESSION[] = "none";
 
-#define MOD_NAME "[vrxtx] "
+#define MOD_NAME "[rxtx] "
 #define MAGIC to_fourcc('R', 'X', 'T', 'X')
 
 using std::shared_ptr;
 using std::ostringstream;
 using std::string;
 
-struct video_rxtx {
+struct rxtx {
 public:
         const uint32_t magic = MAGIC;
-        virtual ~video_rxtx() noexcept;
+        virtual ~rxtx() noexcept;
         void               send_vframe(std::shared_ptr<struct video_frame>) noexcept;
         static const char *get_long_name(std::string const &short_name) noexcept;
         /**
          * If overridden, children must call also video_rxtx::join()
          */
         virtual void       join() noexcept;
-        static video_rxtx *create(std::string const         &name,
-                                  const struct vrxtx_params *params) noexcept(false);
+        static rxtx *create(std::string const         &name,
+                                  const struct rxtx_params *params) noexcept(false);
         static void        list(bool full) noexcept;
         void set_audio_spec(const struct audio_desc *desc, int audio_rx_port,
                             int audio_tx_port, bool ipv6) noexcept;
 
-        const struct video_rxtx_info *m_impl_funcs = nullptr;
+        const struct rxtx_info *m_impl_funcs = nullptr;
         void                         *m_impl_state = nullptr;
 
         enum rxtx_mode rxtx_mode[NUM_TX_MEDIA];
 
 protected:
-        video_rxtx(const char *protocol_name,
-                   const struct vrxtx_params *params) noexcept(false);
+        rxtx(const char *protocol_name,
+                   const struct rxtx_params *params) noexcept(false);
         void check_sender_messages();
 
         struct module m_sender_mod;
@@ -158,8 +158,8 @@ rxtx_get_vcompression(const char *net_protocol, const char *req_compression)
         return DEFAULT_VIDEO_COMPRESSION;
 }
 
-video_rxtx::video_rxtx(const char                *protocol_name,
-                       const struct vrxtx_params *params) noexcept(false)
+rxtx::rxtx(const char                *protocol_name,
+                       const struct rxtx_params *params) noexcept(false)
     : m_video_exporter(params->video_exporter)
 {
         module_init_default(&m_sender_mod);
@@ -167,7 +167,7 @@ video_rxtx::video_rxtx(const char                *protocol_name,
         module_register(&m_sender_mod, params->parent);
 
         const char *compression =
-            rxtx_get_vcompression(protocol_name, params->compression);
+            rxtx_get_vcompression(protocol_name, params->video_compression);
         int ret = compress_init(&m_sender_mod, compression, &m_video_compression);
         if(ret != 0) {
                 module_done(&m_sender_mod);
@@ -184,7 +184,7 @@ video_rxtx::video_rxtx(const char                *protocol_name,
         module_register(&m_receiver_mod, params->parent);
 }
 
-video_rxtx::~video_rxtx() noexcept
+rxtx::~rxtx() noexcept
 {
         join();
         // video sender has not been created (error during init) but compression
@@ -202,7 +202,7 @@ video_rxtx::~video_rxtx() noexcept
 }
 
 void
-video_rxtx::join() noexcept
+rxtx::join() noexcept
 {
         if (!pthread_equal(m_video_receiver_thread_id, PTHREAD_NULL)) {
                 CHK_PTHR(pthread_join(m_video_receiver_thread_id, nullptr));
@@ -221,11 +221,11 @@ video_rxtx::join() noexcept
 }
 
 const char *
-video_rxtx::get_long_name(string const &short_name) noexcept
+rxtx::get_long_name(string const &short_name) noexcept
 {
-        const auto *vri = static_cast<const video_rxtx_info *>(
-            load_library(short_name.c_str(), LIBRARY_CLASS_VIDEO_RXTX,
-                         VIDEO_RXTX_ABI_VERSION));
+        const auto *vri = static_cast<const rxtx_info *>(
+            load_library(short_name.c_str(), LIBRARY_CLASS_RXTX,
+                         RXTX_ABI_VERSION));
 
         if (vri != nullptr) {
                 return vri->long_name;
@@ -234,7 +234,7 @@ video_rxtx::get_long_name(string const &short_name) noexcept
 }
 
 void
-video_rxtx::send_vframe(shared_ptr<video_frame> frame) noexcept
+rxtx::send_vframe(shared_ptr<video_frame> frame) noexcept
 {
         if (!frame && m_video_sender_poisoned) {
                 return;
@@ -247,11 +247,11 @@ video_rxtx::send_vframe(shared_ptr<video_frame> frame) noexcept
         compress_frame(m_video_compression, std::move(frame));
 }
 
-void *video_rxtx::video_sender_thread(void *args) {
-        return static_cast<video_rxtx *>(args)->video_sender_loop();
+void *rxtx::video_sender_thread(void *args) {
+        return static_cast<rxtx *>(args)->video_sender_loop();
 }
 
-void video_rxtx::check_sender_messages() {
+void rxtx::check_sender_messages() {
         // process external messages
         struct message *msg_external = nullptr;
         while((msg_external = check_message(&m_sender_mod))) {
@@ -310,7 +310,7 @@ shared_vf_to_plain(shared_ptr<video_frame> &&frame)
         return f;
 }
 
-void *video_rxtx::video_sender_loop() {
+void *rxtx::video_sender_loop() {
         set_thread_name(__func__);
 
         while (true) {
@@ -341,28 +341,28 @@ void *video_rxtx::video_sender_loop() {
 }
 
 /**
- * @returns the vrxtx state (not nullptr)
+ * @returns the rxtx state (not nullptr)
  * @throws 1 help shown
  * @throws -1 on error
  */
-video_rxtx *
-video_rxtx::create(string const              &proto,
-                   const struct vrxtx_params *params) noexcept(false)
+rxtx *
+rxtx::create(string const              &proto,
+                   const struct rxtx_params *params) noexcept(false)
 {
         const struct rxtx_medium_params *params_audio =
             &params->medium[TX_MEDIA_AUDIO];
         const struct rxtx_medium_params *params_video =
             &params->medium[TX_MEDIA_VIDEO];
 
-        const auto *vri = static_cast<const video_rxtx_info *>(load_library(
-            proto.c_str(), LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION));
+        const auto *vri = static_cast<const rxtx_info *>(load_library(
+            proto.c_str(), LIBRARY_CLASS_RXTX, RXTX_ABI_VERSION));
         if (vri == nullptr) {
                 if (proto != "help") {
                         error_msg("Requested RX/TX %s cannot be created "
                                   "(missing library?)\n", proto.c_str());
                         return nullptr;
                 }
-                return (video_rxtx *) INIT_NOERR;
+                return (rxtx *) INIT_NOERR;
         }
 
         // check if RX/TX protocol supports needed A/V send/recv
@@ -390,7 +390,7 @@ video_rxtx::create(string const              &proto,
                 return nullptr;
         }
 
-        video_rxtx *ret = new video_rxtx(proto.c_str(), params);
+        rxtx *ret = new rxtx(proto.c_str(), params);
 
         auto params_c = *params;
         params_c.sender_mod  = &ret->m_sender_mod;
@@ -399,7 +399,7 @@ video_rxtx::create(string const              &proto,
         if (ret->m_impl_state == nullptr || ret->m_impl_state == INIT_NOERR) {
                 void *retval = ret->m_impl_state;
                 delete ret;
-                return (video_rxtx *) retval;
+                return (rxtx *) retval;
         }
         ret->m_impl_funcs = vri;
 
@@ -417,7 +417,7 @@ video_rxtx::create(string const              &proto,
         if (params_video->rxtx_mode & MODE_SENDER) {
                 int rc =
                     pthread_create(&ret->m_video_sender_thread_id, nullptr,
-                                   video_rxtx::video_sender_thread, (void *) ret);
+                                   rxtx::video_sender_thread, (void *) ret);
                 assert(rc == 0);
         }
 
@@ -425,20 +425,20 @@ video_rxtx::create(string const              &proto,
 }
 
 void
-video_rxtx::list(bool full) noexcept
+rxtx::list(bool full) noexcept
 {
         printf("Available TX protocols:\n");
-        list_modules(LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION, full);
+        list_modules(LIBRARY_CLASS_RXTX, RXTX_ABI_VERSION, full);
 }
 
 /**
  * @returns -1 error; 0 OK; 1 help shown (as usual)
  */
 int
-vrxtx_init(const char *proto_name, const struct vrxtx_params *params,
-           struct video_rxtx **state)
+rxtx_init(const char *proto_name, const struct rxtx_params *params,
+           struct rxtx **state)
 {
-        static video_rxtx *ret = video_rxtx::create(proto_name, params);
+        static rxtx *ret = rxtx::create(proto_name, params);
         if (ret == nullptr) {
                 return -1;
         }
@@ -450,32 +450,32 @@ vrxtx_init(const char *proto_name, const struct vrxtx_params *params,
 }
 
 void
-vrxtx_list_protocols(bool full)
+rxtx_list_protocols(bool full)
 {
-        video_rxtx::list(full);
+        rxtx::list(full);
 }
 
 const char *
-vrxtx_get_proto_long_name(const char *short_name)
+rxtx_get_proto_long_name(const char *short_name)
 {
-        return video_rxtx::get_long_name(short_name);
+        return rxtx::get_long_name(short_name);
 }
 
 void
-vrxtx_join(struct video_rxtx *state)
+rxtx_join(struct rxtx *state)
 {
         state->join();
 }
 
 void
-vrxtx_destroy(struct video_rxtx *state)
+rxtx_destroy(struct rxtx *state)
 {
         delete state;
 }
 
 /// @sa vrxtx_send for shared_ptr variant
 void
-rxtx_send_video(struct video_rxtx *state, struct video_frame *tx_frame)
+rxtx_send_video(struct rxtx *state, struct video_frame *tx_frame)
 {
         state->send_vframe(
             shared_ptr<video_frame>(tx_frame, tx_frame->callbacks.dispose));
@@ -483,12 +483,12 @@ rxtx_send_video(struct video_rxtx *state, struct video_frame *tx_frame)
 
 /// @sa rxtx_send_vide for plain pointer variant
 void
-vrxtx_send(struct video_rxtx *state, std::shared_ptr<struct video_frame> f)
+vrxtx_send(struct rxtx *state, std::shared_ptr<struct video_frame> f)
 {
         state->send_vframe(std::move(f));
 }
 
-bool rxtx_ctl_property(struct video_rxtx *state, enum rxtx_property p,
+bool rxtx_ctl_property(struct rxtx *state, enum rxtx_property p,
                               void *val, size_t *len) {
         assert(state->magic == MAGIC);
         if (state->m_impl_funcs->ctl_property == nullptr) {
@@ -499,13 +499,13 @@ bool rxtx_ctl_property(struct video_rxtx *state, enum rxtx_property p,
 }
 
 void
-rxtx_send_audio(struct video_rxtx *s, const struct audio_frame2 *frame)
+rxtx_send_audio(struct rxtx *s, const struct audio_frame2 *frame)
 {
         s->m_impl_funcs->send_audio_frame(s->m_impl_state, frame);
 }
 
 struct rx_audio_frames *
-rxtx_recv_audio_frame(struct video_rxtx *s)
+rxtx_recv_audio_frame(struct rxtx *s)
 {
         return s->m_impl_funcs->recv_audio_frame(s->m_impl_state);
 }
@@ -539,7 +539,7 @@ get_tx_name(enum tx_media_type t)
 }
 
 enum rxtx_mode
-rxtx_get_mode(struct video_rxtx *s, enum tx_media_type t)
+rxtx_get_mode(struct rxtx *s, enum tx_media_type t)
 {
         return s->rxtx_mode[t];
 }

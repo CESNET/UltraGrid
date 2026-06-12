@@ -54,12 +54,12 @@
 #include "debug.h"
 #include "host.h"
 #include "rtp/rtp.h"
+#include "rxtx.h"            // for rxtx
+#include "rxtx/rtp_common.h" // for rtp_rxtx_medium
 #include "tv.h"
 #include "video.h"
 #include "video_display.h"
 #include "video_display/pipe.h"                   // for pipe_frame_recv_del...
-#include "video_rxtx.h"                           // for video_rxtx, vrxtx_pa...
-#include "video_rxtx/rtp_common.h"                // for rtp_rxtx_medium
 
 #include "utils/profile_timer.hpp"
 
@@ -76,7 +76,7 @@ using std::unique_lock;
 
 namespace hd_rum_decompress {
 struct state_transcoder_decompress final {
-        struct video_rxtx *video_rxtx = nullptr;
+        struct rxtx *rxtx = nullptr;
         struct rtp_rxtx_common *rtp_common_state = nullptr;
 
         struct state_recompress *recompress = nullptr;
@@ -205,7 +205,7 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
 
         assert(ret == 0 && MOD_NAME "Unable to initialize auxiliary display");
 
-        struct vrxtx_params params = VRXTX_INIT;
+        struct rxtx_params params = RXTX_INIT;
 
         // common
         params.parent = parent;
@@ -224,11 +224,10 @@ void *hd_rum_decompress_init(struct module *parent, struct hd_rum_output_conf co
         params.decoder_mode = VIDEO_NORMAL;
         params.display_device = s->display;
 
-        ret =
-            vrxtx_init("ultragrid_rtp", &params, &s->video_rxtx);
+        ret = rxtx_init("ultragrid_rtp", &params, &s->rxtx);
         assert(ret == 0 && MOD_NAME "Unable to initialize RXTX");
         size_t len = sizeof s->rtp_common_state; // NOLINT(bugprone-sizeof-expression)
-        bool ctl_rc = rxtx_ctl_property(s->video_rxtx, GET_RTP_COMMON_STATE,
+        bool ctl_rc = rxtx_ctl_property(s->rxtx, GET_RTP_COMMON_STATE,
                                         (void *) &s->rtp_common_state, &len);
         assert(ctl_rc && MOD_NAME "Cannot get RTP state from RXTX!");
 
@@ -257,8 +256,8 @@ void hd_rum_decompress_done(void *state) {
         s->worker_thread.join();
 
         display_put_frame(s->display, nullptr, 0);
-        vrxtx_join(s->video_rxtx);
-        vrxtx_destroy(s->video_rxtx);
+        rxtx_join(s->rxtx);
+        rxtx_destroy(s->rxtx);
 
         display_join(s->display);
         display_done(s->display);

@@ -1,5 +1,5 @@
 /**
- * @file   video_rxtx/h264_sdp.cpp
+ * @file   rxtx/h264_sdp.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  * @author David Cassany    <david.cassany@i2cat.net>
  * @author Ignacio Contreras <ignacio.contreras@i2cat.net>
@@ -55,14 +55,14 @@
 #include "module.h"
 #include "rtp/audio_decoders.h"  // for decode_audio_frame_mulaw
 #include "rtp/rtp.h"
+#include "rxtx.h"
+#include "rxtx/rtp_common.h"
 #include "transmit.h"
 #include "tv.h"
 #include "types.h"               // for video_frame, VIDEO_CODEC_NONE, codec_t
 #include "utils/macros.h"        // for strcpy_ch, to_fourcc
 #include "utils/sdp.h"
 #include "video_codec.h"         // for is_codec_opaque
-#include "video_rxtx.h"
-#include "video_rxtx/rtp_common.h"
 
 struct audio_frame2;
 
@@ -92,7 +92,7 @@ static void change_address_callback(void *udata, const char *address);
 static void done(void *state);
 
 static void *
-create_video_rxtx_h264_sdp(const struct vrxtx_params *params)
+create_video_rxtx_h264_sdp(const struct rxtx_params *params)
 {
         struct h264_sdp_video_rxtx *s = calloc(1, sizeof *s);
 
@@ -322,7 +322,7 @@ h264_sdp_recv_audio_frame(void *state)
         return rtp_recv_audio_frame(s->rtp_common, decode_audio_frame_mulaw);
 }
 
-static const struct video_rxtx_info h264_sdp_video_rxtx_info = {
+static const struct rxtx_info h264_sdp_video_rxtx_info = {
         .long_name    = "RTP standard (SDP version)",
         .create       = create_video_rxtx_h264_sdp,
         .done         = done,
@@ -337,5 +337,5 @@ static const struct video_rxtx_info h264_sdp_video_rxtx_info = {
         .join_video_sender  = nullptr,
 };
 
-REGISTER_MODULE(sdp, &h264_sdp_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);
+REGISTER_MODULE(sdp, &h264_sdp_video_rxtx_info, LIBRARY_CLASS_RXTX, RXTX_ABI_VERSION);
 

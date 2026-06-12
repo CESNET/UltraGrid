@@ -76,13 +76,13 @@
 #include "messaging.h"
 #include "module.h"
 #include "rtp/net_udp.h"
+#include "rxtx.h"
 #include "tv.h"
 #include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/misc.h" // format_in_si_units, unit_evaluate
 #include "utils/net.h"
 #include "utils/pthread.h" // for CHK_PTHR
-#include "video_rxtx.h"
 
 using std::invalid_argument;
 using std::stoi;
@@ -333,7 +333,7 @@ static VOID CALLBACK wsa_deleter(DWORD /* dwErrorCode */,
 
 static int create_output_port(struct hd_rum_translator_state *s,
         const char *addr, int rx_port, int tx_port, int bufsize,
-        struct vrxtx_params *opts,const char *compression, const char *fec,
+        struct rxtx_params *opts,const char *compression, const char *fec,
         int bitrate, bool use_server_sock = false)
 {
         struct replica *rep;
@@ -449,7 +449,7 @@ static void *writer(void *arg)
                 }
                 char *compress = strtok_r(NULL, " ", &save_ptr);
 
-                struct vrxtx_params opts = VRXTX_INIT;
+                struct rxtx_params opts = RXTX_INIT;
                 int idx = create_output_port(s,
                         host, 0, tx_port, s->bufsize, &opts,
                         compress, nullptr, RATE_UNLIMITED, s->server_socket != nullptr);
@@ -609,7 +609,7 @@ struct host_opts {
     const char *compression;
     char *fec;
     long long int bitrate;
-    struct vrxtx_params rxtx_opts = VRXTX_INIT;
+    struct rxtx_params rxtx_opts = RXTX_INIT;
 };
 
 struct cmdline_parameters {

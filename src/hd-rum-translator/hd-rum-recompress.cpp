@@ -57,9 +57,9 @@
 #include "tv.h"
 #include "video_compress.h"
 
+#include "rxtx.h"                  // for rxtx_medium_params, vrxtx_pa...
+#include "rxtx/rtp_common.h"       // for rtp_rxtx_common
 #include "utils/profile_timer.hpp"
-#include "video_rxtx.h"                  // for rxtx_medium_params, vrxtx_pa...
-#include "video_rxtx/rtp_common.h"       // for rtp_rxtx_common
 
 #define MOD_NAME "hd-rum-recompress"
 
@@ -75,12 +75,12 @@ struct recompress_output_port {
         recompress_output_port() = default;
         recompress_output_port(
                 std::string host, unsigned short rx_port,
-                unsigned short tx_port, const struct vrxtx_params *p,
+                unsigned short tx_port, const struct rxtx_params *p,
                 struct module *parent,
                 const char *fec, long long bitrate);
 
-        std::unique_ptr<struct video_rxtx, decltype(&vrxtx_destroy)> video_rxtx{
-                nullptr, vrxtx_destroy
+        std::unique_ptr<struct rxtx, decltype(&rxtx_destroy)> rxtx{
+                nullptr, rxtx_destroy
         };
         struct rtp_rxtx_common *rtp_common_state = nullptr;
         uint32_t ssrc = 0;
@@ -112,7 +112,7 @@ struct state_recompress {
 
 recompress_output_port::recompress_output_port(
                 std::string host, unsigned short rx_port,
-                unsigned short tx_port, const struct vrxtx_params *p,
+                unsigned short tx_port, const struct rxtx_params *p,
                 struct module *parent,
                 const char *fec, long long bitrate) :
         host(std::move(host)),
@@ -120,31 +120,31 @@ recompress_output_port::recompress_output_port(
         frames(0),
         active(true)
 {
-        struct vrxtx_params params = *p;
+        struct rxtx_params params = *p;
 
         //RTP
         params.parent      = parent;
-        params.compression = "none";
+        params.video_compression = "none";
         params.medium[TX_MEDIA_VIDEO].rxtx_mode = MODE_SENDER;
         params.receiver = this->host.c_str();
         params.medium[TX_MEDIA_VIDEO].rx_port = rx_port;
         params.medium[TX_MEDIA_VIDEO].tx_port = tx_port;
         params.medium[TX_MEDIA_VIDEO].fec = fec;
-        params.bitrate_limit = bitrate;
+        params.video_bitrate_limit = bitrate;
 
         // UltraGrid RTP - fllowing already set by VRXTX_INIT
         // params["decoder_mode"].l = VIDEO_NORMAL;
         // params["display_device"].ptr = nullptr;
 
-        struct video_rxtx *rxtx = nullptr;
-        int rc = vrxtx_init("ultragrid_rtp", &params, &rxtx);
+        struct rxtx *rxtx = nullptr;
+        int rc = rxtx_init("ultragrid_rtp", &params, &rxtx);
         if (rc != 0) {
                 throw rc;
         }
-        video_rxtx.reset(rxtx);
+        this->rxtx.reset(rxtx);
 
         size_t len = sizeof rtp_common_state; // NOLINT(bugprone-sizeof-expression)
-        bool ctl_rc = rxtx_ctl_property(video_rxtx.get(), GET_RTP_COMMON_STATE,
+        bool ctl_rc = rxtx_ctl_property(this->rxtx.get(), GET_RTP_COMMON_STATE,
                                         (void *) &rtp_common_state, &len);
         if (!ctl_rc) {
                 MSG(ERROR, "Cannot get RTP common state from RX/TX module!\n");
@@ -176,7 +176,7 @@ static void recompress_port_write(recompress_output_port& port, shared_ptr<video
                 port.frames = 0;
         }
 
-        vrxtx_send(port.video_rxtx.get(), std::move(frame));
+        vrxtx_send(port.rxtx.get(), std::move(frame));
 }
 
 static void recompress_worker(struct recompress_worker_ctx *ctx){
@@ -218,7 +218,7 @@ static int move_port_to_worker(struct state_recompress *s, const char *compress,
 int
 recompress_add_port(struct state_recompress *s, const char *host,
                     const char *compress, unsigned short rx_port,
-                    unsigned short tx_port, const struct vrxtx_params *params,
+                    unsigned short tx_port, const struct rxtx_params *params,
                     struct module *parent, const char *fec, long long bitrate)
 {
         recompress_output_port port;

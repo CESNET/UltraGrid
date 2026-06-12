@@ -49,8 +49,8 @@ extern "C" {
 #endif
 
 struct module;
+struct rxtx_params;
 struct video_frame;
-struct vrxtx_params;
 
 struct state_recompress;
 
@@ -62,7 +62,7 @@ uint32_t recompress_get_port_ssrc(struct state_recompress *s, int idx);
 
 int recompress_add_port(struct state_recompress *s,
 		const char *host, const char *compress, unsigned short rx_port,
-                unsigned short tx_port, const struct vrxtx_params *params, struct module *parent,
+                unsigned short tx_port, const struct rxtx_params *params, struct module *parent,
                 const char *fec, long long bitrate);
 
 void recompress_remove_port(struct state_recompress *s, int index);

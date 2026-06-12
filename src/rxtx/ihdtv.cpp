@@ -61,9 +61,9 @@
 #include "host.h"           // for common_opts, register_should_exit_callback
 #include "ihdtv/ihdtv.h"    // for ihdtv_connection, ihdtv_init_rx_session
 #include "lib_common.h"     // for REGISTER_MODULE, library_class
+#include "rxtx.h"           // for rxtx_params, RXTX_ABI_VERSION...
 #include "types.h"          // for tile, video_frame
 #include "video_display.h"  // for PUTF_BLOCKING, display_get_frame, display...
-#include "video_rxtx.h"     // for vrxtx_params, VIDEO_RXTX_ABI_VERSION, vid...
 
 #define MOD_NAME "[rxtx/ihdtv] "
 
@@ -138,7 +138,7 @@ static void *ihdtv_sender_thread(void *arg)
 #endif
 
 static void *
-create_video_rxtx_ihdtv(const struct vrxtx_params *params)
+create_video_rxtx_ihdtv(const struct rxtx_params *params)
 {
         bug_msg(LOG_LEVEL_WARNING,
                 "Warning: iHDTV support may be currently broken. ");
@@ -210,7 +210,7 @@ send_frame(void *state, std::shared_ptr<video_frame> f)
         s->send_frame(std::move(f));
 }
 
-static const struct video_rxtx_info ihdtv_video_rxtx_info = {
+static const struct rxtx_info ihdtv_video_rxtx_info = {
         .long_name    = "iHDTV",
         .create       = create_video_rxtx_ihdtv,
         .done         = done,
@@ -225,5 +225,5 @@ static const struct video_rxtx_info ihdtv_video_rxtx_info = {
         .join_video_sender  = nullptr,
 };
 
-REGISTER_MODULE(ihdtv, &ihdtv_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);
+REGISTER_MODULE(ihdtv, &ihdtv_video_rxtx_info, LIBRARY_CLASS_RXTX, RXTX_ABI_VERSION);
 

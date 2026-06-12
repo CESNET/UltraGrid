@@ -70,7 +70,7 @@ struct audio_options {
         bool               echo_cancellation;
         const char        *codec_cfg;
         const char        *filter_cfg;
-        struct video_rxtx *vrxtx;
+        struct rxtx *rxtx;
         struct display    *display;
 };
 
@@ -85,7 +85,7 @@ struct audio_options {
                 .echo_cancellation = false, \
                 .codec_cfg         = "PCM", \
                 .filter_cfg        = "", \
-                .vrxtx             = nullptr, \
+                .rxtx              = nullptr, \
                 .display           = nullptr, \
         }
 

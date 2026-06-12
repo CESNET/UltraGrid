@@ -15,8 +15,8 @@
 #include "audio/utils.h"  // for audio_frame2_to_audio_frame
 #include "debug.h"        // for LOG_LEVEL_ERROR, MSG
 #include "lib_common.h"   // for REGISTER_MODULE, library_class
+#include "rxtx.h"         // for rxtx_params, rx_audio_frames, rxtx_medium_...
 #include "types.h"        // for tx_media_type, video_frame (ptr only)
-#include "video_rxtx.h"   // for vrxtx_params, rx_audio_frames, rxtx_medium_...
 
 struct audio_frame2;
 
@@ -24,7 +24,7 @@ struct audio_frame2;
 
 struct jack_audio_rxtx {
         void              *jack_connection;
-        struct video_rxtx *video_rxtx;
+        struct rxtx *video_rxtx;
 };
 
 static void
@@ -36,7 +36,7 @@ jack_trans_done(void *state)
 }
 
 static void *
-jack_trans_init(const struct vrxtx_params *params)
+jack_trans_init(const struct rxtx_params *params)
 {
         struct jack_audio_rxtx *s = calloc(
             1, sizeof(struct jack_audio_rxtx));
@@ -47,9 +47,9 @@ jack_trans_init(const struct vrxtx_params *params)
                 return nullptr;
         }
         if (params->medium[TX_MEDIA_VIDEO].rxtx_mode != 0) {
-                struct vrxtx_params ug_rtp_params = *params;
+                struct rxtx_params ug_rtp_params = *params;
                 int                 rc =
-                    vrxtx_init("ultragrid_rtp", &ug_rtp_params, &s->video_rxtx);
+                    rxtx_init("ultragrid_rtp", &ug_rtp_params, &s->video_rxtx);
                 if (rc != 0) {
                         jack_trans_done(s);
                         return nullptr;
@@ -72,7 +72,7 @@ static void
 jack_video_join(void *arg)
 {
         struct jack_audio_rxtx *s = arg;
-        vrxtx_join(s->video_rxtx);
+        rxtx_join(s->video_rxtx);
 }
 
 static void
@@ -107,7 +107,7 @@ jack_recv_audio_frame(void *state)
         return ret;
 }
 
-static const struct video_rxtx_info jack_audio_rxtx_info = {
+static const struct rxtx_info jack_audio_rxtx_info = {
         .long_name    = "JACK audio transport (UG RTP for video)",
         .create       = jack_trans_init,
         .done         = jack_trans_done,
@@ -122,5 +122,5 @@ static const struct video_rxtx_info jack_audio_rxtx_info = {
         .join_video_sender  = jack_video_join,
 };
 
-REGISTER_MODULE(jack, &jack_audio_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX,
-                VIDEO_RXTX_ABI_VERSION);
+REGISTER_MODULE(jack, &jack_audio_rxtx_info, LIBRARY_CLASS_RXTX,
+                RXTX_ABI_VERSION);

@@ -1,5 +1,5 @@
 /**
- * @file   video_rxtx/rtp_common.h
+ * @file   rxtx/rtp_common.h
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -62,7 +62,7 @@ extern "C" {
 
 #define INITIAL_VIDEO_SEND_BUFFER_SIZE  (1024*1024)
 
-#define RTP_COMMON_MAGIC to_fourcc('V', 'R', 'r', 'c')
+#define RTP_COMMON_MAGIC to_fourcc('R', 'T', 'r', 'c')
 
 struct rtp_rxtx_medium {
         struct rtp     *network_device;
@@ -82,9 +82,9 @@ struct rtp_rxtx_common {
         bool playback_supports_multiple_streams; // set by impl
 };
 
-struct vrxtx_params;
+struct rxtx_params;
 
-struct rtp_rxtx_common *rtp_rxtx_common_init(const struct vrxtx_params *params);
+struct rtp_rxtx_common *rtp_rxtx_common_init(const struct rxtx_params *params);
 void                    rtp_rxtx_common_done(struct rtp_rxtx_common *state);
 
 void rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *pub,

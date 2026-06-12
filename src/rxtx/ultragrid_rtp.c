@@ -1,5 +1,5 @@
 /**
- * @file   video_rxtx/ultragrid_rtp.c
+ * @file   rxtx/ultragrid_rtp.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -35,7 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "video_rxtx/ultragrid_rtp.h"
+#include "rxtx/ultragrid_rtp.h"
 
 #include <assert.h>  // for assert
 #include <pthread.h> // for pthread_mutex_lock, pthread_mutex...
@@ -57,6 +57,8 @@
 #include "rtp/pbuf.h"
 #include "rtp/rtp.h"
 #include "rtp/video_decoders.h"
+#include "rxtx.h"
+#include "rxtx/rtp_common.h"  // for rtp_common
 #include "tfrc.h"
 #include "transmit.h"
 #include "tv.h"
@@ -69,13 +71,11 @@
 #include "utils/thread.h"
 #include "utils/worker.h"
 #include "video_display.h"
-#include "video_rxtx.h"
-#include "video_rxtx/rtp_common.h" // for rtp_video_rxtx
 
 struct audio_frame2;
 struct display;
 
-#define MAGIC    to_fourcc('V', 'X', 'u', 'r')
+#define MAGIC    to_fourcc('R', 'T', 'u', 'r')
 #define MOD_NAME "[rxtx/ultragrid_rtp] "
 
 struct ultragrid_rtp_video_rxtx {
@@ -129,7 +129,7 @@ static void done(void *state)
 }
 
 static void *
-init(const struct vrxtx_params *params)
+init(const struct rxtx_params *params)
 {
         if (strlen(params->protocol_opts) > 0) {
                 usage();
@@ -599,7 +599,7 @@ recv_audio_frame(void *state)
         return rtp_recv_audio_frame(s->rtp_common, decode_audio_frame);
 }
 
-static const struct video_rxtx_info ultragrid_rtp_video_rxtx_info = {
+static const struct rxtx_info ultragrid_rtp_video_rxtx_info = {
         .long_name    = "UltraGrid RTP",
         .create       = init,
         .done         = done,
@@ -614,5 +614,5 @@ static const struct video_rxtx_info ultragrid_rtp_video_rxtx_info = {
         .join_video_sender  = join,
 };
 
-REGISTER_MODULE(ultragrid_rtp, &ultragrid_rtp_video_rxtx_info, LIBRARY_CLASS_VIDEO_RXTX, VIDEO_RXTX_ABI_VERSION);
+REGISTER_MODULE(ultragrid_rtp, &ultragrid_rtp_video_rxtx_info, LIBRARY_CLASS_RXTX, RXTX_ABI_VERSION);
 
