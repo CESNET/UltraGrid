@@ -1756,6 +1756,35 @@ fi
 ENSURE_FEATURE_PRESENT([$sdp_http_req], [$sdp_http], [SDP/HTTP dependency EmbeddableWebServer.h not found!])
 
 # -------------------------------------------------------------------------------------------------
+# MPEG TS transport
+# -------------------------------------------------------------------------------------------------
+mpegts=no
+
+AC_ARG_ENABLE(mpegts,
+        AS_HELP_STRING([--disable-mpegts], [Disable MPEG TS (default auto)]
+        [Requires: libmpegts (submodule)]),
+        [mpegts_req=$enableval],
+        [mpegts_req=$build_default])
+
+if test "${mpegts_req?}" != no; then
+        AC_CHECK_FILE($srcdir/ext-deps/libmpegts/libmpegts.c, libmpegts=yes)
+fi
+if test "${libmpegts-}"; then
+        mpegts_dep="ext-deps/libmpegts/hdmv/hdmv.o\
+ ext-deps/libmpegts/dvb/dvb.o\
+ ext-deps/libmpegts/crc/crc.o\
+ ext-deps/libmpegts/libmpegts.o\
+ ext-deps/libmpegts/cablelabs/cablelabs.o\
+ ext-deps/libmpegts/smpte/smpte.o\
+ ext-deps/libmpegts/atsc/atsc.o"
+        add_module rxtx_mpegts "$mpegts_dep src/rxtx/mpegts.o" ""
+        mpegts=yes
+fi
+
+ENSURE_FEATURE_PRESENT([${mpegts_req?}], [${mpegts?}],
+[mpegts src missing - init submodule ext-deps/libmpegts])
+
+# -------------------------------------------------------------------------------------------------
 # Resize stuff
 # -------------------------------------------------------------------------------------------------
 resize=no
@@ -3940,6 +3969,7 @@ add_column "IPv6 support" "${ipv6?}"
 add_column "Library live555" "${livemedia?}"
 add_column "Libbacktrace" "${libbacktrace?}"
 add_column "Manual pages" "${man?}"
+add_column "MPEG TS" "${mpegts?}"
 add_column "OMT" "${omt?}"
 add_column "OpenCV${opencv_version_str?}" "${opencv?}"
 add_column "Profiling support" "${profile?}"
