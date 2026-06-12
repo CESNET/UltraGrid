@@ -241,7 +241,7 @@ vidcap_switcher_init(const struct vidcap_params *params, void **state)
                 }
         }
 
-        s->params = vidcap_params_copy_all(tmp);
+        s->params = vidcap_params_copy_all(params);
 
         vidcap_switcher_register_keyboard_ctl(s);
 
