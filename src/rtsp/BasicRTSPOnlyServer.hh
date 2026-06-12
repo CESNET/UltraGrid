@@ -60,8 +60,16 @@ struct rtsp_server_parameters {
         codec_t        video_codec;
 };
 
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
 struct BasicRTSPOnlyServer *
 start_rtsp_server(struct rtsp_server_parameters rtsp_params);
 void stop_rtsp_server(struct BasicRTSPOnlyServer *srv);
+
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 
 #endif

@@ -1,5 +1,5 @@
 /**
- * @file   video_rxtx/h264_rtp.cpp
+ * @file   video_rxtx/rtsp.c
  * @author Martin Pulec     <pulec@cesnet.cz>
  * @author David Cassany    <david.cassany@i2cat.net>
  * @author Ignacio Contreras <ignacio.contreras@i2cat.net>
@@ -39,18 +39,17 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <atomic>                        // for atomic
-#include <cassert>            // for assert
-#include <cctype>
-#include <cstdint>            // for uint32_t
-#include <cstdio>             // for printf
-#include <cstdlib>
-#include <cstring>
-#include <memory>
-#include <utility>                       // for move
+#include <assert.h>            // for assert
+#include <ctype.h>
+#include <stdatomic.h>
+#include <stdint.h>            // for uint32_t
+#include <stdio.h>             // for printf
+#include <stdlib.h>
+#include <string.h>
 
 #include "audio/types.h"                 // for audio_desc
 #include "audio/utils.h"                 // for audio_desc_to_cstring
+#include "compat/c23.h"                  // IWYU pragma: keep
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -63,34 +62,33 @@
 #include "tv.h"
 #include "types.h"            // for video_frame, H264, JPEG
 #include "utils/color_out.h"
+#include "utils/macros.h"     // for to_fourcc
 #include "utils/sdp.h"        // for sdp_print_supported_codecs
 #include "video_codec.h"      // for get_codec_name
 #include "video_rxtx.h"
 #include "video_rxtx/rtp_common.h"
 
-constexpr char DEFAULT_RTSP_COMPRESSION[] = "lavc:enc=libx264:safe";
-#define MOD_NAME "[vrxtx/h264_rtp] "
-constexpr uint32_t MAGIC = to_fourcc('V', 'X', 'h', 'r');
+struct audio_frame2;
+struct rtp;
+struct tx;
 
-using std::shared_ptr;
+#define DEFAULT_RTSP_COMPRESSION "lavc:enc=libx264:safe"
+#define MOD_NAME "[vrxtx/h264_rtp] "
+#define MAGIC to_fourcc('V', 'X', 'h', 'r')
 
 struct h264_rtp_video_rxtx {
-        uint32_t magic = MAGIC;
-        ~h264_rtp_video_rxtx();
-        void join();
-        void send_frame(std::shared_ptr<video_frame>) noexcept;
+        uint32_t magic;
 
-        struct rtp_rxtx_common *m_rtp_common;
-        void                          configure_rtsp_server_video();
-        struct rtsp_server_parameters rtsp_params{};
-        std::atomic<bool>             audio_params_set = false;
-        struct BasicRTSPOnlyServer   *m_rtsp_server = nullptr;
+        struct rtp_rxtx_common       *rtp_common;
+        struct rtsp_server_parameters rtsp_params;
+        atomic_bool                   audio_params_set;
+        struct BasicRTSPOnlyServer   *rtsp_server;
         void (*tx_send_std)(struct tx *tx_session, struct video_frame *frame,
-                            struct rtp *rtp_session) = nullptr;
+                            struct rtp *rtp_session);
 
-        bool m_sent_compress_change = false;
-        struct module *m_parent;
-        time_ns_t      m_start_time;
+        bool           sent_compress_change;
+        struct module *parent;
+        time_ns_t      start_time;
 };
 
 // protoypes
@@ -112,15 +110,17 @@ create_video_rxtx_h264_std(const struct vrxtx_params *params)
                         return nullptr;
                 }
         }
-        auto *s = new h264_rtp_video_rxtx();
-        s->m_parent = params->parent;
-        s->m_start_time = params->start_time;
-        s->rtsp_params.rtsp_port = (unsigned) rtsp_port;
-        s->rtsp_params.parent = params->parent;
+        struct h264_rtp_video_rxtx *s = calloc(1, sizeof *s);
+        s->magic                      = MAGIC;
+        s->parent                     = params->parent;
+        s->start_time                 = params->start_time;
+        s->rtsp_params.rtsp_port      = (unsigned) rtsp_port;
+        s->rtsp_params.parent         = params->parent;
 
-        auto avType = (rtsp_types_t) (SENDS_MEDIUM(params, TX_MEDIA_AUDIO)
-                                          ? rtsp_type_audio
-                                          : 0);
+        rtsp_types_t avType =
+            (rtsp_types_t) (SENDS_MEDIUM(params, TX_MEDIA_AUDIO)
+                                ? rtsp_type_audio
+                                : 0);
         avType = (rtsp_types_t) (avType | (SENDS_MEDIUM(params, TX_MEDIA_VIDEO)
                                                ? rtsp_type_video
                                                : 0));
@@ -132,8 +132,8 @@ create_video_rxtx_h264_std(const struct vrxtx_params *params)
 
         s->rtsp_params.rtp_audio_src_port = params->medium[TX_MEDIA_AUDIO].rx_port;
         s->rtsp_params.rtp_video_src_port = params->medium[TX_MEDIA_VIDEO].rx_port;
-        s->m_rtp_common                   = rtp_rxtx_common_init(params);
-        if (s->m_rtp_common == nullptr) {
+        s->rtp_common                   = rtp_rxtx_common_init(params);
+        if (s->rtp_common == nullptr) {
                 return nullptr;
         }
         return s;
@@ -146,78 +146,84 @@ create_video_rxtx_h264_std(const struct vrxtx_params *params)
  * RTSP server, the server is run directly from
  * h264_rtp_video_rxtx::set_audio_spec().
  */
-void
-h264_rtp_video_rxtx::configure_rtsp_server_video()
+static void
+configure_rtsp_server_video(struct h264_rtp_video_rxtx *s)
 {
-        assert((rtsp_params.avType & rtsp_type_video) != 0);
-        switch (rtsp_params.video_codec) {
+        assert((s->rtsp_params.avType & rtsp_type_video) != 0);
+        switch (s->rtsp_params.video_codec) {
         case H264:
-                tx_send_std = tx_send_h264;
+                s->tx_send_std = tx_send_h264;
                 break;
         case H265:
-                tx_send_std = tx_send_h265;
+                s->tx_send_std = tx_send_h265;
                 break;
         case JPEG:
-                tx_send_std = tx_send_jpeg;
+                s->tx_send_std = tx_send_jpeg;
                 break;
         default:
                 MSG(ERROR,
                     "codecs other than H.264/H.265 and JPEG currently not "
                     "supported, got %s\n",
-                    get_codec_name(rtsp_params.video_codec));
+                    get_codec_name(s->rtsp_params.video_codec));
                 return;
         }
 
-        if ((rtsp_params.avType & rtsp_type_audio) != 0) {
-                if (!audio_params_set) {
+        if ((s->rtsp_params.avType & rtsp_type_audio) != 0) {
+                if (!s->audio_params_set) {
                         MSG(INFO, "Waiting for audio specs...\n");
                         return;
                 }
         }
-        m_rtsp_server = start_rtsp_server(rtsp_params);
+        s->rtsp_server = start_rtsp_server(s->rtsp_params);
 }
 
-void
-h264_rtp_video_rxtx::send_frame(shared_ptr<video_frame> tx_frame) noexcept
+static void
+send_frame_impl(struct h264_rtp_video_rxtx *s, struct video_frame *tx_frame)
 {
-        struct rtp_rxtx_medium *video = &m_rtp_common->medium[TX_MEDIA_VIDEO];
+        struct rtp_rxtx_medium *video = &s->rtp_common->medium[TX_MEDIA_VIDEO];
 
-        rtp_rxtx_sender_do_housekeeping(m_rtp_common, TX_MEDIA_VIDEO);
+        rtp_rxtx_sender_do_housekeeping(s->rtp_common, TX_MEDIA_VIDEO);
         // requestt compress reconfiguration if receivng raw data
         if (!is_codec_opaque(tx_frame->color_spec)) {
-                if (!m_sent_compress_change) {
-                        send_compess_change(m_parent,
+                if (!s->sent_compress_change) {
+                        send_compess_change(s->parent,
                                             DEFAULT_RTSP_COMPRESSION);
-                        m_sent_compress_change = true;
+                        s->sent_compress_change = true;
                 }
                 return;
         }
 
-        if (m_rtsp_server == nullptr) {
-                rtsp_params.video_codec = tx_frame->color_spec;
-                configure_rtsp_server_video();
+        if (s->rtsp_server == nullptr) {
+                s->rtsp_params.video_codec = tx_frame->color_spec;
+                configure_rtsp_server_video(s);
         }
-        if (m_rtsp_server == nullptr) {
+        if (s->rtsp_server == nullptr) {
                 return;
         }
 
-        if (tx_frame->color_spec != rtsp_params.video_codec) {
+        if (tx_frame->color_spec != s->rtsp_params.video_codec) {
                 MSG(ERROR, "Video codec reconfiguration is not supported!\n");
                 return;
         }
 
-        tx_send_std(video->tx, tx_frame.get(), video->network_device);
+        s->tx_send_std(video->tx, tx_frame, video->network_device);
 }
 
-h264_rtp_video_rxtx::~h264_rtp_video_rxtx()
+/// wraps send_frame_impl to ensure tx_frame is disposed across all code paths
+static void
+send_frame(void *state, struct video_frame *tx_frame)
 {
-        rtp_rxtx_common_done(m_rtp_common);
+        struct h264_rtp_video_rxtx *s = state;
+        send_frame_impl(s, tx_frame);
+        tx_frame->callbacks.dispose(tx_frame);
 }
 
-void h264_rtp_video_rxtx::join()
+static void
+join(void *state)
 {
-        stop_rtsp_server(m_rtsp_server);
-        m_rtsp_server = nullptr;
+        struct h264_rtp_video_rxtx *s = state;
+        stop_rtsp_server(s->rtsp_server);
+        s->rtsp_server = nullptr;
 }
 
 static void rtps_server_usage(){
@@ -253,64 +259,53 @@ static int get_rtsp_server_port(const char *config) {
 }
 
 static void done(void *state) {
-        auto *s = static_cast<h264_rtp_video_rxtx *>(state);
-        delete s;
-}
-
-static void
-send_frame(void *state, std::shared_ptr<video_frame> f)
-{
-        auto *s = static_cast<h264_rtp_video_rxtx *>(state);
-        s->send_frame(std::move(f));
-}
-
-static void join(void *state) {
-        auto *s = static_cast<h264_rtp_video_rxtx*>(state);
-        s->join();
+        struct h264_rtp_video_rxtx *s = state;
+        rtp_rxtx_common_done(s->rtp_common);
+        free(s);
 }
 
 static void
 configure_audio(struct h264_rtp_video_rxtx *s, const struct audio_frame2 *frame)
 {
-        s->rtsp_params.adesc =  frame->get_desc();
+        s->rtsp_params.adesc =  audio_frame2_get_desc(frame);
         MSG(VERBOSE, "Setting audio desc %s to RTSP.\n",
             audio_desc_to_cstring(s->rtsp_params.adesc));
 
         s->audio_params_set = true;
 
         if ((s->rtsp_params.avType & rtsp_type_video) == 0U) {
-                s->m_rtsp_server = start_rtsp_server(s->rtsp_params);
+                s->rtsp_server = start_rtsp_server(s->rtsp_params);
         }
 }
 
 static void
 h264_rtp_send_audio_frame(void *state, const struct audio_frame2 *frame)
 {
-        auto *s = static_cast<h264_rtp_video_rxtx *>(state);
+        struct h264_rtp_video_rxtx *s = state;
 
-        rtp_rxtx_sender_do_housekeeping(s->m_rtp_common, TX_MEDIA_AUDIO);
+        rtp_rxtx_sender_do_housekeeping(s->rtp_common, TX_MEDIA_AUDIO);
 
         if (!s->audio_params_set) {
                 configure_audio(s, frame);
         }
         audio_tx_send_standard(
-            s->m_rtp_common->medium[TX_MEDIA_AUDIO].tx,
-            s->m_rtp_common->medium[TX_MEDIA_AUDIO].network_device, frame);
+            s->rtp_common->medium[TX_MEDIA_AUDIO].tx,
+            s->rtp_common->medium[TX_MEDIA_AUDIO].network_device, frame);
 }
 
 static bool
 h264_rtp_ctl_property(void *state, enum rxtx_property p,
                            void *val, size_t *len)
 {
-        auto *s = static_cast<h264_rtp_video_rxtx *>(state);
+        struct h264_rtp_video_rxtx *s = state;
         assert(s->magic == MAGIC);
         switch (p) {
         case GET_RTP_COMMON_STATE: {
                 // NOLINTBEGIN(bugprone-sizeof-expression)
-                assert(*len >= sizeof s->m_rtp_common);
-                *len = sizeof s->m_rtp_common;
+                assert(*len >= sizeof s->rtp_common);
+                *len = sizeof s->rtp_common;
                 // NOLINTEND(bugprone-sizeof-expression)
-                memcpy(val, (void *) &s->m_rtp_common, *len);
+                memcpy(val, (void *) &s->rtp_common, *len);
                 return true;
         }
         case SET_RTP_AUD_FRM_SZ: {
@@ -318,7 +313,7 @@ h264_rtp_ctl_property(void *state, enum rxtx_property p,
                 assert(*len >= sizeof sz);
                 memcpy((void *) &sz, val, sizeof sz);
                 rtp_set_recv_buf(
-                    s->m_rtp_common->medium[TX_MEDIA_AUDIO].network_device, sz);
+                    s->rtp_common->medium[TX_MEDIA_AUDIO].network_device, sz);
                 return true;
         }
         case SET_ULTRAGRID_RTP_MUTLI_OUT:
@@ -332,8 +327,8 @@ h264_rtp_ctl_property(void *state, enum rxtx_property p,
 static struct rx_audio_frames *
 h264_rtp_recv_audio_frame(void *state)
 {
-        auto *s = static_cast<h264_rtp_video_rxtx*>(state);
-        return rtp_recv_audio_frame(s->m_rtp_common, decode_audio_frame_mulaw);
+        struct h264_rtp_video_rxtx *s = state;
+        return rtp_recv_audio_frame(s->rtp_common, decode_audio_frame_mulaw);
 }
 
 static const struct video_rxtx_info h264_video_rxtx_info = {
@@ -345,8 +340,8 @@ static const struct video_rxtx_info h264_video_rxtx_info = {
         .send_audio_frame   = h264_rtp_send_audio_frame,
         .recv_audio_frame   = h264_rtp_recv_audio_frame,
 
-        .send_video_frame   = send_frame,
-        .send_video_frame_c = nullptr,
+        .send_video_frame   = nullptr,
+        .send_video_frame_c = send_frame,
         .video_recv_routine = nullptr,
         .join_video_sender  = join,
 };

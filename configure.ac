@@ -1714,8 +1714,8 @@ if test $rtsp_server_req != no; then
                 RTSP_SERVER_LIBS="-lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock"
                 RTSP_SERVER_OBJ="\
  src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o\
- src/utils/sdp.o src/video_rxtx/h264_rtp.o"
-                add_module video_rxtx_h264 "$RTSP_SERVER_OBJ" "$RTSP_SERVER_LIBS"
+ src/utils/sdp.o src/video_rxtx/rtsp.o"
+                add_module video_rxtx_rtsp "$RTSP_SERVER_OBJ" "$RTSP_SERVER_LIBS"
                 rtsp_server=yes
                 livemedia=yes
         fi
