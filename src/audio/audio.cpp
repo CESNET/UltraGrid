@@ -98,6 +98,8 @@ using std::string;
 using std::unique_ptr;
 using namespace std::string_literals;
 
+// do not confuse with @ref path_sender_audio, which is sender.audio (reversed)
+// and refers to RX/TX
 const enum module_class path_audio_send_module[] = { MODULE_CLASS_AUDIO,
                                                      MODULE_CLASS_SENDER,
                                                      MODULE_CLASS_NONE };

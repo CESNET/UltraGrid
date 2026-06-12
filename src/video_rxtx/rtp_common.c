@@ -74,6 +74,8 @@
 const enum module_class path_sender_video[] = { MODULE_CLASS_SENDER,
                                                 MODULE_CLASS_VIDEO,
                                                 MODULE_CLASS_NONE };
+// do not confuse with path_sender_audio, which is audio.sender (reversed)
+// and refers to audio sender loop
 const enum module_class path_sender_audio[] = { MODULE_CLASS_SENDER,
                                                 MODULE_CLASS_AUDIO,
                                                 MODULE_CLASS_NONE };
