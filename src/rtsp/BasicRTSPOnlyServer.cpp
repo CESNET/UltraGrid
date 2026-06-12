@@ -47,10 +47,11 @@
 #include <BasicUsageEnvironment_version.hh> // for BASICUSAGEENVIRONMENT_LI...
 #include <GroupsockHelper.hh>               // for "weHaveAnIPv*Address()"
 #include <RTSPServer.hh>
+#include <UsageEnvironment.hh>              // for UsageEnvironment, TaskSc...
 #include <cassert>
-#include <cstdlib>   // for NULL, exit
 #include <pthread.h> // for pthread_create, pthread_...
 
+#include "host.h" // for exit_uv
 #include "rtsp/BasicRTSPOnlyServer.hh"
 #include "rtsp/BasicRTSPOnlySubsession.hh"
 #include "rtsp/rtsp_utils.h"
@@ -61,61 +62,20 @@ typedef char volatile EventLoopWatchVariable;
 #endif
 
 struct BasicRTSPOnlyServer {
-private:
-    BasicRTSPOnlyServer(struct rtsp_server_parameters params);
+      public:
+        int init_server(struct rtsp_server_parameters params);
+        static void *server_worker(void *args);
 
-public:
-    static BasicRTSPOnlyServer* initInstance(struct rtsp_server_parameters params);
-    static BasicRTSPOnlyServer* getInstance();
+        pthread_t              server_th;
+        EventLoopWatchVariable watch = 0;
 
-    int init_server();
-
-    static void *start_server(void *args);
-
-    int update_server();
-
-    pthread_t              server_th;
-    EventLoopWatchVariable watch     = 0;
-
-private:
-
-    static BasicRTSPOnlyServer* srvInstance;
-    struct rtsp_server_parameters params;
-    RTSPServer* rtspServer;
-    UsageEnvironment* env;
+      private:
+        RTSPServer       *rtspServer = nullptr;
+        UsageEnvironment *env        = nullptr;
 };
 
-BasicRTSPOnlyServer *BasicRTSPOnlyServer::srvInstance = NULL;
-
-BasicRTSPOnlyServer::BasicRTSPOnlyServer(struct rtsp_server_parameters params) {
-    if (params.parent == NULL) {
-        exit(1);
-    }
-    this->params = params;
-    this->rtspServer = NULL;
-    this->env = NULL;
-    this->srvInstance = this;
-}
-
-BasicRTSPOnlyServer* 
-BasicRTSPOnlyServer::initInstance(struct rtsp_server_parameters params)
-{
-    if (srvInstance != NULL){
-        return srvInstance;
-    }
-    return new BasicRTSPOnlyServer(params);
-}
-
-BasicRTSPOnlyServer* 
-BasicRTSPOnlyServer::getInstance(){
-    if (srvInstance != NULL){
-        return srvInstance;
-    }
-    return NULL;
-}
-
 int
-BasicRTSPOnlyServer::init_server()
+BasicRTSPOnlyServer::init_server(struct rtsp_server_parameters params)
 {
     assert(env == nullptr && rtspServer == nullptr);
     assert(params.parent != nullptr);
@@ -127,7 +87,7 @@ BasicRTSPOnlyServer::init_server()
     TaskScheduler* scheduler = BasicTaskScheduler::createNew();
     env = BasicUsageEnvironment::createNew(*scheduler);
 
-    UserAuthenticationDatabase* authDB = NULL;
+    UserAuthenticationDatabase* authDB = nullptr;
  #ifdef ACCESS_CONTROL
    // To implement client access control to the RTSP server, do the following:
    authDB = new UserAuthenticationDatabase;
@@ -142,9 +102,9 @@ BasicRTSPOnlyServer::init_server()
 
     rtspServer = RTSPServer::createNew(*env, params.rtsp_port, authDB,
                                        reclamationTestSeconds);
-    if (rtspServer == NULL) {
+    if (rtspServer == nullptr) {
         *env << "Failed to create RTSP server: " << env->getResultMsg() << "\n";
-        exit(1);
+        return -1;
     }
     rtspServer->disableStreamingRTPOverTCP();
     ServerMediaSession* sms;
@@ -178,41 +138,47 @@ BasicRTSPOnlyServer::init_server()
     return 0;
 }
 
-void *BasicRTSPOnlyServer::start_server(void *args){
-        auto                *watch    = (EventLoopWatchVariable *) args;
-        BasicRTSPOnlyServer *instance = getInstance();
+void *
+BasicRTSPOnlyServer::server_worker(void *args)
+{
+        auto *srv = (BasicRTSPOnlyServer *) args;
 
-	if (instance == NULL || instance->env == NULL || instance->rtspServer == NULL){
-		return NULL;
-	}
+        srv->env->taskScheduler().doEventLoop(&srv->watch);
 
-	instance->env->taskScheduler().doEventLoop(watch); 
+        Medium::close(srv->rtspServer);
+        delete &srv->env->taskScheduler();
+        srv->env->reclaim();
 
-    Medium::close(instance->rtspServer);
-    delete &instance->env->taskScheduler();
-    instance->env->reclaim();
-
-	return NULL;
+        return nullptr;
 }
 
 BasicRTSPOnlyServer*
 start_rtsp_server(struct rtsp_server_parameters rtsp_params)
 {
-        BasicRTSPOnlyServer *srv =
-            BasicRTSPOnlyServer::initInstance(rtsp_params);
-        srv->init_server();
+        auto *srv = new BasicRTSPOnlyServer();
+        if (srv->init_server(rtsp_params) == -1) {
+                delete srv;
+                exit_uv(1);
+                return nullptr;
+        }
         int ret = pthread_create(&srv->server_th, nullptr,
-                                 BasicRTSPOnlyServer::start_server,
-                                 (void *) &srv->watch);
+                                 BasicRTSPOnlyServer::server_worker,
+                                 (void *) srv);
         assert(ret == 0);
         return srv;
 }
 
-void stop_rtsp_server(struct BasicRTSPOnlyServer *srv) {
-
-        if (!srv) {
+/**
+ * stops + joins the RTSP server state and deletes the state
+ */
+void
+stop_rtsp_server(struct BasicRTSPOnlyServer *srv)
+{
+        if (srv == nullptr) {
                 return;
         }
         srv->watch = 1;
         pthread_join(srv->server_th, nullptr);
+
+        delete srv;
 }
