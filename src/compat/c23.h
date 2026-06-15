@@ -58,14 +58,13 @@
 #endif
 
 // countof
-#if __STDC_VERSION__ >= 202311L && __has_include(<stdcountof.h>)
+#if __STDC_VERSION__ > 202311L && __has_include(<stdcountof.h>)
         #include <stdcountof.h>
 #elif !defined countof
-        #define countof(arr) (sizeof(arr) / sizeof(arr)[0])
+        #define countof(arr) (sizeof (arr) / sizeof ((arr)[0]))
 #endif
 
 // IWYU pragma: end_exports
 
 #endif // ! defined __cplusplus
 #endif // ! defined COMPAT_C23_H_B55FDBEB_BED9_4D10_85D8_BE8CE8C21997
-

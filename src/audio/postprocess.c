@@ -35,9 +35,9 @@
 
 #define MOD_NAME "[audio postpr.] "
 
-static const enum module_class our_class = MODULE_CLASS_POSTPROCESS;
-const enum module_class        path_audio_postprocess[] = {
-        MODULE_CLASS_AUDIO, MODULE_CLASS_RECEIVER, our_class, MODULE_CLASS_NONE
+#define OUR_CLASS MODULE_CLASS_POSTPROCESS
+const enum module_class path_audio_postprocess[] = {
+        MODULE_CLASS_AUDIO, MODULE_CLASS_RECEIVER, OUR_CLASS, MODULE_CLASS_NONE
 };
 
 struct scale_data {
@@ -177,7 +177,7 @@ audio_postprocess_init(const char *channel_map, const char *scale,
         s->channel_map.max_output = -1;
 
         module_init_default(&s->mod);
-        s->mod.cls = our_class;
+        s->mod.cls = OUR_CLASS;
         s->mod.priv_data = s;
         s->mod.new_message = audio_decoder_process_message;
         module_register(&s->mod, parent);
