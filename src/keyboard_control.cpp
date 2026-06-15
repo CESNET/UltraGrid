@@ -247,9 +247,10 @@ void keyboard_control::impl::start()
 
         if (!force_key_control) {
                 if (running_in_debugger()) {
-                        LOG(LOG_LEVEL_WARNING)
-                            << MOD_NAME "Running inside gdb - disabling "
-                                        "interactive keyboard control\n";
+                        MSG(WARNING,
+                            "Running inside gdb - disabling "
+                            "interactive keyboard control ('--param "
+                            "disable-keyboard-control=no' to suppress)\n");
                         return;
                 }
 #ifdef HAVE_TERMIOS_H
