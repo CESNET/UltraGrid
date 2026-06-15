@@ -35,6 +35,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <memory>
+#include <stdexcept>
 #include <oapv/oapv.h>
 
 #include "debug.h"
@@ -78,8 +80,7 @@ state_video_decompress_openapv::state_video_decompress_openapv() {
         cdesc.threads = OAPV_CDESC_THREADS_AUTO;
         decoder_handle = oapvd_create(&cdesc, &ret);
         if (OAPV_FAILED(ret)) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "oapvd_create failed (ret=%d).\n", ret);
-                throw 1;
+                throw std::runtime_error("oapvd_create failed (ret=" + std::to_string(ret) + ")");
         }
 
         decoded_frames.num_frms = MAX_NUM_FRMS;
@@ -215,9 +216,14 @@ static void openapv_to_uv_convert(struct state_video_decompress_openapv *s,
         decode_planar_parallel(s->convert_from_planar->convert, d, FROM_PLANAR_THREADS_AUTO);
 }
 
-static void *openapv_decompress_init(void) {
-        state_video_decompress_openapv *s = new state_video_decompress_openapv();
-        return s;
+void *openapv_decompress_init() {
+        try{
+                auto s = std::make_unique<state_video_decompress_openapv>();
+                return s.release();
+        } catch(std::exception& e){
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to init: %s\n", e.what());
+                return nullptr;
+        }
 }
 
 static int openapv_decompress_reconfigure(void *state, struct video_desc desc,
