@@ -54,14 +54,13 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <linux/videodev2.h> // for v4l2_format
 #include <pthread.h>
-#include <stdbool.h>               // for bool, false, true
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
-#include <sys/time.h>              // for gettimeofday, timeval
 #include <unistd.h>
 
 enum {
@@ -70,9 +69,9 @@ enum {
 };
 #define MOD_NAME "[V4L cap.] "
 
+#include "compat/c23.h" // IWYU pragma: keep
 #include "debug.h"
 #include "lib_common.h"
-#include "tv.h"
 #include "types.h"                 // for device_info, video_desc, tile, vid...
 #include "utils/color_out.h"
 #include "utils/list.h"
@@ -103,9 +102,6 @@ struct vidcap_v4l2_state {
 #endif
         struct v4l2_format src_fmt; ///< captured format
         struct v4l2_format dst_fmt; ///< converted format if v4lconvert is used
-
-        struct timeval t0;
-        int frames;
 
         int buffer_count;
 
@@ -591,7 +587,7 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
 {
         struct parsed_opts opts = { .buffer_count = DEFAULT_BUF_COUNT };
 
-        printf("vidcap_v4l2_init\n");
+        MSG(VERBOSE, "vidcap_v4l2_init\n");
 
         if (vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY) {
                 return VIDCAP_INIT_AUDIO_NOT_SUPPORTED;
@@ -777,10 +773,7 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
                 goto error;
         };
 
-        gettimeofday(&s->t0, NULL);
-        s->frames = 0;
-
-        MSG(NOTICE, "Capturing %dx%d @%.2f%s %s from %s\n", s->desc.width,
+        MSG(INFO, "Capturing %dx%d @%.2f%s %s from %s\n", s->desc.width,
             s->desc.height, s->desc.fps,
             get_interlacing_suffix(s->desc.interlacing),
             get_codec_name(s->desc.color_spec), opts.dev_name);
@@ -890,28 +883,15 @@ static struct video_frame * vidcap_v4l2_grab(void *state, struct audio_frame **a
                 out->callbacks.dispose_udata = frame_data;
         }
 
-        s->frames++;
-
-        struct timeval t;
-        gettimeofday(&t, NULL);
-        double seconds = tv_diff(t, s->t0);
-        if (seconds >= 5) {
-                float fps  = s->frames / seconds;
-                log_msg(LOG_LEVEL_INFO, "[V4L2 capture] %d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
-                s->t0 = t;
-                s->frames = 0;
-        }
-
-
         return out;
 }
 
 static const struct video_capture_info vidcap_v4l2_info = {
-        vidcap_v4l2_probe,
-        vidcap_v4l2_init,
-        vidcap_v4l2_done,
-        vidcap_v4l2_grab,
-        VIDCAP_NO_GENERIC_FPS_INDICATOR,
+        .probe                        = vidcap_v4l2_probe,
+        .init                         = vidcap_v4l2_init,
+        .done                         = vidcap_v4l2_done,
+        .grab                         = vidcap_v4l2_grab,
+        .generic_fps_indicator_prefix = MOD_NAME,
 };
 
 REGISTER_MODULE(v4l2, &vidcap_v4l2_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
