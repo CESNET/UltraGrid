@@ -151,7 +151,6 @@ else
 fi
 
 if test $system = Linux; then
-        AC_CHECK_HEADERS([linux/version.h])
 	LDFLAGS="$LDFLAGS -Wl,--dynamic-list-data"
         COMMON_FLAGS="${COMMON_FLAGS:+$COMMON_FLAGS }-D_GNU_SOURCE"
 fi
