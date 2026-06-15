@@ -779,12 +779,12 @@ static int vidcap_v4l2_init(struct vidcap_params *params, void **state)
         gettimeofday(&s->t0, NULL);
         s->frames = 0;
 
-        free(tmp);
-
         MSG(NOTICE, "Capturing %dx%d @%.2f%s %s from %s\n", s->desc.width,
             s->desc.height, s->desc.fps,
             get_interlacing_suffix(s->desc.interlacing),
             get_codec_name(s->desc.color_spec), opts.dev_name);
+
+        free(tmp);
 
         *state = s;
         return VIDCAP_INIT_OK;
