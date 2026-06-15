@@ -69,7 +69,7 @@ struct state_video_decompress_openapv {
 
         const from_openapv_conversion *convert_from_planar = nullptr;
 
-        struct video_desc desc{};
+        video_desc desc{};
         int pitch = 0;
         codec_t out_codec = VIDEO_CODEC_NONE;
 };
@@ -153,7 +153,7 @@ bool output_buffer_setup(oapv_imgb_t *imgb, const oapv_frm_info_t *frm_info) {
         return true;
 }
 
-bool configure_with(struct state_video_decompress_openapv *s, unsigned char *bitstream_buffer, size_t codestream_size) {
+bool configure_with(state_video_decompress_openapv *s, unsigned char *bitstream_buffer, size_t codestream_size) {
         int ret = -1;
         oapv_au_info_t aui{};
 
@@ -196,9 +196,8 @@ bool configure_with(struct state_video_decompress_openapv *s, unsigned char *bit
         return true;
 }
 
-void openapv_to_uv_convert(struct state_video_decompress_openapv *s,
-                     const oapv_imgb_t *src, uint8_t *dst) {
-        struct from_planar_data d = {};
+void openapv_to_uv_convert(state_video_decompress_openapv *s, const oapv_imgb_t *src, uint8_t *dst) {
+        from_planar_data d = {};
         d.width = src->w[0];
         d.height = src->h[0];
         d.out_data = dst;
@@ -226,10 +225,10 @@ void *openapv_decompress_init() {
         }
 }
 
-int openapv_decompress_reconfigure(void *state, struct video_desc desc,
-        int rshift, int gshift, int bshift, int pitch, codec_t out_codec) {
+int openapv_decompress_reconfigure(void *state, video_desc desc,
+        int /*rshift*/, int /*gshift*/, int /*bshift*/, int pitch, codec_t out_codec)
+{
         auto s = static_cast<state_video_decompress_openapv *>(state);
-        (void) rshift; (void) gshift; (void) bshift;
 
         if (s->out_codec == out_codec &&
                 s->pitch == pitch &&
@@ -246,8 +245,7 @@ int openapv_decompress_reconfigure(void *state, struct video_desc desc,
         return true;
 }
 
-decompress_status openapv_probe_internal_codec(struct pixfmt_desc *internal_prop,
-        unsigned char *buffer, size_t buffer_size) {
+decompress_status openapv_probe_internal_codec(pixfmt_desc *internal_prop, unsigned char *buffer, size_t buffer_size) {
         oapv_au_info_t aui{};
         if (OAPV_FAILED(oapvd_info(buffer, buffer_size, &aui)) || aui.num_frms < 1) {
                 return DECODER_NO_FRAME;
@@ -272,9 +270,8 @@ decompress_status openapv_probe_internal_codec(struct pixfmt_desc *internal_prop
 }
 
 decompress_status openapv_decompress(void *state, unsigned char *dst, unsigned char *buffer,
-        unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, struct pixfmt_desc *internal_prop) {
-        UNUSED(frame_seq);
-        UNUSED(callbacks);
+        unsigned int src_len, int /*frame_seq*/, video_frame_callbacks */*callbacks*/, pixfmt_desc *internal_prop)
+{
         auto *s = static_cast<state_video_decompress_openapv *>(state);
 
         if (s->out_codec == VIDEO_CODEC_NONE) {
@@ -292,7 +289,7 @@ decompress_status openapv_decompress(void *state, unsigned char *dst, unsigned c
         s->input_buffer.bsize = src_len;
 
         oapvd_stat_t stat{};
-        int ret = oapvd_decode(s->decoder_handle, &s->input_buffer, &s->decoded_frames, NULL, &stat);
+        int ret = oapvd_decode(s->decoder_handle, &s->input_buffer, &s->decoded_frames, nullptr, &stat);
         if (OAPV_FAILED(ret)) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "oapvd_decode failed ret=%d src_len=%u.\n", ret, src_len);
                 return DECODER_NO_FRAME;
@@ -310,9 +307,7 @@ decompress_status openapv_decompress(void *state, unsigned char *dst, unsigned c
         return DECODER_GOT_FRAME;
 }
 
-int openapv_decompress_get_property(void *state, int property, void *val, size_t *len) {
-        auto *s = static_cast<struct state_decompress *>(state);
-        UNUSED(s);
+int openapv_decompress_get_property(void */*state*/, int property, void *val, size_t *len) {
         int ret = false;
 
         switch(property) {
@@ -335,7 +330,7 @@ void openapv_decompress_done(void *state) {
        delete s;
 }
 
-int openapv_decompress_get_priority(codec_t compression, struct pixfmt_desc internal, codec_t ugc) {
+int openapv_decompress_get_priority(codec_t compression, pixfmt_desc internal, codec_t ugc) {
         if (compression != APV) {
                 return VDEC_PRIO_NA;
         }
@@ -360,7 +355,7 @@ int openapv_decompress_get_priority(codec_t compression, struct pixfmt_desc inte
                        : VDEC_PRIO_NA;
 }
 
-const struct video_decompress_info openapv_info = {
+constexpr video_decompress_info openapv_info = {
         openapv_decompress_init,
         openapv_decompress_reconfigure,
         openapv_decompress,
