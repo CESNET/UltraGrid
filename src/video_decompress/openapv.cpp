@@ -228,7 +228,7 @@ void *openapv_decompress_init() {
 
 int openapv_decompress_reconfigure(void *state, struct video_desc desc,
         int rshift, int gshift, int bshift, int pitch, codec_t out_codec) {
-        state_video_decompress_openapv *s = (state_video_decompress_openapv *) state;
+        auto s = static_cast<state_video_decompress_openapv *>(state);
         (void) rshift; (void) gshift; (void) bshift;
 
         if (s->out_codec == out_codec &&
@@ -275,7 +275,7 @@ decompress_status openapv_decompress(void *state, unsigned char *dst, unsigned c
         unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, struct pixfmt_desc *internal_prop) {
         UNUSED(frame_seq);
         UNUSED(callbacks);
-        state_video_decompress_openapv *s = (state_video_decompress_openapv *) state;
+        auto *s = static_cast<state_video_decompress_openapv *>(state);
 
         if (s->out_codec == VIDEO_CODEC_NONE) {
                 return openapv_probe_internal_codec(internal_prop, buffer, src_len);
@@ -311,7 +311,7 @@ decompress_status openapv_decompress(void *state, unsigned char *dst, unsigned c
 }
 
 int openapv_decompress_get_property(void *state, int property, void *val, size_t *len) {
-        struct state_decompress *s = (struct state_decompress *) state;
+        auto *s = static_cast<struct state_decompress *>(state);
         UNUSED(s);
         int ret = false;
 
@@ -331,7 +331,7 @@ int openapv_decompress_get_property(void *state, int property, void *val, size_t
 }
 
 void openapv_decompress_done(void *state) {
-       state_video_decompress_openapv *s = (state_video_decompress_openapv *) state;
+       auto *s = static_cast<state_video_decompress_openapv *>(state);
        delete s;
 }
 
