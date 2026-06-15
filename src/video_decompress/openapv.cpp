@@ -65,10 +65,10 @@ struct state_video_decompress_openapv {
 
         bool configured = false;
 
-        const struct from_openapv_conversion *convert_from_planar;
+        const from_openapv_conversion *convert_from_planar = nullptr;
 
         struct video_desc desc{};
-        int pitch;
+        int pitch = 0;
         codec_t out_codec = VIDEO_CODEC_NONE;
 };
 
