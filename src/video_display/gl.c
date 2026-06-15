@@ -1305,6 +1305,9 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                 }
         }
 
+        vf_free(s->current_frame);
+        s->current_frame = nullptr;
+
         s->scratchpad = realloc(s->scratchpad, desc.width * desc.height * 8);
         s->current_display_desc = desc;
 }
@@ -1422,23 +1425,24 @@ static void gl_process_frames(struct state_gl *s)
                 }
 
                 glfwMakeContextCurrent(s->window);
-
-                CHECK_RC(pthread_mutex_lock(&s->lock));
-                if (s->current_frame) {
-                        if (s->paused) {
-                                SWAP_PTR(frame, s->current_frame);
-                        }
-                        vf_recycle(s->current_frame);
-                        simple_linked_list_append(s->free_frame_queue,
-                                                  s->current_frame);
-                }
-                s->current_frame = frame;
-                CHECK_RC(pthread_mutex_unlock(&s->lock));
         }
 
         if (!video_desc_eq(video_desc_from_frame(frame), s->current_display_desc)) {
                 gl_reconfigure_screen(s, video_desc_from_frame(frame));
         }
+
+        CHECK_RC(pthread_mutex_lock(&s->lock));
+        if (s->current_frame) {
+                if (s->paused) {
+                        SWAP_PTR(frame, s->current_frame);
+                }
+                vf_recycle(s->current_frame);
+                simple_linked_list_append(s->free_frame_queue,
+                                          s->current_frame);
+        }
+        s->current_frame = frame;
+        CHECK_RC(pthread_mutex_unlock(&s->lock));
+
         glBindTexture(GL_TEXTURE_2D, s->texture_display);
 
         gl_render(s, frame->tiles[0].data);

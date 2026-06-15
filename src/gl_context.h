@@ -102,32 +102,35 @@ void destroy_gl_context(struct gl_context *context);
                         flag = 0; \
                         break; \
                 case GL_INVALID_ENUM: \
-                        fprintf(stderr, "GL_INVALID_ENUM\n"); \
+                        (void) fprintf(stderr, "GL_INVALID_ENUM\n");           \
                         break; \
                 case GL_INVALID_VALUE: \
-                        fprintf(stderr, "GL_INVALID_VALUE\n"); \
+                        (void) fprintf(stderr, "GL_INVALID_VALUE\n");          \
                         break; \
                 case GL_INVALID_OPERATION: \
-                        fprintf(stderr, "GL_INVALID_OPERATION\n"); \
+                        (void) fprintf(stderr, "GL_INVALID_OPERATION\n");      \
                         break; \
                 case GL_STACK_OVERFLOW: \
-                        fprintf(stderr, "GL_STACK_OVERFLOW\n"); \
+                        (void) fprintf(stderr, "GL_STACK_OVERFLOW\n");         \
                         break; \
                 case GL_STACK_UNDERFLOW: \
-                        fprintf(stderr, "GL_STACK_UNDERFLOW\n"); \
+                        (void) fprintf(stderr, "GL_STACK_UNDERFLOW\n");        \
                          break; \
                 case GL_OUT_OF_MEMORY: \
-                        fprintf(stderr, "GL_OUT_OF_MEMORY\n"); \
+                        (void) fprintf(stderr, "GL_OUT_OF_MEMORY\n");          \
                         break; \
                 case 1286: \
-                        fprintf(stderr, "INVALID_FRAMEBUFFER_OPERATION_EXT\n"); \
+                        (void) fprintf(stderr,                                 \
+                                       "INVALID_FRAMEBUFFER_OPERATION_EXT\n"); \
                         break; \
                 default: \
-                        fprintf(stderr, "wft mate? Unknown GL ERROR: %d\n", msg); \
+                        (void) fprintf(                                        \
+                            stderr, "wft mate? Unknown GL ERROR: %d\n", msg);  \
                 break; \
         } \
         if(flag) { \
-                fprintf(stderr, "\tat %s:%d: %s\n", __FILE__, __LINE__, __func__); \
+                (void) fprintf(stderr, "\tat %s:%d: %s\n", __FILE__,           \
+                                                       __LINE__, __func__);    \
                 if (fatal) { \
                         abort(); \
                 } else { \
