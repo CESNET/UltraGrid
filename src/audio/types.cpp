@@ -174,10 +174,10 @@ void audio_frame2::replace(int channel, size_t offset, const char *data, size_t 
 /**
  * Reserves data for every channel with the specified length.
  */
-void audio_frame2::reserve(size_t length)
+void audio_frame2::reserve(size_t bytes)
 {
         for (size_t channel = 0; channel < channels.size(); ++channel) {
-                reserve(channel, length);
+                reserve(channel, bytes);
         }
 }
 
@@ -450,7 +450,6 @@ audio_frame2_alloc(int ch_count, audio_codec_t codec, int bps, int sample_rate)
 
         auto *ret = new audio_frame2();
         ret->init(ch_count, codec, bps, sample_rate);
-        ret->reserve(bps * ch_count * 6); ///< @todo
         return ret;
 }
 
@@ -557,6 +556,15 @@ audio_frame2_replace(struct audio_frame2 *dst, struct audio_frame2 **src)
 {
         *dst = std::move(**src);
         src = nullptr;
+}
+
+void
+audio_frame2_reserve(struct audio_frame2 *frame, double seconds)
+{
+        int bytes =
+            (int) (seconds * frame->get_sample_rate()) * frame->get_bps();
+
+        frame->reserve(bytes);
 }
 
 struct audio_frame2_resampler *

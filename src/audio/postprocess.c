@@ -426,6 +426,7 @@ decode_audio_frame_postprocess(struct state_audio_postprocess *postprocess,
                     audio_frame2_get_channel_count(decompressed), AC_PCM,
                     audio_frame2_get_bps(decompressed),
                     audio_frame2_get_sample_rate(decompressed));
+                audio_frame2_reserve(postprocess->decoded, 6);
         }
         audio_frame2_append(postprocess->decoded, decompressed);
 
@@ -455,6 +456,7 @@ decode_audio_frame_postprocess(struct state_audio_postprocess *postprocess,
                     audio_frame2_get_channel_count(decompressed), AC_PCM,
                     audio_frame2_get_bps(decompressed),
                     audio_frame2_get_sample_rate(decompressed));
+                audio_frame2_reserve(d->frame, 6);
                 SWAP_PTR(d->frame, postprocess->decoded);
                 d->seconds = NS_TO_SEC_DBL(postprocess->t0 - t);
                 d->bytes_received = *received_bytes_cum;

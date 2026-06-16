@@ -159,7 +159,7 @@ public:
         void append(int channel, const char *data, size_t length);
         void append(audio_frame const &frame);
         void replace(int channel, size_t offset, const char *data, size_t length);
-        void reserve(size_t len);
+        void reserve(size_t bytes);
         void resize(int channel, size_t len);
         void reset();
         void set_timestamp(int64_t ts);
@@ -250,6 +250,8 @@ int             audio_frame2_get_sample_count(const struct audio_frame2 *frame);
 int             audio_frame2_get_sample_rate(const struct audio_frame2 *frame);
 int64_t         audio_frame2_get_timestamp(const struct audio_frame2 *frame);
 void audio_frame2_replace(struct audio_frame2 *dst, struct audio_frame2 **src);
+void audio_frame2_reserve(struct audio_frame2 *frame, double seconds);
+
 struct audio_frame2_resampler *audio_frame2_resampler_init();
 void delete_resampler(struct audio_frame2_resampler *resampler);
 bool audio_frame2_resample(struct audio_frame2_resampler *resampler,
