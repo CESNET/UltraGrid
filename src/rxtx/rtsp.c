@@ -73,7 +73,7 @@ struct rtp;
 struct tx;
 
 #define DEFAULT_RTSP_COMPRESSION "lavc:enc=libx264:safe"
-#define MOD_NAME "[vrxtx/h264_rtp] "
+#define MOD_NAME "[rxtx/rtsp] "
 #define MAGIC to_fourcc('R', 'T', 'r', 's')
 
 struct h264_rtp_video_rxtx {
@@ -128,7 +128,7 @@ create_video_rxtx_h264_std(const struct rxtx_params *params)
                 printf("[RTSP SERVER CHECK] no stream type... check capture devices input...\n");
                 return nullptr;
         }
-        s->rtsp_params.avType = avType;;
+        s->rtsp_params.avType = avType;
 
         s->rtsp_params.rtp_audio_src_port = params->medium[TX_MEDIA_AUDIO].rx_port;
         s->rtsp_params.rtp_video_src_port = params->medium[TX_MEDIA_VIDEO].rx_port;

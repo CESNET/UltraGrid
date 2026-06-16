@@ -67,7 +67,7 @@
 struct audio_frame2;
 
 #define DEFAULT_SDP_COMPRESSION "lavc:codec=MJPG:safe"
-#define MOD_NAME "[vrxtx/sdp] "
+#define MOD_NAME "[rxtx/sdp] "
 
 #define MAGIC to_fourcc('V', 'X', 'h', 's')
 
