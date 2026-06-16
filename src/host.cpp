@@ -1278,9 +1278,15 @@ ADD_TO_PARAM("errors-fatal", "* errors-fatal\n"
  * have been fatal and UltraGrid must remain in a consistent state.
  */
 void handle_error(int status) {
-        if (get_commandline_param("errors-fatal") || getenv("ULTRAGRID_ERRORS_FATAL")) {
-                exit_uv(status);
+        if (get_commandline_param("errors-fatal") == nullptr &&
+            getenv("ULTRAGRID_ERRORS_FATAL") == nullptr) {
+                return;
         }
+
+        MSG(FATAL,
+            "Exitting because errors are treated as fatal per user request.\n");
+        print_backtrace();
+        exit_uv(status);
 }
 
 bool running_in_debugger(){
