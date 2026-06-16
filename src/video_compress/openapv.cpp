@@ -78,7 +78,7 @@ struct state_video_compress_oapv {
         oapv_frms_t input_frm{};    // frame for input
         oapv_imgb_t imgb{};         // planar pixel data of input frame
 
-        struct video_desc saved_desc{}; // last configured video description
+        video_desc saved_desc{}; // last configured video description
 
         video_frame_pool pool;
         bool configured = false;
@@ -399,10 +399,8 @@ bool state_video_compress_oapv::parse_fmt(char *fmt)
         return true;
 }
 
-bool configure_with(struct state_video_compress_oapv *s, struct video_desc desc) {
-        int ret;
-
-        const struct uv_to_openapv_conversion* conv_struct = get_uv_to_openapv_conversion(desc.color_spec);
+bool configure_with(state_video_compress_oapv *s, video_desc desc) {
+        const uv_to_openapv_conversion* conv_struct = get_uv_to_openapv_conversion(desc.color_spec);
         if (!conv_struct || conv_struct->convert == nullptr) {
                 printf("unsupported codec");
                 return false;
@@ -444,6 +442,8 @@ bool configure_with(struct state_video_compress_oapv *s, struct video_desc desc)
                 oapve_delete(s->id);
                 s->id = nullptr;
         }
+
+        int ret;
         s->id = oapve_create(&s->cdsc, &ret);
         if (OAPV_FAILED(ret)) {
                 printf("Failed to create OAPV encoder: %d\n", ret);
@@ -460,7 +460,7 @@ bool configure_with(struct state_video_compress_oapv *s, struct video_desc desc)
                 return false;
         }
 
-        struct video_desc compressed_desc = desc;
+        video_desc compressed_desc = desc;
         compressed_desc.color_spec  = APV;
 
         s->pool.reconfigure(compressed_desc, s->cdsc.max_bs_buf_size);
@@ -472,7 +472,7 @@ bool configure_with(struct state_video_compress_oapv *s, struct video_desc desc)
 }
 
 shared_ptr<video_frame> openapv_compress_tile(void *state, shared_ptr<video_frame> tile) {
-        auto *s = (state_video_compress_oapv *) state;
+        auto *s = static_cast<state_video_compress_oapv *>(state);
 
         if (!tile) {
                 return {};
@@ -507,8 +507,6 @@ shared_ptr<video_frame> openapv_compress_tile(void *state, shared_ptr<video_fram
 }
 
 void* openapv_compress_init(module *parent, const char *opts) {
-        state_video_compress_oapv *s;
-
         if (opts && strcmp(opts, "help") == 0) {
                 color_printf(TBOLD("OpenAPV") " compression usage:\n");
                 color_printf("\t" TBOLD(
@@ -524,12 +522,12 @@ void* openapv_compress_init(module *parent, const char *opts) {
                 return INIT_NOERR;
         }
 
-        s = new state_video_compress_oapv(parent, opts);
+        auto s = new state_video_compress_oapv(parent, opts);
         return s;
 }
 
 void openapv_compress_done(void  *state) {
-        auto *s = (struct state_video_compress_oapv *) state;
+        auto s = static_cast<state_video_compress_oapv *>(state);
         delete s;
 }
 
@@ -551,7 +549,7 @@ compress_module_info get_openapv_module_info() {
         return module_info;
 }
 
-const struct video_compress_info openapv_info = {
+constexpr video_compress_info openapv_info = {
         openapv_compress_init,
         openapv_compress_done,
         nullptr,
