@@ -232,61 +232,60 @@ const char *oapv_err_str(int err) {
 const struct {
         const char *label;
         const char *key;
-        const char *help_name;
         const char *description;
         const char *opt_str;
         bool is_boolean;
         const char *placeholder;
 } usage_opts[] = {
-        {"Threads", "threads", "threads",
+        {"Threads", "threads",
                 "\t\tNumber of encoder threads. 0 = auto (default).\n",
                 ":threads=", false, "0"
         },
-        {"Rate control", "rc", "rc",
+        {"Rate control", "rc",
                 "\t\tRate control type:\n"
                 "\t\t 0 = CQP (constant quantization parameter, default)\n"
                 "\t\t 1 = ABR (average bitrate)\n",
                 ":rc=", false, "0"
         },
-        {"Quantization parameter", "qp", "qp",
+        {"Quantization parameter", "qp",
                 "\t\tQuantization parameter. Range: 0~63 (10-bit), 0~75 (12-bit).\n"
                 "\t\tUsed with CQP rate control. 255 = auto (default).\n",
                 ":qp=", false, "255"
         },
-        {"Bit rate", "bitrate", "bitrate",
+        {"Bit rate", "bitrate",
                 "\t\tTarget bitrate in kbps (e.g. 50000). Used with ABR rate control.\n"
                 "\t\tAlternatively a unit suffix can be used (e.g. 50M = 50000 kbps).\n",
                 ":bitrate=", false, "50000"
         },
-        {"Preset", "preset", "preset",
+        {"Preset", "preset",
                 "\t\tEncoder speed/quality trade-off preset:\n"
                 "\t\t 0 = fastest, 1 = fast, 2 = medium (default), 3 = slow, 4 = placebo\n",
                 ":preset=", false, "2"
         },
-        {"Tile width", "tile_w", "tile_w",
+        {"Tile width", "tile_w",
                 "\t\tWidth of encoding tile in pixels. Must be a multiple of macroblock\n"
                 "\t\twidth (" TOSTRING(OAPV_MB_W) "). 0 = auto (default).\n",
                 ":tile_w=", false, "0"
         },
-        {"Tile height", "tile_h", "tile_h",
+        {"Tile height", "tile_h",
                 "\t\tHeight of encoding tile in pixels. Must be a multiple of macroblock\n"
                 "\t\theight (" TOSTRING(OAPV_MB_H) "). 0 = auto (default).\n",
                 ":tile_h=", false, "0"
         },
-        {"Use filler", "use_filler", "use_filler",
+        {"Use filler", "use_filler",
                 "\t\tInsert filler data to achieve tight constant bitrate (ABR only).\n"
                 "\t\t0 = disabled (default), 1 = enabled.\n",
                 ":use_filler=", false, "0"
         },
-        {"Chroma QP offset 1", "qp_offset_c1", "qp_offset_c1",
+        {"Chroma QP offset 1", "qp_offset_c1",
                 "\t\tQP offset for first chroma channel (Cb). Range: -32~31. Default: 0.\n",
                 ":qp_offset_c1=", false, "0"
         },
-        {"Chroma QP offset 2", "qp_offset_c2", "qp_offset_c2",
+        {"Chroma QP offset 2", "qp_offset_c2",
                 "\t\tQP offset for second chroma channel (Cr). Range: -32~31. Default: 0.\n",
                 ":qp_offset_c2=", false, "0"
         },
-        {"Chroma QP offset 3", "qp_offset_c3", "qp_offset_c3",
+        {"Chroma QP offset 3", "qp_offset_c3",
                 "\t\tQP offset for third chroma channel (Cg/A). Range: -32~31. Default: 0.\n",
                 ":qp_offset_c3=", false, "0"
         },
