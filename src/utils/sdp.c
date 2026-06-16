@@ -42,7 +42,6 @@
 /**
  * @file
  * @todo
- * * consider using serverStop() to stop the thread - likely doesn't work now
  * * createResponseForRequest() should be probably static (in case that other
  *   modules want also to use EmbeddableWebServer)
  * @todo
@@ -470,7 +469,7 @@ static THREAD_RETURN_TYPE STDCALL_ON_WIN32 acceptConnectionsThread(void* param) 
         sin6->sin6_port = htons(portInHostOrder);
     }
     acceptConnectionsUntilStopped(param, (struct sockaddr *) &ss, sa_len);
-    log_msg(LOG_LEVEL_WARNING, "Warning: HTTP/SDP thread has exited.\n");
+    MSG(VERBOSE, "Warning: HTTP/SDP thread has exited.\n");
     return (THREAD_RETURN_TYPE) 0;
 }
 
@@ -560,13 +559,7 @@ void sdp_stop_http_server(struct sdp *sdp)
     if (!sdp->server_started) {
         return;
     }
-    ///@todo use "serverStop(&sdp->http_server);" instead
-    serverMutexLock(&sdp->http_server);
-    sdp->http_server.shouldRun = false;
-    serverMutexUnlock(&sdp->http_server);
-    pthread_cancel(sdp->http_server_thr);
-
-    pthread_join(sdp->http_server_thr, NULL);
+    serverStop(&sdp->http_server);
 }
 #endif // defined SDP_HTTP
 
