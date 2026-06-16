@@ -206,8 +206,11 @@ sdp_done(struct sdp *sdp_state)
 
 static void
 start(struct sdp *sdp_state) {
+    if (!sdp_state->want_sdp_audio && !sdp_state->want_sdp_video) {
+            return; // probably just help
+    }
     // either SDP properties not set or not all streams already configured
-    if (!sdp_state || sdp_state->want_sdp_audio != sdp_state->audio_set ||
+    if (sdp_state->want_sdp_audio != sdp_state->audio_set ||
         sdp_state->want_sdp_video != sdp_state->video_set) {
             return;
     }
