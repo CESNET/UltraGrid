@@ -162,7 +162,7 @@ typedef struct rx_audio_frames *rxtx_recv_audio_frame_fn(void *state);
 typedef void  rxtx_send_shr_ptr_video_frame_fn(void *state,
                                                std::shared_ptr<video_frame>);
 #else
-typedef nullptr_t rxtx_send_shr_ptr_video_frame_fn;
+typedef void *rxtx_send_shr_ptr_video_frame_fn;
 #endif // defined __cplusplus
 /**
  * @param f  f->callbacks.dispose(f) must be called
