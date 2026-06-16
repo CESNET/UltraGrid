@@ -393,6 +393,7 @@ static bool display_gl_process_key(struct state_gl *s, long long int key);
 static bool display_gl_reconfigure(void *state, struct video_desc desc);
 static void gl_draw(double ratio, double bottom_offset, bool double_buf);
 static void gl_change_aspect(struct state_gl *s, int width, int height);
+static void gl_present_current_frame(struct state_gl *s);
 static void gl_resize(GLFWwindow *win, int width, int height);
 static void gl_render_glsl(struct state_gl *s, char *data);
 static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc);
@@ -1162,6 +1163,10 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
 {
         assert(s->magic == MAGIC_GL);
 
+        // see note for display_gl_render_last()
+        vf_free(s->current_frame);
+        s->current_frame = nullptr;
+
         s->dxt_height = desc.color_spec == DXT1 || desc.color_spec == DXT1_YUV || desc.color_spec == DXT5 ?
                 (desc.height + 3) / 4 * 4 : desc.height;
 
@@ -1296,9 +1301,6 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
                 }
         }
 
-        vf_free(s->current_frame);
-        s->current_frame = nullptr;
-
         s->scratchpad = realloc(s->scratchpad, desc.width * desc.height * 8);
         s->current_display_desc = desc;
 }
@@ -1426,18 +1428,27 @@ unlock:
                 gl_reconfigure_screen(s, video_desc_from_frame(frame));
         }
 
-        CHK_PTHR(pthread_mutex_lock(&s->lock));
-        if (s->current_frame) {
+        if (s->current_frame) { // recycle old "current" frame
                 if (s->paused) {
                         SWAP_PTR(frame, s->current_frame);
                 }
                 vf_recycle(s->current_frame);
-                simple_linked_list_append(s->free_frame_queue,
-                                          s->current_frame);
+                CHK_PTHR(pthread_mutex_lock(&s->lock));
+                {
+                        simple_linked_list_append(s->free_frame_queue,
+                                                  s->current_frame);
+                }
+                CHK_PTHR(pthread_mutex_unlock(&s->lock));
         }
         s->current_frame = frame;
-        CHK_PTHR(pthread_mutex_unlock(&s->lock));
 
+        gl_present_current_frame(s);
+}
+
+static void
+gl_present_current_frame(struct state_gl *s)
+{
+        struct video_frame *frame = s->current_frame;
         glBindTexture(GL_TEXTURE_2D, s->texture_display);
 
         gl_render(s, frame->tiles[0].data);
@@ -1628,17 +1639,21 @@ display_gl_print_depth(GLFWmonitor *monitor)
         return mode->redBits;
 }
 
+/**
+ * Set as glfwSetWindowRefreshCallback() - called whe needing to redraw screen.
+ * In this module it is useful to redraw if no data is coming to keep the
+ * contents when user resizes the win or so.
+ * @note
+ * this callback may be called also from some GLFW calls called in
+ * gl_reconfigure_screen() so it is important that s->current_frame == nullptr
+ * during reconfigure
+ */
 static void display_gl_render_last(GLFWwindow *win) {
         struct state_gl *s = glfwGetWindowUserPointer(win);
-        CHK_PTHR(pthread_mutex_lock(&s->lock));
-        struct video_frame *f = s->current_frame;
-        s->current_frame = nullptr;
-        CHK_PTHR(pthread_mutex_unlock(&s->lock));
-        if (!f) {
-                return;
+        if (s->current_frame != nullptr) {
+                // redraw last frame
+                gl_present_current_frame(s);
         }
-        // redraw last frame
-        display_gl_putf(s, f, PUTF_NONBLOCK);
 }
 
 #if defined GLEW_VERSION
