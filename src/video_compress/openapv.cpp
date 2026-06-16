@@ -490,7 +490,7 @@ shared_ptr<video_frame> openapv_compress_tile(void *state, shared_ptr<video_fram
         s->convert_to_planar((const uint8_t *) in_tile->data, desc.width, desc.height, &s->imgb);
 
         s->bitb.ssize = 0;
-        int ret = oapve_encode(s->id, &s->input_frm, NULL, &s->bitb, &s->stat, NULL);
+        int ret = oapve_encode(s->id, &s->input_frm, nullptr, &s->bitb, &s->stat, nullptr);
         if (OAPV_FAILED(ret)) {
                 MSG(ERROR, "oapve_encode failed: %s (%d) (frame dropped)\n", oapv_err_str(ret), ret);
                 return {};
@@ -554,12 +554,12 @@ compress_module_info get_openapv_module_info() {
 const struct video_compress_info openapv_info = {
         openapv_compress_init,
         openapv_compress_done,
-        NULL,
+        nullptr,
         openapv_compress_tile,
-        NULL,
-        NULL,
-        NULL,
-        NULL,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
         get_openapv_module_info
 };
 
