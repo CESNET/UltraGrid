@@ -125,6 +125,7 @@ struct sdp {
     char sdp_receiver[1024];
     char sdp_filename[MAX_PATH_SIZE];
     bool server_started;
+    uint16_t portInHostOrder;
 };
 
 static bool gen_sdp(struct sdp *sdp_state);
@@ -452,8 +453,6 @@ struct Response* createResponseForRequest(const struct Request* request, struct 
     return response;
 }
 
-static uint16_t portInHostOrder;
-
 static THREAD_RETURN_TYPE STDCALL_ON_WIN32 acceptConnectionsThread(void* param) {
     struct sockaddr_storage ss = { 0 };
     struct sdp *sdp = ((struct Server *) param)->tag;
@@ -462,11 +461,11 @@ static THREAD_RETURN_TYPE STDCALL_ON_WIN32 acceptConnectionsThread(void* param) 
     if (sdp->ip_version == 4) {
         struct sockaddr_in *sin = (struct sockaddr_in *) &ss;
         sin->sin_addr.s_addr = htonl(INADDR_ANY);
-        sin->sin_port = htons(portInHostOrder);
+        sin->sin_port = htons(sdp->portInHostOrder);
     } else {
         struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *) &ss;
         sin6->sin6_addr = in6addr_any;
-        sin6->sin6_port = htons(portInHostOrder);
+        sin6->sin6_port = htons(sdp->portInHostOrder);
     }
     acceptConnectionsUntilStopped(param, (struct sockaddr *) &ss, sa_len);
     MSG(VERBOSE, "Warning: HTTP/SDP thread has exited.\n");
@@ -531,7 +530,7 @@ static void print_http_path(struct sdp *sdp) {
                     "%s can play SDP with URL "
                     "http://%s%s%s:%u/%s\n",
                     recv_str, ipv6 ? "[" : "", hostname, ipv6 ? "]" : "",
-                    portInHostOrder, SDP_FILE);
+                    sdp->portInHostOrder, SDP_FILE);
             }
         }
     }
@@ -546,7 +545,7 @@ static bool sdp_run_http_server(struct sdp *sdp)
     assert(port >= 0 && port < 65536);
     assert(sdp->sdp_dump != NULL);
 
-    portInHostOrder = port;
+    sdp->portInHostOrder = port;
     sdp->http_server.tag = sdp;
     pthread_create(&sdp->http_server_thr, NULL, &acceptConnectionsThread, &sdp->http_server);
     // some resource will definitely leak but it shouldn't be a problem
