@@ -94,7 +94,7 @@ ug_pthread_cond_timedwait(pthread_cond_t *cv, pthread_mutex_t *lock,
         clock_gettime(CLOCK_MONOTONIC, &t1);
         // adjust timeout
         *timeout_ns -=
-            ((t0.tv_sec - t1.tv_sec) * NS_IN_SEC) + (t1.tv_nsec - t0.tv_nsec);
+            ((t1.tv_sec - t0.tv_sec) * NS_IN_SEC) + (t1.tv_nsec - t0.tv_nsec);
         if (*timeout_ns < 0) {
                 *timeout_ns = 0;
         }
