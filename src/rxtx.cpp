@@ -390,7 +390,12 @@ rxtx::create(string const              &proto,
                 return nullptr;
         }
 
-        rxtx *ret = new rxtx(proto.c_str(), params);
+        rxtx *ret = nullptr;
+        try {
+                ret = new rxtx(proto.c_str(), params);
+        } catch (int i) {
+                return i < 0 ? nullptr : (rxtx *) INIT_NOERR;
+        }
 
         auto params_c = *params;
         params_c.sender_mod  = &ret->m_sender_mod;
