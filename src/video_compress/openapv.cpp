@@ -63,8 +63,7 @@ namespace {
 #define FRM_INDEX    (0) // index of primary frame in oapv_frms_t
 
 struct state_video_compress_oapv {
-
-        state_video_compress_oapv(module *parent, const char *opts);
+        state_video_compress_oapv() = default;
         ~state_video_compress_oapv();
 
         bool parse_fmt(char *fmt);
@@ -85,35 +84,6 @@ struct state_video_compress_oapv {
 
         uv_to_openapv_conversion_f convert_to_planar = nullptr;
 };
-
-state_video_compress_oapv::state_video_compress_oapv(module *parent, const char *opts)
-{
-        (void) parent;
-
-        memset(&cdsc, 0, sizeof(cdsc));
-        int ret = oapve_param_default(cdsc.param);
-        if (OAPV_FAILED(ret)) {
-                printf("Failed to get default parameters for OAPV encoder: %d\n", ret);
-                throw 1;
-        }
-
-        cdsc.max_num_frms = MAX_NUM_FRMS;
-
-        memset(&input_frm, 0, sizeof(input_frm));
-        input_frm.num_frms                 = MAX_NUM_FRMS;
-        input_frm.frm[FRM_INDEX].pbu_type  = OAPV_PBU_TYPE_PRIMARY_FRAME;
-        input_frm.frm[FRM_INDEX].group_id  = 1;
-        input_frm.frm[FRM_INDEX].imgb      = &imgb;
-
-        if (opts && opts[0] != '\0') {
-                char *fmt = strdup(opts);
-                if (!parse_fmt(fmt)) {
-                        free(fmt);
-                        throw 1;
-                }
-                free(fmt);
-        }
-}
 
 state_video_compress_oapv::~state_video_compress_oapv() {
         for (int i = 0; i < OAPV_MAX_CC; i++) {
@@ -483,24 +453,50 @@ shared_ptr<video_frame> openapv_compress_tile(void *state, shared_ptr<video_fram
         return out;
 }
 
-void* openapv_compress_init(module *parent, const char *opts) {
+void openapv_print_help(){
+        color_printf(TBOLD("OpenAPV") " compression usage:\n");
+        color_printf("\t" TBOLD(
+                TRED("-c openapv") "[:threads=<n>][:rc=<0|1>][:qp=<n>][:bitrate=<br>]"
+                "[:preset=<0-4>][:tile_w=<n>][:tile_h=<n>]"
+                "[:use_filler=<0|1>][:qp_offset_c1=<n>][:qp_offset_c2=<n>][:qp_offset_c3=<n>]") "\n");
+        color_printf("\t" TBOLD(TRED("-c openapv") ":help") "\n");
+        color_printf("\nwhere:\n");
+        for (const auto &opt : usage_opts) {
+                color_printf("\t" TBOLD("<%s>") "\n%s\n", opt.key, opt.description);
+        }
+        color_printf("\n");
+}
+
+void* openapv_compress_init(module */*parent*/, const char *opts) {
         if (opts && strcmp(opts, "help") == 0) {
-                color_printf(TBOLD("OpenAPV") " compression usage:\n");
-                color_printf("\t" TBOLD(
-                        TRED("-c openapv") "[:threads=<n>][:rc=<0|1>][:qp=<n>][:bitrate=<br>]"
-                        "[:preset=<0-4>][:tile_w=<n>][:tile_h=<n>]"
-                        "[:use_filler=<0|1>][:qp_offset_c1=<n>][:qp_offset_c2=<n>][:qp_offset_c3=<n>]") "\n");
-                color_printf("\t" TBOLD(TRED("-c openapv") ":help") "\n");
-                color_printf("\nwhere:\n");
-                for (const auto &opt : usage_opts) {
-                        color_printf("\t" TBOLD("<%s>") "\n%s\n", opt.key, opt.description);
-                }
-                printf("\n");
+                openapv_print_help();
                 return INIT_NOERR;
         }
 
-        auto s = new state_video_compress_oapv(parent, opts);
-        return s;
+        auto s = std::make_unique<state_video_compress_oapv>();
+
+        int ret = oapve_param_default(s->cdsc.param);
+        if (OAPV_FAILED(ret)) {
+                log_msg(LOG_LEVEL_FATAL, MOD_NAME "Failed to get default parameters for OAPV encoder: %d\n", ret);
+                return nullptr;
+        }
+
+        s->cdsc.max_num_frms = MAX_NUM_FRMS;
+
+        s->input_frm.num_frms                 = MAX_NUM_FRMS;
+        s->input_frm.frm[FRM_INDEX].pbu_type  = OAPV_PBU_TYPE_PRIMARY_FRAME;
+        s->input_frm.frm[FRM_INDEX].group_id  = 1;
+        s->input_frm.frm[FRM_INDEX].imgb      = &s->imgb;
+
+        if (opts && opts[0] != '\0') {
+                char *fmt = strdup(opts);
+                if (!s->parse_fmt(fmt)) {
+                        return nullptr;
+                }
+                free(fmt);
+        }
+
+        return s.release();
 }
 
 void openapv_compress_done(void  *state) {
