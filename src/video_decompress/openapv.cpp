@@ -47,6 +47,7 @@
 #include "video_decompress.h"
 #include "from_planar.h"
 #include "openapv/from_openapv_conversions.h"
+#include "openapv/openapv_common.hpp"
 
 namespace {
 
@@ -80,7 +81,7 @@ state_video_decompress_openapv::state_video_decompress_openapv() {
         cdesc.threads = OAPV_CDESC_THREADS_AUTO;
         decoder_handle = oapvd_create(&cdesc, &ret);
         if (OAPV_FAILED(ret)) {
-                throw std::runtime_error("oapvd_create failed (ret=" + std::to_string(ret) + ")");
+                throw std::runtime_error("oapvd_create failed (" + std::string(oapv_err_str(ret)) + ")");
         }
 
         decoded_frames.num_frms = MAX_NUM_FRMS;
@@ -159,7 +160,7 @@ bool configure_with(state_video_decompress_openapv *s, unsigned char *bitstream_
 
         ret = oapvd_info(bitstream_buffer, codestream_size, &aui);
         if (OAPV_FAILED(ret) || aui.num_frms != 1) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get APV info (ret=%d, num_frms=%d).\n", ret, aui.num_frms);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get APV info (%s, num_frms=%d).\n", oapv_err_str(ret), aui.num_frms);
                 return false;
         }
 
@@ -291,7 +292,7 @@ decompress_status openapv_decompress(void *state, unsigned char *dst, unsigned c
         oapvd_stat_t stat{};
         int ret = oapvd_decode(s->decoder_handle, &s->input_buffer, &s->decoded_frames, nullptr, &stat);
         if (OAPV_FAILED(ret)) {
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "oapvd_decode failed ret=%d src_len=%u.\n", ret, src_len);
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "oapvd_decode failed (%s) src_len=%u.\n", oapv_err_str(ret), src_len);
                 return DECODER_NO_FRAME;
         }
 
