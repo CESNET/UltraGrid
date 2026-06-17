@@ -41,8 +41,6 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "openapv/to_openapv_conversions.h"
-
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
@@ -51,6 +49,8 @@
 #include "video_compress.h"
 #include "video_frame.h"
 #include "video.h"
+#include "openapv/openapv_common.hpp"
+#include "openapv/to_openapv_conversions.h"
 #include "utils/video_frame_pool.h"
 
 using std::shared_ptr;
@@ -203,29 +203,6 @@ int map_color_spaces_to_profiles(int cs) {
                         return OAPV_PROFILE_444_12;
                 default:
                         return -1;
-        }
-}
-
-const char *oapv_err_str(int err) {
-        switch (err) {
-                case OAPV_OK:                         return "ok";
-                case OAPV_ERR_INVALID_ARGUMENT:       return "invalid argument";
-                case OAPV_ERR_OUT_OF_MEMORY:          return "out of memory";
-                case OAPV_ERR_REACHED_MAX:            return "reached max";
-                case OAPV_ERR_UNSUPPORTED:            return "unsupported";
-                case OAPV_ERR_UNEXPECTED:             return "unexpected";
-                case OAPV_ERR_UNSUPPORTED_COLORSPACE: return "unsupported color space";
-                case OAPV_ERR_MALFORMED_BITSTREAM:    return "malformed bitstream";
-                case OAPV_ERR_OUT_OF_BS_BUF:          return "bitstream buffer too small";
-                case OAPV_ERR_NOT_FOUND:              return "not found";
-                case OAPV_ERR_FAILED_SYSCALL:         return "failed syscall";
-                case OAPV_ERR_INVALID_PROFILE:        return "invalid profile";
-                case OAPV_ERR_INVALID_LEVEL:          return "invalid level";
-                case OAPV_ERR_INVALID_WIDTH:          return "invalid width (odd width is not allowed for 4:2:2)";
-                case OAPV_ERR_INVALID_HEIGHT:         return "invalid height";
-                case OAPV_ERR_INVALID_QP:             return "invalid QP (encoder accepts 0~63 only, regardless of bit depth)";
-                case OAPV_ERR_INVALID_FAMILY:         return "invalid family";
-                default:                              return "unknown error";
         }
 }
 
