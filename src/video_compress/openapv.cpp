@@ -83,7 +83,7 @@ struct state_video_compress_oapv {
         video_frame_pool pool;
         bool configured = false;
 
-        void (*convert_to_planar)(const uint8_t *src, int width, int height, oapv_imgb_t *dst) = nullptr;
+        uv_to_openapv_conversion_f convert_to_planar = nullptr;
 };
 
 state_video_compress_oapv::state_video_compress_oapv(module *parent, const char *opts)

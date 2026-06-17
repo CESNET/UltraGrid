@@ -46,11 +46,12 @@
 extern "C" {
 #endif
 
+typedef void (*uv_to_openapv_conversion_f)(const uint8_t *src, int width, int height, oapv_imgb_t *dst);
+
 struct uv_to_openapv_conversion {
         codec_t src_color_format;
         int     dst_color_format;
-        void  (*convert)(const uint8_t *src, int width, int height,
-                         oapv_imgb_t *dst);
+        uv_to_openapv_conversion_f convert;
 };
 
 const struct uv_to_openapv_conversion* get_uv_to_openapv_conversion(codec_t codec);
