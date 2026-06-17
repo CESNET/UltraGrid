@@ -40,6 +40,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <type_traits>
 
 #include "debug.h"
 #include "lib_common.h"
@@ -62,13 +63,15 @@ namespace {
 #define MAX_NUM_FRMS (1) // support only primary frame
 #define FRM_INDEX    (0) // index of primary frame in oapv_frms_t
 
+using oapve_uniq = std::unique_ptr<std::remove_pointer_t<oapve_t>, deleter_from_fcn<oapve_delete>>;
+
 struct state_video_compress_oapv {
         state_video_compress_oapv() = default;
         ~state_video_compress_oapv();
 
         bool parse_fmt(char *fmt);
 
-        oapve_t id = nullptr;       // OAPV encoder handle
+        oapve_uniq enc_h;           // OAPV encoder handle
         oapve_cdesc_t cdsc{};       // description used for encoder creation (params, threads, …)
         
         oapv_bitb_t bitb{};         // bitstream buffer (output)
@@ -88,10 +91,6 @@ struct state_video_compress_oapv {
 state_video_compress_oapv::~state_video_compress_oapv() {
         for (int i = 0; i < OAPV_MAX_CC; i++) {
                 free(imgb.baddr[i]);
-        }
-
-        if (id) {
-                oapve_delete(id);
         }
 
         free(bitb.addr);
@@ -385,13 +384,9 @@ bool configure_with(state_video_compress_oapv *s, video_desc desc) {
                 s->cdsc.max_bs_buf_size = new_buf_size;
         }
 
-        if (s->id != nullptr) {
-                oapve_delete(s->id);
-                s->id = nullptr;
-        }
-
+        s->enc_h.reset();
         int ret;
-        s->id = oapve_create(&s->cdsc, &ret);
+        s->enc_h.reset(oapve_create(&s->cdsc, &ret));
         if (OAPV_FAILED(ret)) {
                 printf("Failed to create OAPV encoder: %d\n", ret);
                 return false;
@@ -399,11 +394,10 @@ bool configure_with(state_video_compress_oapv *s, video_desc desc) {
 
         int au_bs_fmt = OAPV_CFG_VAL_AU_BS_FMT_NONE;
         int au_bs_fmt_size = sizeof(au_bs_fmt);
-        ret = oapve_config(s->id, OAPV_CFG_SET_AU_BS_FMT, &au_bs_fmt, &au_bs_fmt_size);
+        ret = oapve_config(s->enc_h.get(), OAPV_CFG_SET_AU_BS_FMT, &au_bs_fmt, &au_bs_fmt_size);
         if (OAPV_FAILED(ret)) {
                 printf("Failed to set OAPV AU bitstream format: %d\n", ret);
-                oapve_delete(s->id);
-                s->id = nullptr;
+                s->enc_h = nullptr;
                 return false;
         }
 
@@ -437,7 +431,7 @@ shared_ptr<video_frame> openapv_compress_tile(void *state, shared_ptr<video_fram
         s->convert_to_planar((const uint8_t *) in_tile->data, desc.width, desc.height, &s->imgb);
 
         s->bitb.ssize = 0;
-        int ret = oapve_encode(s->id, &s->input_frm, nullptr, &s->bitb, &s->stat, nullptr);
+        int ret = oapve_encode(s->enc_h.get(), &s->input_frm, nullptr, &s->bitb, &s->stat, nullptr);
         if (OAPV_FAILED(ret)) {
                 MSG(ERROR, "oapve_encode failed: %s (%d) (frame dropped)\n", oapv_err_str(ret), ret);
                 return {};
