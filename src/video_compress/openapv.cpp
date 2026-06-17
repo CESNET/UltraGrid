@@ -129,7 +129,7 @@ bool input_buffer_setup(const oapve_cdesc_t *cdsc, oapv_imgb_t *imgb, int cs) {
                         imgb->np = 3;
                         break;
                 default:
-                        printf("Unsupported color format for input buffer: %d\n", OAPV_CS_GET_FORMAT(cs));
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported color format for input buffer: %d\n", OAPV_CS_GET_FORMAT(cs));
                         return false;
                 }
 
@@ -143,7 +143,7 @@ bool input_buffer_setup(const oapve_cdesc_t *cdsc, oapv_imgb_t *imgb, int cs) {
                 imgb->bsize[i] = imgb->s[i] * imgb->e[i];
                 imgb->a[i] = imgb->baddr[i] = malloc(imgb->bsize[i]);
                 if (imgb->baddr[i] == nullptr) {
-                        printf("Failed to allocate plane %d for input buffer (%zu bytes).\n", i, (size_t) imgb->bsize[i]);
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to allocate plane %d for input buffer (%zu bytes).\n", i, (size_t) imgb->bsize[i]);
                         for (int j = 0; j < i; j++) {
                                 free(imgb->baddr[j]);
                                 imgb->baddr[j] = nullptr;
@@ -348,7 +348,7 @@ bool state_video_compress_oapv::parse_fmt(char *fmt)
 bool configure_with(state_video_compress_oapv *s, video_desc desc) {
         const uv_to_openapv_conversion* conv_struct = get_uv_to_openapv_conversion(desc.color_spec);
         if (!conv_struct || conv_struct->convert == nullptr) {
-                printf("unsupported codec");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "unsupported codec\n");
                 return false;
         }
         s->convert_to_planar = conv_struct->convert;
@@ -362,7 +362,7 @@ bool configure_with(state_video_compress_oapv *s, video_desc desc) {
         s->cdsc.param[FRM_INDEX].profile_idc = map_color_spaces_to_profiles(conv_struct->dst_color_format);
 
         if (!input_buffer_setup(&s->cdsc, &s->imgb, conv_struct->dst_color_format)) {
-                printf("Failed to set up input buffer\n");
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to set up input buffer\n");
                 return false;
         }
 
@@ -377,7 +377,7 @@ bool configure_with(state_video_compress_oapv *s, video_desc desc) {
                 free(s->bitb.addr);
                 s->bitb.addr = malloc(new_buf_size);
                 if (s->bitb.addr == nullptr) {
-                        printf("Failed to allocate bitstream buffer (%d bytes)\n", new_buf_size);
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to allocate bitstream buffer (%d bytes)\n", new_buf_size);
                         return false;
                 }
                 s->bitb.bsize = new_buf_size;
@@ -388,7 +388,7 @@ bool configure_with(state_video_compress_oapv *s, video_desc desc) {
         int ret;
         s->enc_h.reset(oapve_create(&s->cdsc, &ret));
         if (OAPV_FAILED(ret)) {
-                printf("Failed to create OAPV encoder: %d\n", ret);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to create OAPV encoder: %d\n", ret);
                 return false;
         }
 
@@ -396,7 +396,7 @@ bool configure_with(state_video_compress_oapv *s, video_desc desc) {
         int au_bs_fmt_size = sizeof(au_bs_fmt);
         ret = oapve_config(s->enc_h.get(), OAPV_CFG_SET_AU_BS_FMT, &au_bs_fmt, &au_bs_fmt_size);
         if (OAPV_FAILED(ret)) {
-                printf("Failed to set OAPV AU bitstream format: %d\n", ret);
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to set OAPV AU bitstream format: %d\n", ret);
                 s->enc_h = nullptr;
                 return false;
         }
