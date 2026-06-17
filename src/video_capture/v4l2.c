@@ -60,7 +60,6 @@
 
 enum {
         DEFAULT_BUF_COUNT = 3,
-        MAX_BUF_COUNT     = 30,
 };
 #define MOD_NAME "[V4L cap.] "
 
@@ -89,7 +88,7 @@ struct vidcap_v4l2_state {
         struct video_desc desc;
 
         int fd;
-        struct v4l2_buffer_data buffers[MAX_BUF_COUNT];
+        struct v4l2_buffer_data buffers[V4L2_CAP_MAX_BUF_COUNT];
 
         _Bool permissive; ///< do not fail if parameters (size, FPS...) not set exactly
 #ifdef HAVE_LIBV4LCONVERT
@@ -552,7 +551,7 @@ parse_fmt(char *fmt, struct parsed_opts *opts)
                                                 : atoi(strchr(item, '/') + 1);
                 } else if (IS_KEY_PREFIX(item, "buffers")) {
                         opts->buffer_count = atoi(strchr(item, '=') + 1);
-                        assert(opts->buffer_count <= MAX_BUF_COUNT);
+                        assert(opts->buffer_count <= V4L2_CAP_MAX_BUF_COUNT);
                 } else if (IS_KEY_PREFIX(item, "convert")) {
 #ifdef HAVE_LIBV4LCONVERT
                         const char *codec     = strchr(item, '=') + 1;
