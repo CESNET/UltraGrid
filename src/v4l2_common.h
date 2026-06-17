@@ -127,14 +127,24 @@ struct v4l2_buffer_data {
         size_t length;
 };
 
+static int xioctl(int fh, int request, void *arg)
+{
+        int r;
+
+        do {
+                r = ioctl(fh, request, arg);
+        } while (-1 == r && EINTR == errno);
+
+        return r;
+}
+
 static _Bool set_v4l2_buffers(int fd, struct v4l2_requestbuffers *reqbuf, struct v4l2_buffer_data *buffers) {
-        if (ioctl (fd, VIDIOC_REQBUFS, reqbuf) != 0) {
+        if (xioctl (fd, VIDIOC_REQBUFS, reqbuf) != 0) {
                 if (errno == EINVAL)
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Video capturing or mmap-streaming is not supported\n");
                 else
                         log_perror(LOG_LEVEL_ERROR, MOD_NAME "VIDIOC_REQBUFS");
                 return 0;
-
         }
 
         if (reqbuf->count < 2) {
@@ -152,17 +162,17 @@ static _Bool set_v4l2_buffers(int fd, struct v4l2_requestbuffers *reqbuf, struct
                 buf.memory = V4L2_MEMORY_MMAP;
                 buf.index = i;
 
-                if (-1 == ioctl (fd, VIDIOC_QUERYBUF, &buf)) {
+                if (xioctl(fd, VIDIOC_QUERYBUF, &buf) != 0) {
                         log_perror(LOG_LEVEL_ERROR, MOD_NAME "VIDIOC_QUERYBUF");
                         return 0;
                 }
 
                 buffers[i].length = buf.length; /* remember for munmap() */
-
-                buffers[i].start = mmap(NULL, buf.length,
-                                PROT_READ | PROT_WRITE, /* recommended */
-                                MAP_SHARED,             /* recommended */
-                                fd, buf.m.offset);
+                buffers[i].start = mmap(NULL /* start anywhere */,
+                                        buf.length,
+                                        PROT_READ | PROT_WRITE /* required */,
+                                        MAP_SHARED /* recommended */,
+                                        fd, buf.m.offset);
 
                 if (MAP_FAILED == buffers[i].start) {
                         /* If you do not exit here you should unmap() and free()
@@ -173,7 +183,7 @@ static _Bool set_v4l2_buffers(int fd, struct v4l2_requestbuffers *reqbuf, struct
 
                 buf.flags = 0;
 
-                if(ioctl(fd, VIDIOC_QBUF, &buf) != 0) {
+                if (xioctl(fd, VIDIOC_QBUF, &buf) != 0) {
                         log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to enqueue buffer");
                         return 0;
                 }
@@ -194,7 +204,7 @@ static int try_open_v4l2_device(int log_level, const char *dev_name, int cap) {
 
         struct v4l2_capability capability;
         memset(&capability, 0, sizeof(capability));
-        if (ioctl(fd, VIDIOC_QUERYCAP, &capability) != 0) {
+        if (xioctl(fd, VIDIOC_QUERYCAP, &capability) != 0) {
                 log_perror(log_level, MOD_NAME "ioctl VIDIOC_QUERYCAP");
                 close(fd);
                 return -1;
@@ -215,7 +225,7 @@ static int try_open_v4l2_device(int log_level, const char *dev_name, int cap) {
 
         int index = 0;
 
-        if (ioctl(fd, VIDIOC_S_INPUT, &index) != 0) {
+        if (xioctl(fd, VIDIOC_S_INPUT, &index) != 0) {
                 log_perror(log_level, MOD_NAME "Could not enable input (VIDIOC_S_INPUT)");
                 close(fd);
                 return -1;

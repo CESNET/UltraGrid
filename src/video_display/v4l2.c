@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2022-2023 CESNET z.s.p.o.
+ * Copyright (c) 2022-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -89,7 +89,7 @@ static void display_v4l2_probe(struct device_info **available_cards, int *count,
 
                 struct v4l2_capability capab;
                 memset(&capab, 0, sizeof capab);
-                if (ioctl(fd, VIDIOC_QUERYCAP, &capab) != 0) {
+                if (xioctl(fd, VIDIOC_QUERYCAP, &capab) != 0) {
                         log_msg(LOG_LEVEL_WARNING, MOD_NAME "Unable to query device capabilities for %s: %s",
                                         name, ug_strerror(errno));
                 }
@@ -183,7 +183,7 @@ static void deinit_device(struct display_v4l2_state *s) {
                 return;
         }
         int type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
-        if (ioctl(s->fd, VIDIOC_STREAMOFF, &type) != 0) {
+        if (xioctl(s->fd, VIDIOC_STREAMOFF, &type) != 0) {
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Stream stopping error");
         }
 
@@ -210,7 +210,7 @@ static void display_v4l2_done(void *state)
 static struct video_frame *display_v4l2_getf(void *state)
 {
         struct display_v4l2_state *s = state;
-        int ret = ioctl(s->fd, VIDIOC_DQBUF, &s->buf);
+        int ret = xioctl(s->fd, VIDIOC_DQBUF, &s->buf);
         if (ret != 0) {
                 log_perror(LOG_LEVEL_WARNING, MOD_NAME "QBUF");
                 return NULL;
@@ -229,7 +229,7 @@ static bool display_v4l2_putf(void *state, struct video_frame *frame, long long 
         if (frame == NULL) {
                 return true;
         }
-        int ret = ioctl(s->fd, VIDIOC_QBUF, &s->buf);
+        int ret = xioctl(s->fd, VIDIOC_QBUF, &s->buf);
         if (ret != 0) {
                 log_perror(LOG_LEVEL_WARNING, MOD_NAME "QBUF");
         }
@@ -278,7 +278,7 @@ static bool display_v4l2_reconfigure(void *state, struct video_desc desc)
         deinit_device(s);
 
         struct v4l2_format fmt = { .type = V4L2_BUF_TYPE_VIDEO_OUTPUT };
-        CHECK(ioctl(s->fd, VIDIOC_G_FMT, &fmt));
+        CHECK(xioctl(s->fd, VIDIOC_G_FMT, &fmt));
         fmt.fmt.pix.width = desc.width;
         fmt.fmt.pix.height = desc.height;
         for (unsigned i = 0; i < sizeof v4l2_ug_map / sizeof v4l2_ug_map[0]; i++) {
@@ -293,14 +293,14 @@ static bool display_v4l2_reconfigure(void *state, struct video_desc desc)
                         break;
                 }
         }
-        CHECK(ioctl(s->fd, VIDIOC_S_FMT, &fmt));
+        CHECK(xioctl(s->fd, VIDIOC_S_FMT, &fmt));
 
         struct v4l2_streamparm parm = { .type = V4L2_BUF_TYPE_VIDEO_OUTPUT };
-        CHECK(ioctl(s->fd, VIDIOC_G_PARM, &parm));
+        CHECK(xioctl(s->fd, VIDIOC_G_PARM, &parm));
         parm.parm.output.capability = V4L2_CAP_TIMEPERFRAME;
         parm.parm.output.timeperframe.numerator = get_framerate_d(desc.fps);
         parm.parm.output.timeperframe.denominator = get_framerate_n(desc.fps);
-        CHECK(ioctl(s->fd, VIDIOC_S_PARM, &parm));
+        CHECK(xioctl(s->fd, VIDIOC_S_PARM, &parm));
 
         struct v4l2_requestbuffers reqbuf = { 0 };
         reqbuf.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
@@ -310,7 +310,7 @@ static bool display_v4l2_reconfigure(void *state, struct video_desc desc)
                 return false;
         }
 
-        if (ioctl(s->fd, VIDIOC_STREAMON, &reqbuf.type) != 0) {
+        if (xioctl(s->fd, VIDIOC_STREAMON, &reqbuf.type) != 0) {
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to start stream");
                 return false;
         };

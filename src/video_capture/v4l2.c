@@ -3,8 +3,12 @@
  * @author  Milos Liska      <xliska@fi.muni.cz>
  * @author  Martin Piatka    <piatka@cesnet.cz>
  * @author  Martin Pulec     <martin.pulec@cesnet.cz>
+ *
+ * The implementation is based on capture.c.rst example in
+ * Documentation/userspace-api/media/v4l subdir of Linux kernel
+ * tree (the IO_METHOD_MMAP variant).
  */
- /*
+/*
  * Copyright (c) 2012-2026 CESNET, zájmové sdružení právických osob
  * All rights reserved.
  *
@@ -54,7 +58,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
@@ -114,7 +117,7 @@ static void enqueue_all_finished_frames(struct vidcap_v4l2_state *s) {
         struct v4l2_dispose_deq_buffer_data *dequeue_data;
         while ((dequeue_data = simple_linked_list_pop(s->buffers_to_enqueue)) != NULL) {
                 s->dequeued_buffers -= 1;
-                if (ioctl(s->fd, VIDIOC_QBUF, &dequeue_data->buf) != 0) {
+                if (xioctl(s->fd, VIDIOC_QBUF, &dequeue_data->buf) != 0) {
                         log_perror(LOG_LEVEL_ERROR, "Unable to enqueue buffer");
                 }
                 free(dequeue_data);
@@ -127,7 +130,7 @@ static void vidcap_v4l2_common_cleanup(struct vidcap_v4l2_state *s) {
         }
 
         int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-        if (s->fd != -1 && ioctl(s->fd, VIDIOC_STREAMOFF, &type) != 0) {
+        if (s->fd != -1 && xioctl(s->fd, VIDIOC_STREAMOFF, &type) != 0) {
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Stream stopping error");
         };
 
@@ -164,7 +167,7 @@ static void vidcap_v4l2_common_cleanup(struct vidcap_v4l2_state *s) {
 }
 
 static void print_fps(int fd, struct v4l2_frmivalenum *param) {
-        int res = ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, param);
+        int res = xioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, param);
 
         if(res == -1) {
                 log_perror(LOG_LEVEL_WARNING, MOD_NAME "Unable to get FPS");
@@ -173,7 +176,7 @@ static void print_fps(int fd, struct v4l2_frmivalenum *param) {
 
         switch (param->type) {
                 case V4L2_FRMIVAL_TYPE_DISCRETE:
-                        while(ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, param) == 0) {
+                        while(xioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, param) == 0) {
                                 printf("%u/%u ", param->discrete.numerator,
                                                 param->discrete.denominator);
                                 param->index++;
@@ -249,7 +252,7 @@ static void show_help(_Bool full)
 
                 struct v4l2_capability capab;
                 memset(&capab, 0, sizeof capab);
-                if (ioctl(fd, VIDIOC_QUERYCAP, &capab) != 0) {
+                if (xioctl(fd, VIDIOC_QUERYCAP, &capab) != 0) {
                         log_perror(LOG_LEVEL_WARNING, MOD_NAME "Unable to query device capabilities");
                 }
 
@@ -268,12 +271,12 @@ static void show_help(_Bool full)
                 struct v4l2_format fmt;
                 memset(&fmt, 0, sizeof(fmt));
                 fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-                if (ioctl(fd, VIDIOC_G_FMT, &fmt) != 0) {
+                if (xioctl(fd, VIDIOC_G_FMT, &fmt) != 0) {
                         log_perror(LOG_LEVEL_WARNING, MOD_NAME "Unable to get video format");
                         goto next_device;
                 }
 
-                while (full && ioctl(fd, VIDIOC_ENUM_FMT, &format) == 0) {
+                while (full && xioctl(fd, VIDIOC_ENUM_FMT, &format) == 0) {
                         printf("\t\t");
                         if(fmt.fmt.pix.pixelformat == format.pixelformat) {
                                 printf("(*) ");
@@ -287,7 +290,7 @@ static void show_help(_Bool full)
                         memset(&size, 0, sizeof(size));
                         size.pixel_format = format.pixelformat;
 
-                        if (ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &size) == -1) {
+                        if (xioctl(fd, VIDIOC_ENUM_FRAMESIZES, &size) == -1) {
                                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to get frame size iterator");
                                 goto next_device;
                         }
@@ -299,7 +302,7 @@ static void show_help(_Bool full)
 
                         switch (size.type) {
                                 case V4L2_FRMSIZE_TYPE_DISCRETE:
-                                        while(ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &size) == 0) {
+                                        while(xioctl(fd, VIDIOC_ENUM_FRAMESIZES, &size) == 0) {
                                                 printf("\t\t\t");
                                                 if(fmt.fmt.pix.width == size.discrete.width &&
                                                                 fmt.fmt.pix.height == size.discrete.height) {
@@ -403,7 +406,7 @@ static void vidcap_v4l2_probe(struct device_info **available_cards, int *count, 
 
                 struct v4l2_capability capab;
                 memset(&capab, 0, sizeof capab);
-                if (ioctl(fd, VIDIOC_QUERYCAP, &capab) != 0) {
+                if (xioctl(fd, VIDIOC_QUERYCAP, &capab) != 0) {
                         log_perror(LOG_LEVEL_WARNING, MOD_NAME "Unable to query device capabilities");
                 }
 
@@ -423,12 +426,12 @@ static void vidcap_v4l2_probe(struct device_info **available_cards, int *count, 
                 format.index = 0;
 
                 int fmt_idx = 0;
-                while(ioctl(fd, VIDIOC_ENUM_FMT, &format) == 0) {
+                while(xioctl(fd, VIDIOC_ENUM_FMT, &format) == 0) {
                         struct v4l2_frmsizeenum size;
                         memset(&size, 0, sizeof(size));
                         size.pixel_format = format.pixelformat;
 
-                        if (ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &size) == -1) {
+                        if (xioctl(fd, VIDIOC_ENUM_FRAMESIZES, &size) == -1) {
                                 log_perror(LOG_LEVEL_WARNING, MOD_NAME "Unable to get frame size iterator");
                                 goto next_device;
                         }
@@ -440,19 +443,19 @@ static void vidcap_v4l2_probe(struct device_info **available_cards, int *count, 
 
                         switch (size.type) {
                                 case V4L2_FRMSIZE_TYPE_DISCRETE:
-                                        while(ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &size) == 0) {
+                                        while(xioctl(fd, VIDIOC_ENUM_FRAMESIZES, &size) == 0) {
                                                 frame_int.width = size.discrete.width;
                                                 frame_int.height = size.discrete.height;
                                                 frame_int.index = 0;
 
-                                                if (ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, &frame_int) == -1) {
+                                                if (xioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, &frame_int) == -1) {
                                                         log_perror(LOG_LEVEL_WARNING, MOD_NAME "Unable to get FPS");
                                                         goto next_device;
                                                 }
 
                                                 switch (frame_int.type) {
                                                         case V4L2_FRMIVAL_TYPE_DISCRETE:
-                                                                while(ioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, &frame_int) == 0) {
+                                                                while(xioctl(fd, VIDIOC_ENUM_FRAMEINTERVALS, &frame_int) == 0) {
                                                                         write_mode(&cards[card_count - 1].modes[fmt_idx++],
                                                                                         size.discrete.width, size.discrete.height,
                                                                                         frame_int.discrete.numerator, frame_int.discrete.denominator,
@@ -635,13 +638,13 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
         }
 
         struct v4l2_format fmt = { .type = V4L2_BUF_TYPE_VIDEO_CAPTURE };
-        if (ioctl(s->fd, VIDIOC_G_FMT, &fmt) != 0) {
+        if (xioctl(s->fd, VIDIOC_G_FMT, &fmt) != 0) {
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to get video format");
                 goto error;
         }
 
         struct v4l2_streamparm stream_params = { .type = V4L2_BUF_TYPE_VIDEO_CAPTURE };
-        if (ioctl(s->fd, VIDIOC_G_PARM, &stream_params) != 0) {
+        if (xioctl(s->fd, VIDIOC_G_PARM, &stream_params) != 0) {
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to get stream params");
                 goto error;
         }
@@ -659,7 +662,7 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
         fmt.fmt.pix.bytesperline = 0;
 
         struct v4l2_format req_fmt = fmt;
-        if (ioctl(s->fd, VIDIOC_S_FMT, &fmt) != 0) {
+        if (xioctl(s->fd, VIDIOC_S_FMT, &fmt) != 0) {
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to set video format");
                 goto error;
         }
@@ -671,7 +674,7 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
         }
         struct v4l2_streamparm req_stream_params = stream_params;
         if (opts.numerator != 0 && opts.denominator != 0 &&
-            ioctl(s->fd, VIDIOC_S_PARM, &stream_params) != 0) {
+            xioctl(s->fd, VIDIOC_S_PARM, &stream_params) != 0) {
                 log_perror(LOG_LEVEL_ERROR,
                            MOD_NAME "Unable to set stream params");
                 goto error;
@@ -686,7 +689,7 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
         s->dst_fmt.fmt.pix.bytesperline = 0;
         s->dst_fmt.fmt.pix.colorspace = V4L2_COLORSPACE_DEFAULT;
 
-        if(ioctl(s->fd, VIDIOC_G_PARM, &stream_params) != 0) {
+        if(xioctl(s->fd, VIDIOC_G_PARM, &stream_params) != 0) {
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to get stream params");
                 goto error;
         }
@@ -758,7 +761,7 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
         }
         s->buffer_count = reqbuf.count;
 
-        if(ioctl(s->fd, VIDIOC_STREAMON, &reqbuf.type) != 0) {
+        if(xioctl(s->fd, VIDIOC_STREAMON, &reqbuf.type) != 0) {
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to start stream");
                 goto error;
         };
@@ -824,7 +827,7 @@ static struct video_frame * vidcap_v4l2_grab(void *state, struct audio_frame **a
         buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         buf.memory = V4L2_MEMORY_MMAP;
 
-        if(ioctl(s->fd, VIDIOC_DQBUF, &buf) != 0) {
+        if(xioctl(s->fd, VIDIOC_DQBUF, &buf) != 0) {
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to dequeue buffer");
                 return NULL;
         };
@@ -847,7 +850,7 @@ static struct video_frame * vidcap_v4l2_grab(void *state, struct audio_frame **a
                                 out->tiles[0].data_len);
 
                 // we do not need the driver buffer any more
-                if (ioctl(s->fd, VIDIOC_QBUF, &buf) != 0) {
+                if (xioctl(s->fd, VIDIOC_QBUF, &buf) != 0) {
                         log_perror(LOG_LEVEL_ERROR, "[V4L2 capture] Unable to enqueue buffer");
                 } else {
                         s->dequeued_buffers -= 1;
