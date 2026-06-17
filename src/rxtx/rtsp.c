@@ -76,7 +76,7 @@ struct tx;
 #define MOD_NAME "[rxtx/rtsp] "
 #define MAGIC to_fourcc('R', 'T', 'r', 's')
 
-struct h264_rtp_video_rxtx {
+struct h264_rtp_rxtx {
         uint32_t magic;
 
         struct rtp_rxtx_common       *rtp_common;
@@ -96,7 +96,7 @@ static void rtps_server_usage();
 static int  get_rtsp_server_port(const char *config);
 
 static void *
-create_video_rxtx_h264_std(const struct rxtx_params *params)
+create_rxtx_rtsp(const struct rxtx_params *params)
 {
         int rtsp_port = 0;
         const char *rtsp_port_str = params->protocol_opts;
@@ -110,7 +110,7 @@ create_video_rxtx_h264_std(const struct rxtx_params *params)
                         return nullptr;
                 }
         }
-        struct h264_rtp_video_rxtx *s = calloc(1, sizeof *s);
+        struct h264_rtp_rxtx *s = calloc(1, sizeof *s);
         s->magic                      = MAGIC;
         s->parent                     = params->parent;
         s->start_time                 = params->start_time;
@@ -144,10 +144,10 @@ create_video_rxtx_h264_std(const struct rxtx_params *params)
  * this function is used to configure their RTSP server either
  * for video-only or using both audio and video. For audio-only
  * RTSP server, the server is run directly from
- * h264_rtp_video_rxtx::set_audio_spec().
+ * configure_audio().
  */
 static void
-configure_rtsp_server_video(struct h264_rtp_video_rxtx *s)
+configure_rtsp_server_video(struct h264_rtp_rxtx *s)
 {
         assert((s->rtsp_params.avType & rtsp_type_video) != 0);
         switch (s->rtsp_params.video_codec) {
@@ -178,7 +178,7 @@ configure_rtsp_server_video(struct h264_rtp_video_rxtx *s)
 }
 
 static void
-send_frame_impl(struct h264_rtp_video_rxtx *s, struct video_frame *tx_frame)
+send_frame_impl(struct h264_rtp_rxtx *s, struct video_frame *tx_frame)
 {
         struct rtp_rxtx_medium *video = &s->rtp_common->medium[TX_MEDIA_VIDEO];
 
@@ -213,7 +213,7 @@ send_frame_impl(struct h264_rtp_video_rxtx *s, struct video_frame *tx_frame)
 static void
 send_frame(void *state, struct video_frame *tx_frame)
 {
-        struct h264_rtp_video_rxtx *s = state;
+        struct h264_rtp_rxtx *s = state;
         send_frame_impl(s, tx_frame);
         tx_frame->callbacks.dispose(tx_frame);
 }
@@ -221,7 +221,7 @@ send_frame(void *state, struct video_frame *tx_frame)
 static void
 join(void *state)
 {
-        struct h264_rtp_video_rxtx *s = state;
+        struct h264_rtp_rxtx *s = state;
         stop_rtsp_server(s->rtsp_server);
         s->rtsp_server = nullptr;
 }
@@ -259,13 +259,13 @@ static int get_rtsp_server_port(const char *config) {
 }
 
 static void done(void *state) {
-        struct h264_rtp_video_rxtx *s = state;
+        struct h264_rtp_rxtx *s = state;
         rtp_rxtx_common_done(s->rtp_common);
         free(s);
 }
 
 static void
-configure_audio(struct h264_rtp_video_rxtx *s, const struct audio_frame2 *frame)
+configure_audio(struct h264_rtp_rxtx *s, const struct audio_frame2 *frame)
 {
         s->rtsp_params.adesc =  audio_frame2_get_desc(frame);
         MSG(VERBOSE, "Setting audio desc %s to RTSP.\n",
@@ -281,7 +281,7 @@ configure_audio(struct h264_rtp_video_rxtx *s, const struct audio_frame2 *frame)
 static void
 h264_rtp_send_audio_frame(void *state, const struct audio_frame2 *frame)
 {
-        struct h264_rtp_video_rxtx *s = state;
+        struct h264_rtp_rxtx *s = state;
 
         rtp_rxtx_sender_do_housekeeping(s->rtp_common, TX_MEDIA_AUDIO);
 
@@ -297,7 +297,7 @@ static bool
 h264_rtp_ctl_property(void *state, enum rxtx_property p,
                            void *val, size_t *len)
 {
-        struct h264_rtp_video_rxtx *s = state;
+        struct h264_rtp_rxtx *s = state;
         assert(s->magic == MAGIC);
         switch (p) {
         case GET_RTP_COMMON_STATE: {
@@ -327,13 +327,13 @@ h264_rtp_ctl_property(void *state, enum rxtx_property p,
 static struct rx_audio_frames *
 h264_rtp_recv_audio_frame(void *state)
 {
-        struct h264_rtp_video_rxtx *s = state;
+        struct h264_rtp_rxtx *s = state;
         return rtp_recv_audio_frame(s->rtp_common, decode_audio_frame_mulaw);
 }
 
-static const struct rxtx_info h264_video_rxtx_info = {
+static const struct rxtx_info rtsp_rxtx_info = {
         .long_name          = "RTP standard (using RTSP)",
-        .create             = create_video_rxtx_h264_std,
+        .create             = create_rxtx_rtsp,
         .done               = done,
         .ctl_property       = h264_rtp_ctl_property,
 
@@ -346,5 +346,4 @@ static const struct rxtx_info h264_video_rxtx_info = {
         .join_video_sender  = join,
 };
 
-REGISTER_MODULE(rtsp, &h264_video_rxtx_info, LIBRARY_CLASS_RXTX, RXTX_ABI_VERSION);
-
+REGISTER_MODULE(rtsp, &rtsp_rxtx_info, LIBRARY_CLASS_RXTX, RXTX_ABI_VERSION);

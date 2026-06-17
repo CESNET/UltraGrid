@@ -71,7 +71,7 @@ struct audio_frame2;
 
 #define MAGIC to_fourcc('V', 'X', 'h', 's')
 
-struct h264_sdp_video_rxtx {
+struct sdp_rxtx {
         uint32_t    magic;
         struct sdp *sdp_state;
 
@@ -92,9 +92,9 @@ static void change_address_callback(void *udata, const char *address);
 static void done(void *state);
 
 static void *
-create_video_rxtx_h264_sdp(const struct rxtx_params *params)
+create_rxtx_h264_sdp(const struct rxtx_params *params)
 {
-        struct h264_sdp_video_rxtx *s = calloc(1, sizeof *s);
+        struct sdp_rxtx *s = calloc(1, sizeof *s);
 
         s->magic    = MAGIC;
         s->audio_tx_port = -1;
@@ -165,7 +165,7 @@ sdp_send_change_address_message(struct module           *root,
 static void
 change_address_callback(void *udata, const char *address)
 {
-        struct h264_sdp_video_rxtx *s = udata;
+        struct sdp_rxtx *s = udata;
         if (s->saved_addr == address) {
                 return;
         }
@@ -183,7 +183,7 @@ change_address_callback(void *udata, const char *address)
 }
 
 static bool
-h264_sdp_add_video(struct h264_sdp_video_rxtx *s, codec_t codec)
+h264_sdp_add_video(struct sdp_rxtx *s, codec_t codec)
 {
         const int rc = sdp_add_video(s->sdp_state, s->video_tx_port, codec);
         if (rc == -2) {
@@ -203,7 +203,7 @@ h264_sdp_add_video(struct h264_sdp_video_rxtx *s, codec_t codec)
  * stream is detected.
  */
 static void
-send_frame_impl(struct h264_sdp_video_rxtx *s, struct video_frame *tx_frame)
+send_frame_impl(struct sdp_rxtx *s, struct video_frame *tx_frame)
 {
         struct rtp_rxtx_medium *video = &s->rtp_common->medium[TX_MEDIA_VIDEO];
 
@@ -239,13 +239,13 @@ send_frame_impl(struct h264_sdp_video_rxtx *s, struct video_frame *tx_frame)
 /// wraps send_frame_impl to ensure tx_frame is disposed across all code paths
 static void
 send_frame(void *state, struct video_frame *tx_frame) {
-        struct h264_sdp_video_rxtx *s = state;
+        struct sdp_rxtx *s = state;
         send_frame_impl(s, tx_frame);
         tx_frame->callbacks.dispose(tx_frame);
 }
 
 static void done(void *state) {
-        struct h264_sdp_video_rxtx *s = state;
+        struct sdp_rxtx *s = state;
 
         rtp_rxtx_common_done(s->rtp_common);
         sdp_done(s->sdp_state);
@@ -254,7 +254,7 @@ static void done(void *state) {
 }
 
 static void
-configure_audio(struct h264_sdp_video_rxtx *s, const struct audio_frame2 *frame)
+configure_audio(struct sdp_rxtx *s, const struct audio_frame2 *frame)
 {
         const struct audio_desc desc = audio_frame2_get_desc(frame);
         MSG(VERBOSE, "Setting audio desc %s to SDP.\n",
@@ -272,7 +272,7 @@ configure_audio(struct h264_sdp_video_rxtx *s, const struct audio_frame2 *frame)
 static void
 h264_sdp_send_audio_frame(void *state, const struct audio_frame2 *frame)
 {
-        struct h264_sdp_video_rxtx *s = state;
+        struct sdp_rxtx *s = state;
 
         rtp_rxtx_sender_do_housekeeping(s->rtp_common, TX_MEDIA_AUDIO);
 
@@ -288,7 +288,7 @@ static bool
 h264_sdp_ctl_property(void *state, enum rxtx_property p,
                            void *val, size_t *len)
 {
-        struct h264_sdp_video_rxtx *s = state;
+        struct sdp_rxtx *s = state;
         assert(s->magic == MAGIC);
         switch (p) {
         case GET_RTP_COMMON_STATE: {
@@ -318,13 +318,13 @@ h264_sdp_ctl_property(void *state, enum rxtx_property p,
 static struct rx_audio_frames *
 h264_sdp_recv_audio_frame(void *state)
 {
-        struct h264_sdp_video_rxtx *s = state;
+        struct sdp_rxtx *s = state;
         return rtp_recv_audio_frame(s->rtp_common, decode_audio_frame_mulaw);
 }
 
-static const struct rxtx_info h264_sdp_video_rxtx_info = {
+static const struct rxtx_info sdp_rxtx_info = {
         .long_name    = "RTP standard (SDP version)",
-        .create       = create_video_rxtx_h264_sdp,
+        .create       = create_rxtx_h264_sdp,
         .done         = done,
         .ctl_property = h264_sdp_ctl_property,
 
@@ -337,5 +337,4 @@ static const struct rxtx_info h264_sdp_video_rxtx_info = {
         .join_video_sender  = nullptr,
 };
 
-REGISTER_MODULE(sdp, &h264_sdp_video_rxtx_info, LIBRARY_CLASS_RXTX, RXTX_ABI_VERSION);
-
+REGISTER_MODULE(sdp, &sdp_rxtx_info, LIBRARY_CLASS_RXTX, RXTX_ABI_VERSION);

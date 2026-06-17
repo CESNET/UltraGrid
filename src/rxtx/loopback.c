@@ -322,7 +322,7 @@ done(void *state)
         free(s);
 }
 
-static const struct rxtx_info loopback_video_rxtx_info = {
+static const struct rxtx_info loopback_rxtx_info = {
         .long_name    = "loopback dummy transport",
         .create       = init,
         .done         = done,
@@ -337,5 +337,5 @@ static const struct rxtx_info loopback_video_rxtx_info = {
         .join_video_sender  = nullptr,
 };
 
-REGISTER_MODULE(loopback, &loopback_video_rxtx_info, LIBRARY_CLASS_RXTX, RXTX_ABI_VERSION);
-
+REGISTER_MODULE(loopback, &loopback_rxtx_info, LIBRARY_CLASS_RXTX,
+                RXTX_ABI_VERSION);

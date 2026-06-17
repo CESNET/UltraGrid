@@ -23,7 +23,7 @@ struct audio_frame2;
 #define MOD_NAME "[rxtx/jack] "
 
 struct jack_audio_rxtx {
-        void              *jack_connection;
+        void        *jack_connection;
         struct rxtx *video_rxtx;
 };
 
