@@ -38,7 +38,11 @@
 
 #ifndef OPENAPV_COMMON_HPP_EEE9BB2DDF414F64A86BD2DCC77D78C5
 #define OPENAPV_COMMON_HPP_EEE9BB2DDF414F64A86BD2DCC77D78C5
+#include <oapv/oapv.h>
 
 const char *oapv_err_str(int err);
+
+oapv_imgb_t *create_oapv_imgb(int width, int height, int colorspace);
+void ug_oapv_imgb_free(oapv_imgb_t *imgb);
 
 #endif //OPENAPV_COMMON_HPP_EEE9BB2DDF414F64A86BD2DCC77D78C5

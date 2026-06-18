@@ -38,7 +38,24 @@
 
 #include "openapv_common.hpp"
 
+#include <cstring>
+#include <memory>
 #include <oapv/oapv.h>
+
+#include "debug.h"
+
+#define MOD_NAME "[oapv] "
+
+void ug_oapv_imgb_free(oapv_imgb_t *imgb){
+        if(!imgb)
+                return;
+
+        for (int i = 0; i < imgb->np; ++i){
+                free(imgb->baddr[i]);
+        }
+
+        delete imgb;
+}
 
 const char *oapv_err_str(int err) {
         switch (err) {
@@ -61,5 +78,57 @@ const char *oapv_err_str(int err) {
         case OAPV_ERR_INVALID_FAMILY:         return "invalid family";
         default:                              return "unknown error";
         }
+}
+
+oapv_imgb_t *create_oapv_imgb(int width, int height, int colorspace){
+        auto ret = std::make_unique<oapv_imgb_t>();
+        *ret = {};
+
+        ret->cs = colorspace;
+        ret->w[0] = width;
+        ret->h[0] = height;
+
+        int cf = OAPV_CS_GET_FORMAT(colorspace);
+        switch(cf) {
+        case OAPV_CF_YCBCR422:
+                ret->w[1] = ret->w[2] = (width + 1) / 2;
+                ret->h[1] = ret->h[2] = height;
+                ret->np = 3;
+                break;
+        case OAPV_CF_YCBCR444:
+                ret->w[1] = ret->w[2] = width;
+                ret->h[1] = ret->h[2] = height;
+                ret->np = 3;
+                break;
+        case OAPV_CF_YCBCR4444:
+                ret->w[1] = ret->w[2] = ret->w[3] = width;
+                ret->h[1] = ret->h[2] = ret->h[3] = height;
+                ret->np = 4;
+                break;
+        default:
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported color format for input buffer: %d\n", cf);
+                return nullptr;
+        }
+
+        for (int i = 0; i < ret->np; ++i) {
+                ret->aw[i] = ((ret->w[i] + OAPV_MB_W - 1) / OAPV_MB_W) * OAPV_MB_W;
+                ret->ah[i] = ((ret->h[i] + OAPV_MB_H - 1) / OAPV_MB_H) * OAPV_MB_H;
+                ret->s[i] = ret->aw[i] * OAPV_CS_GET_BYTE_DEPTH(ret->cs);
+                ret->e[i] = ret->ah[i];
+                ret->bsize[i] = ret->s[i] * ret->e[i];
+                ret->baddr[i] = malloc(ret->bsize[i]);
+                if (ret->baddr[i] == nullptr) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to allocate plane %d (%d bytes).\n",
+                                i, ret->bsize[i]);
+                        for (int j = 0; j < i; ++j) {
+                                free(ret->baddr[j]);
+                        }
+                        return nullptr;
+                }
+                memset(ret->baddr[i], 0, ret->bsize[i]);
+                ret->a[i] = ret->baddr[i];
+        }
+
+        return ret.release();
 }
 
