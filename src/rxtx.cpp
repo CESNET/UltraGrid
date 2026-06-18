@@ -443,7 +443,7 @@ int
 rxtx_init(const char *proto_name, const struct rxtx_params *params,
            struct rxtx **state)
 {
-        static rxtx *ret = rxtx::create(proto_name, params);
+        rxtx *ret = rxtx::create(proto_name, params);
         if (ret == nullptr) {
                 return -1;
         }
