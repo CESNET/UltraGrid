@@ -78,7 +78,7 @@ struct state_video_compress_oapv {
         oapve_stat_t stat{};        // encoding status (output)
 
         oapv_frms_t input_frm{};    // frame for input
-        oapv_imgb_t imgb{};         // planar pixel data of input frame
+        oapv_imgb_t *imgb = nullptr;         // planar pixel data of input frame
 
         video_desc saved_desc{}; // last configured video description
 
@@ -89,73 +89,8 @@ struct state_video_compress_oapv {
 };
 
 state_video_compress_oapv::~state_video_compress_oapv() {
-        for (int i = 0; i < OAPV_MAX_CC; i++) {
-                free(imgb.baddr[i]);
-        }
-
+        ug_oapv_imgb_free(imgb);
         free(bitb.addr);
-}
-
-bool input_buffer_setup(const oapve_cdesc_t *cdsc, oapv_imgb_t *imgb, int cs) {
-        for (int i = 0; i < OAPV_MAX_CC; i++) {
-                // baddr and a are same for input buffer
-                free(imgb->baddr[i]);
-                imgb->baddr[i] = nullptr;
-                imgb->a[i]     = nullptr;
-        }
-        memset(imgb, 0, sizeof(*imgb));
-
-        int bd = OAPV_CS_GET_BYTE_DEPTH(cs);
-
-        imgb->w[0] = cdsc->param[0].w;
-        imgb->h[0] = cdsc->param[0].h;
-
-        switch(cs) {
-                case OAPV_CS_YCBCR4444_10LE:
-                case OAPV_CS_YCBCR4444_12LE:
-                        imgb->w[1] = imgb->w[2] = imgb->w[3] = cdsc->param[0].w;
-                        imgb->h[1] = imgb->h[2] = imgb->h[3] = cdsc->param[0].h;
-                        imgb->np = 4;
-                        break;
-                case OAPV_CS_YCBCR422_10LE:
-                        imgb->w[1] = imgb->w[2] = (cdsc->param[0].w + 1) >> 1;
-                        imgb->h[1] = imgb->h[2] = cdsc->param[0].h;
-                        imgb->np = 3;
-                        break;
-                case OAPV_CS_YCBCR444_10LE:
-                case OAPV_CS_YCBCR444_12LE:
-                        imgb->w[1] = imgb->w[2] = cdsc->param[0].w;
-                        imgb->h[1] = imgb->h[2] = cdsc->param[0].h;
-                        imgb->np = 3;
-                        break;
-                default:
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported color format for input buffer: %d\n", OAPV_CS_GET_FORMAT(cs));
-                        return false;
-                }
-
-        for(int i = 0; i < imgb->np; i++) {
-                // align width and height to macroblock size, and calculate buffer size
-                imgb->aw[i] = ((imgb->w[i] + OAPV_MB_W - 1) / OAPV_MB_W) * OAPV_MB_W;
-                imgb->ah[i] = ((imgb->h[i] + OAPV_MB_H - 1) / OAPV_MB_H) * OAPV_MB_H;
-                imgb->s[i] = imgb->aw[i] * bd;
-                imgb->e[i] = imgb->ah[i];
-
-                imgb->bsize[i] = imgb->s[i] * imgb->e[i];
-                imgb->a[i] = imgb->baddr[i] = malloc(imgb->bsize[i]);
-                if (imgb->baddr[i] == nullptr) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to allocate plane %d for input buffer (%zu bytes).\n", i, (size_t) imgb->bsize[i]);
-                        for (int j = 0; j < i; j++) {
-                                free(imgb->baddr[j]);
-                                imgb->baddr[j] = nullptr;
-                                imgb->a[j] = nullptr;
-                        }
-                        return false;
-                }
-                memset(imgb->a[i], 0, imgb->bsize[i]);
-        }
-        imgb->cs = cs;
-
-        return imgb;
 }
 
 int map_color_spaces_to_profiles(int cs) {
@@ -345,7 +280,7 @@ bool state_video_compress_oapv::parse_fmt(char *fmt)
         return true;
 }
 
-bool configure_with(state_video_compress_oapv *s, video_desc desc) {
+bool configure_with(state_video_compress_oapv *s, video_desc desc){
         const uv_to_openapv_conversion* conv_struct = get_uv_to_openapv_conversion(desc.color_spec);
         if (!conv_struct || conv_struct->convert == nullptr) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "unsupported codec\n");
@@ -361,14 +296,16 @@ bool configure_with(state_video_compress_oapv *s, video_desc desc) {
 
         s->cdsc.param[FRM_INDEX].profile_idc = map_color_spaces_to_profiles(conv_struct->dst_color_format);
 
-        if (!input_buffer_setup(&s->cdsc, &s->imgb, conv_struct->dst_color_format)) {
+        s->imgb = create_oapv_imgb(desc.width, desc.height, conv_struct->dst_color_format);
+        if (!s->imgb){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to set up input buffer\n");
                 return false;
         }
+        s->input_frm.frm[FRM_INDEX].imgb      = s->imgb;
 
         int raw_bytes = 0;
-        for (int i = 0; i < s->imgb.np; i++) {
-                raw_bytes += s->imgb.bsize[i];
+        for (int i = 0; i < s->imgb->np; i++) {
+                raw_bytes += s->imgb->bsize[i];
         }
         // allocate bitstream buffer with size based on raw input size * 2 for safe upper bound
         const int new_buf_size = raw_bytes * 2;
@@ -428,7 +365,7 @@ shared_ptr<video_frame> openapv_compress_tile(void *state, shared_ptr<video_fram
         }
 
         struct tile *in_tile = vf_get_tile(tile.get(), 0);
-        s->convert_to_planar((const uint8_t *) in_tile->data, desc.width, desc.height, &s->imgb);
+        s->convert_to_planar((const uint8_t *) in_tile->data, desc.width, desc.height, s->imgb);
 
         s->bitb.ssize = 0;
         int ret = oapve_encode(s->enc_h.get(), &s->input_frm, nullptr, &s->bitb, &s->stat, nullptr);
@@ -480,7 +417,7 @@ void* openapv_compress_init(module */*parent*/, const char *opts) {
         s->input_frm.num_frms                 = MAX_NUM_FRMS;
         s->input_frm.frm[FRM_INDEX].pbu_type  = OAPV_PBU_TYPE_PRIMARY_FRAME;
         s->input_frm.frm[FRM_INDEX].group_id  = 1;
-        s->input_frm.frm[FRM_INDEX].imgb      = &s->imgb;
+        s->input_frm.frm[FRM_INDEX].imgb      = s->imgb;
 
         if (opts && opts[0] != '\0') {
                 char *fmt = strdup(opts);
