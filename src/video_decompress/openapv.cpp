@@ -85,8 +85,6 @@ state_video_decompress_openapv::state_video_decompress_openapv() {
         }
 
         decoded_frames.num_frms = MAX_NUM_FRMS;
-        decoded_frames.frm[FRM_INDEX].imgb = new oapv_imgb_t();
-        memset(decoded_frames.frm[FRM_INDEX].imgb, 0, sizeof(oapv_imgb_t));
 }
 
 state_video_decompress_openapv::~state_video_decompress_openapv() {
@@ -94,64 +92,11 @@ state_video_decompress_openapv::~state_video_decompress_openapv() {
                 oapvd_delete(decoder_handle);
         }
         for (int i = 0; i < decoded_frames.num_frms; ++i) {
-                if (decoded_frames.frm[i].imgb) {
-                        for (int j = 0; j < OAPV_MAX_CC; ++j) {
-                                free(decoded_frames.frm[i].imgb->baddr[j]);
-                        }
-                        delete decoded_frames.frm[i].imgb;
+                if (auto& imgb = decoded_frames.frm[i].imgb; imgb) {
+                        ug_oapv_imgb_free(imgb);
+                        imgb = nullptr;
                 }
         }
-}
-
-bool output_buffer_setup(oapv_imgb_t *imgb, const oapv_frm_info_t *frm_info) {
-        for (int i = 0; i < OAPV_MAX_CC; ++i) {
-                free(imgb->baddr[i]);
-        }
-        memset(imgb, 0, sizeof(*imgb));
-        imgb->cs = frm_info->cs;
-        imgb->w[0] = frm_info->w;
-        imgb->h[0] = frm_info->h;
-        int cf = OAPV_CS_GET_FORMAT(frm_info->cs);
-        switch(cf) {
-                case OAPV_CF_YCBCR422:
-                        imgb->w[1] = imgb->w[2] = (frm_info->w + 1) / 2;
-                        imgb->h[1] = imgb->h[2] = frm_info->h;
-                        imgb->np = 3;
-                        break;
-                case OAPV_CF_YCBCR444:
-                        imgb->w[1] = imgb->w[2] = frm_info->w;
-                        imgb->h[1] = imgb->h[2] = frm_info->h;
-                        imgb->np = 3;
-                        break;
-                case OAPV_CF_YCBCR4444:
-                        imgb->w[1] = imgb->w[2] = imgb->w[3] = frm_info->w;
-                        imgb->h[1] = imgb->h[2] = imgb->h[3] = frm_info->h;
-                        imgb->np = 4;
-                        break;
-                default:
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported color format for input buffer: %d\n", cf);
-                        return false;
-        }
-
-        for (int i = 0; i < imgb->np; ++i) {
-                imgb->aw[i] = ((imgb->w[i] + OAPV_MB_W - 1) / OAPV_MB_W) * OAPV_MB_W;
-                imgb->ah[i] = ((imgb->h[i] + OAPV_MB_H - 1) / OAPV_MB_H) * OAPV_MB_H;
-                imgb->s[i] = imgb->aw[i] * OAPV_CS_GET_BYTE_DEPTH(imgb->cs);
-                imgb->e[i] = imgb->ah[i];
-                imgb->bsize[i] = imgb->s[i] * imgb->e[i];
-                imgb->baddr[i] = malloc(imgb->bsize[i]);
-                if (imgb->baddr[i] == nullptr) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to allocate plane %d for frame %d (%zu bytes).\n",
-                                i, FRM_INDEX, (size_t) imgb->bsize[i]);
-                        for (int j = 0; j < i; ++j) {
-                                free(imgb->baddr[j]);
-                        }
-                        return false;
-                }
-                memset(imgb->baddr[i], 0, imgb->bsize[i]);
-                imgb->a[i] = imgb->baddr[i];
-        }
-        return true;
 }
 
 bool configure_with(state_video_decompress_openapv *s, unsigned char *bitstream_buffer, size_t codestream_size) {
@@ -164,8 +109,9 @@ bool configure_with(state_video_decompress_openapv *s, unsigned char *bitstream_
                 return false;
         }
 
-        for (int i = 0; i < OAPV_MAX_CC; ++i) {
-                free(s->decoded_frames.frm[FRM_INDEX].imgb->baddr[i]);
+        if(auto& imgb = s->decoded_frames.frm[FRM_INDEX].imgb; imgb){
+                ug_oapv_imgb_free(imgb);
+                imgb = nullptr;
         }
 
         const oapv_frm_info_t &frm_info = aui.frm_info[FRM_INDEX];
@@ -175,11 +121,12 @@ bool configure_with(state_video_decompress_openapv *s, unsigned char *bitstream_
                 return false;
         }
 
-        oapv_imgb_t *imgb = s->decoded_frames.frm[FRM_INDEX].imgb;
-        if (!output_buffer_setup(imgb, &frm_info)) {
+        auto imgb = create_oapv_imgb(frm_info.w, frm_info.h, frm_info.cs);
+        if (!imgb) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to set up output buffer for frame %d.\n", FRM_INDEX);
                 return false;
         }
+        s->decoded_frames.frm[FRM_INDEX].imgb = imgb;
 
         s->decoded_frames.frm[FRM_INDEX].pbu_type = frm_info.pbu_type;
         s->decoded_frames.frm[FRM_INDEX].group_id = frm_info.group_id;
