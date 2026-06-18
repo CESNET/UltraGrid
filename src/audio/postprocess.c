@@ -450,7 +450,7 @@ decode_audio_frame_postprocess(struct state_audio_postprocess *postprocess,
         }
 
         time_ns_t t = get_time_in_ns();
-        if ((postprocess->t0 - t) > SEC_TO_NS(5)) {
+        if ((t - postprocess->t0) > SEC_TO_NS(5)) {
                 struct adec_stats_processing_data *d = calloc(1, sizeof *d);
                 d->frame                             = audio_frame2_alloc(
                     audio_frame2_get_channel_count(decompressed), AC_PCM,
@@ -458,7 +458,7 @@ decode_audio_frame_postprocess(struct state_audio_postprocess *postprocess,
                     audio_frame2_get_sample_rate(decompressed));
                 audio_frame2_reserve(d->frame, 6);
                 SWAP_PTR(d->frame, postprocess->decoded);
-                d->seconds = NS_TO_SEC_DBL(postprocess->t0 - t);
+                d->seconds = NS_TO_SEC_DBL(t - postprocess->t0);
                 d->bytes_received = *received_bytes_cum;
                 d->bytes_expected = *expected_bytes_cum;
                 d->muted_receiver = postprocess->muted;
