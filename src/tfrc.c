@@ -44,16 +44,15 @@
  *
  */
 
-#include <stdbool.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <assert.h>
-
-#include "config.h"
-#include "debug.h"
-#include "rtp/rtp.h"
-#include "tv.h"
 #include "tfrc.h"
+
+#include <assert.h>  // for assert
+#include <stdint.h>  // for uint32_t, uint16_t
+#include <stdio.h>   // for printf, NULL
+#include <stdlib.h>  // for abort, free, malloc
+
+#include "debug.h"   // for LOG_LEVEL_DEBUG, log_level
+#include "tv.h"      // for time_ns_t, NS_IN_SEC, get_time_in_ns
 
 #define TFRC_MAGIC	0xbaef03b7      /* For debugging */
 

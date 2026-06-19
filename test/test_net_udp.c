@@ -34,17 +34,19 @@
  * SUCH DAMAGE.
  */
 
+#include "test_net_udp.h"
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/time.h>     // for timeval
 #ifndef WIN32
 #include <sys/wait.h>
 #endif
+#include <time.h>
 
-#include "debug.h"
+#include "compat/net.h"   // for HAVE_IPv6, fork
 #include "rtp/net_udp.h"
-#include "test_net_udp.h"
-
-#include <string.h>
 
 #define BUFSIZE 1024
 

@@ -38,10 +38,12 @@
  * SUCH DAMAGE.
  */
 
-#include <string.h>
-#include "debug.h"
-#include "crypto/crypt_des.h"
 #include "test_des.h"
+
+#include <string.h>
+#include <stdio.h>
+
+#include "crypto/crypt_des.h"
 
 #define NUM_TESTS 36
 

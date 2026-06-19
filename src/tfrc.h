@@ -44,6 +44,12 @@
  */
 
 #ifdef __cplusplus
+#include <cstdint>   // for uint16_t, uint32_t
+#else
+#include <stdint.h>  // for uint16_t, uint32_t
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 

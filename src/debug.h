@@ -40,14 +40,12 @@
 
 #ifdef __cplusplus
 #include <cstdint>
-#include <cstdio> // FILE
+#include <ctime>  // timespec_get
 #else
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdio.h> // FILE
 #endif // defined __cplusplus
 
-#include "tv.h"
 
 #define UNUSED(x)	(x=x)
 
@@ -252,9 +250,11 @@ inline void Log_output::submit(){
         if (show_timestamps == LOG_TIMESTAMP_ENABLED
                 || (show_timestamps == LOG_TIMESTAMP_AUTO && log_level >= LOG_LEVEL_VERBOSE))
         {
-                const time_ns_t time_ns = get_time_in_ns();
-                snprintf(ts_str, ts_bufsize, "[%.3f] ",
-                         (double) time_ns / NS_IN_SEC_DBL);
+                std::timespec ts{};
+                std::timespec_get(&ts, TIME_UTC);
+                snprintf(ts_str, ts_bufsize, "[%lld.%3d] ",
+                         (long long) ts.tv_sec,
+                         (int) (ts.tv_nsec / 1000 / 1000));
         }
 
         const char *start_newline = "";
