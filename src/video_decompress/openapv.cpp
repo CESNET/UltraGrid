@@ -53,7 +53,6 @@ namespace {
 
 #define MOD_NAME "[OpenAPV dec.] "
 
-#define MAX_NUM_FRMS (1) // support only primary frame
 #define FRM_INDEX    (0) // index of primary frame in oapv_frms_t
 
 struct state_video_decompress_openapv {
@@ -63,7 +62,7 @@ struct state_video_decompress_openapv {
         oapvd_t decoder_handle{};
         oapvd_cdesc_t cdesc{};
 
-        oapv_frms_t decoded_frames{};
+        Oapv_Frames decoded_frames;
         oapv_bitb_t input_buffer{};
 
         bool configured = false;
@@ -83,19 +82,11 @@ state_video_decompress_openapv::state_video_decompress_openapv() {
         if (OAPV_FAILED(ret)) {
                 throw std::runtime_error("oapvd_create failed (" + std::string(oapv_err_str(ret)) + ")");
         }
-
-        decoded_frames.num_frms = MAX_NUM_FRMS;
 }
 
 state_video_decompress_openapv::~state_video_decompress_openapv() {
         if (decoder_handle) {
                 oapvd_delete(decoder_handle);
-        }
-        for (int i = 0; i < decoded_frames.num_frms; ++i) {
-                if (auto& imgb = decoded_frames.frm[i].imgb; imgb) {
-                        ug_oapv_imgb_free(imgb);
-                        imgb = nullptr;
-                }
         }
 }
 
@@ -109,11 +100,6 @@ bool configure_with(state_video_decompress_openapv *s, unsigned char *bitstream_
                 return false;
         }
 
-        if(auto& imgb = s->decoded_frames.frm[FRM_INDEX].imgb; imgb){
-                ug_oapv_imgb_free(imgb);
-                imgb = nullptr;
-        }
-
         const oapv_frm_info_t &frm_info = aui.frm_info[FRM_INDEX];
         int fmt = OAPV_CS_GET_FORMAT(frm_info.cs);
         if (fmt != OAPV_CF_YCBCR422 && fmt != OAPV_CF_YCBCR444 && fmt != OAPV_CF_YCBCR4444) {
@@ -121,15 +107,13 @@ bool configure_with(state_video_decompress_openapv *s, unsigned char *bitstream_
                 return false;
         }
 
-        auto imgb = create_oapv_imgb(frm_info.w, frm_info.h, frm_info.cs);
-        if (!imgb) {
+        if (!s->decoded_frames.configure_with(frm_info.w, frm_info.h, frm_info.cs)){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to set up output buffer for frame %d.\n", FRM_INDEX);
                 return false;
         }
-        s->decoded_frames.frm[FRM_INDEX].imgb = imgb;
 
-        s->decoded_frames.frm[FRM_INDEX].pbu_type = frm_info.pbu_type;
-        s->decoded_frames.frm[FRM_INDEX].group_id = frm_info.group_id;
+        s->decoded_frames.get_primary()->pbu_type = frm_info.pbu_type;
+        s->decoded_frames.get_primary()->group_id = frm_info.group_id;
 
         const from_openapv_conversion *conv = get_from_openapv_conversion(s->out_codec, frm_info.cs);
         if (conv == nullptr) {
@@ -237,13 +221,13 @@ decompress_status openapv_decompress(void *state, unsigned char *dst, unsigned c
         s->input_buffer.bsize = src_len;
 
         oapvd_stat_t stat{};
-        int ret = oapvd_decode(s->decoder_handle, &s->input_buffer, &s->decoded_frames, nullptr, &stat);
+        int ret = oapvd_decode(s->decoder_handle, &s->input_buffer, s->decoded_frames.get_frms(), nullptr, &stat);
         if (OAPV_FAILED(ret)) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "oapvd_decode failed (%s) src_len=%u.\n", oapv_err_str(ret), src_len);
                 return DECODER_NO_FRAME;
         }
 
-        oapv_imgb_t *imgb = s->decoded_frames.frm[FRM_INDEX].imgb;
+        oapv_imgb_t *imgb = s->decoded_frames.get_primary()->imgb;
         if (imgb->cs != s->convert_from_planar->required_src_cs) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Decoded colorspace 0x%x does not match required 0x%x for output codec %s.\n",
                         imgb->cs, s->convert_from_planar->required_src_cs, get_codec_name(s->out_codec));
