@@ -252,7 +252,7 @@ inline void Log_output::submit(){
         {
                 std::timespec ts{};
                 std::timespec_get(&ts, TIME_UTC);
-                snprintf(ts_str, ts_bufsize, "[%lld.%3d] ",
+                snprintf(ts_str, ts_bufsize, "[%lld.%03d] ",
                          (long long) ts.tv_sec,
                          (int) (ts.tv_nsec / 1000 / 1000));
         }
