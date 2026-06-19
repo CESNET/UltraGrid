@@ -67,7 +67,6 @@ using oapve_uniq = std::unique_ptr<std::remove_pointer_t<oapve_t>, deleter_from_
 
 struct state_video_compress_oapv {
         state_video_compress_oapv() = default;
-        ~state_video_compress_oapv();
 
         bool parse_fmt(char *fmt);
 
@@ -75,6 +74,7 @@ struct state_video_compress_oapv {
         oapve_cdesc_t cdsc{};       // description used for encoder creation (params, threads, …)
         
         oapv_bitb_t bitb{};         // bitstream buffer (output)
+        std::vector<char> bitb_data;
         oapve_stat_t stat{};        // encoding status (output)
 
         Oapv_Frames input_frms;    // frame for input
@@ -86,10 +86,6 @@ struct state_video_compress_oapv {
 
         uv_to_openapv_conversion_f convert_to_planar = nullptr;
 };
-
-state_video_compress_oapv::~state_video_compress_oapv() {
-        free(bitb.addr);
-}
 
 int map_color_spaces_to_profiles(int cs) {
         switch (cs) {
@@ -306,16 +302,10 @@ bool configure_with(state_video_compress_oapv *s, video_desc desc){
         // allocate bitstream buffer with size based on raw input size * 2 for safe upper bound
         const int new_buf_size = raw_bytes * 2;
 
-        if (new_buf_size != s->cdsc.max_bs_buf_size || s->bitb.addr == nullptr) {
-                free(s->bitb.addr);
-                s->bitb.addr = malloc(new_buf_size);
-                if (s->bitb.addr == nullptr) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to allocate bitstream buffer (%d bytes)\n", new_buf_size);
-                        return false;
-                }
-                s->bitb.bsize = new_buf_size;
-                s->cdsc.max_bs_buf_size = new_buf_size;
-        }
+        s->bitb_data.resize(new_buf_size);
+        s->bitb.addr = s->bitb_data.data();
+        s->bitb.bsize = new_buf_size;
+        s->cdsc.max_bs_buf_size = new_buf_size;
 
         s->enc_h.reset();
         int ret;
