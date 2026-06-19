@@ -250,14 +250,14 @@ uint32_t get_std_video_local_mediatime(void)
 }
 
 /**
- * @returns nanoseconds since implementation defined epoche (timespec_get def)
+ * @returns nanoseconds since some time point (CLOCK_MONOTONIC)
  */
 time_ns_t
 get_time_in_ns()
 {
         struct timespec ts = { 0, 0 };
-        if (timespec_get(&ts, TIME_UTC) == 0) {
-                perror("timespec_get");
+        if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
+                perror("get_time_in_ns: clock_gettime");
         }
         return (ts.tv_sec * NS_IN_SEC) + ts.tv_nsec;
 }
