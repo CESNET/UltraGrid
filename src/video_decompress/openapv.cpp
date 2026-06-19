@@ -55,11 +55,12 @@ namespace {
 
 #define FRM_INDEX    (0) // index of primary frame in oapv_frms_t
 
+using oapvd_uniq = std::unique_ptr<std::remove_pointer_t<oapvd_t>, deleter_from_fcn<oapvd_delete>>;
+
 struct state_video_decompress_openapv {
         state_video_decompress_openapv();
-        ~state_video_decompress_openapv();
-        
-        oapvd_t decoder_handle{};
+
+        oapvd_uniq decoder_handle;
         oapvd_cdesc_t cdesc{};
 
         Oapv_Frames decoded_frames;
@@ -78,15 +79,9 @@ state_video_decompress_openapv::state_video_decompress_openapv() {
         int ret = -1;
 
         cdesc.threads = OAPV_CDESC_THREADS_AUTO;
-        decoder_handle = oapvd_create(&cdesc, &ret);
+        decoder_handle.reset(oapvd_create(&cdesc, &ret));
         if (OAPV_FAILED(ret)) {
                 throw std::runtime_error("oapvd_create failed (" + std::string(oapv_err_str(ret)) + ")");
-        }
-}
-
-state_video_decompress_openapv::~state_video_decompress_openapv() {
-        if (decoder_handle) {
-                oapvd_delete(decoder_handle);
         }
 }
 
@@ -221,7 +216,7 @@ decompress_status openapv_decompress(void *state, unsigned char *dst, unsigned c
         s->input_buffer.bsize = src_len;
 
         oapvd_stat_t stat{};
-        int ret = oapvd_decode(s->decoder_handle, &s->input_buffer, s->decoded_frames.get_frms(), nullptr, &stat);
+        int ret = oapvd_decode(s->decoder_handle.get(), &s->input_buffer, s->decoded_frames.get_frms(), nullptr, &stat);
         if (OAPV_FAILED(ret)) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "oapvd_decode failed (%s) src_len=%u.\n", oapv_err_str(ret), src_len);
                 return DECODER_NO_FRAME;
