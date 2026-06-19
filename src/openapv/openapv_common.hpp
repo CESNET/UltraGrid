@@ -38,11 +38,27 @@
 
 #ifndef OPENAPV_COMMON_HPP_EEE9BB2DDF414F64A86BD2DCC77D78C5
 #define OPENAPV_COMMON_HPP_EEE9BB2DDF414F64A86BD2DCC77D78C5
+#include <cassert>
+#include <memory>
 #include <oapv/oapv.h>
+
+#include "utils/misc.h"
 
 const char *oapv_err_str(int err);
 
 oapv_imgb_t *create_oapv_imgb(int width, int height, int colorspace);
 void ug_oapv_imgb_free(oapv_imgb_t *imgb);
+
+using oapv_imgb_uniq = std::unique_ptr<oapv_imgb_t, deleter_from_fcn<ug_oapv_imgb_free>>;
+
+class Oapv_Frames{
+public:
+        bool configure_with(int width, int height, int colorspace);
+        oapv_frms_t *get_frms() { return &frms; }
+        oapv_frm_t *get_primary() { assert(frms.num_frms > 0); return &frms.frm[0]; }
+private:
+        oapv_frms_t frms{};
+        oapv_imgb_uniq imgb;
+};
 
 #endif //OPENAPV_COMMON_HPP_EEE9BB2DDF414F64A86BD2DCC77D78C5

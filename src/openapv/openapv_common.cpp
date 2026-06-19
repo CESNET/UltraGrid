@@ -132,3 +132,17 @@ oapv_imgb_t *create_oapv_imgb(int width, int height, int colorspace){
         return ret.release();
 }
 
+bool Oapv_Frames::configure_with(int width, int height, int colorspace){
+        imgb.reset(create_oapv_imgb(width, height, colorspace));
+        if(!imgb){
+                frms.num_frms = 0;
+                return false;
+        }
+
+        frms.num_frms = 1;
+        frms.frm[0].group_id = 1;
+        frms.frm[0].pbu_type = OAPV_PBU_TYPE_PRIMARY_FRAME;
+        frms.frm[0].imgb = imgb.get();
+        return true;
+}
+
