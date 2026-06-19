@@ -41,6 +41,7 @@
 #include <stdlib.h>         // for free, calloc
 #include <string.h>         // for strncpy
 #include <strings.h>        // for strcasecmp
+#include <sys/time.h>       // for gettimeofday
 
 #include "audio/types.h"    // for audio_frame, AC_PCM, audio_desc
 #include "debug.h"          // for log_msg, LOG_LEVEL_ERROR, LOG_LEVEL_INFO

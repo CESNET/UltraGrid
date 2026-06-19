@@ -53,6 +53,7 @@
 #include <stdbool.h>               // for bool, false, true
 #include <stdint.h>                // for uint16_t, uintmax_t
 #include <stdlib.h>                // for NULL, free, abort, calloc, malloc
+#include <sys/time.h>              // for gettimeofday
 
 #ifndef _WIN32
 #include <ifaddrs.h>

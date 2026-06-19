@@ -45,13 +45,17 @@
  *
  */
 
-#include "debug.h"
 #include "tv.h"
+
+#include "debug.h"
 #include "utils/random.h"
 
 #include <assert.h>
-#include <stdlib.h>
 #include <pthread.h>
+#include <stdio.h>         // for perror
+#include <stdlib.h>        // for NULL, lldiv, lldiv_t
+#include <sys/time.h>      // for timeval, gettimeofda
+#include <time.h>          // for timespec, TIME_UTC, timespec_get
 
 pthread_once_t once_control = PTHREAD_ONCE_INIT;
 static struct timeval start_time;
@@ -245,15 +249,15 @@ uint32_t get_std_video_local_mediatime(void)
         return ((double)standard_time.vtime.tv_sec + (((double)standard_time.vtime.tv_usec) / 1000000.0)) * vrate;
 }
 
-#if defined __APPLE__ && __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ < 101500
-int timespec_get(struct timespec *ts, int base)
+/**
+ * @returns nanoseconds since implementation defined epoche (timespec_get def)
+ */
+time_ns_t
+get_time_in_ns()
 {
-        assert(base == TIME_UTC);
-        struct timeval tv = { 0, 0 };
-        gettimeofday(&tv, NULL);
-        ts->tv_sec = tv.tv_sec;
-        ts->tv_nsec = tv.tv_usec * 1000L;
-        return base; // returning base means success
-
+        struct timespec ts = { 0, 0 };
+        if (timespec_get(&ts, TIME_UTC) == 0) {
+                perror("timespec_get");
+        }
+        return (ts.tv_sec * NS_IN_SEC) + ts.tv_nsec;
 }
-#endif

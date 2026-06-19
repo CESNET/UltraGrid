@@ -76,6 +76,7 @@ uint32_t get_std_audio_local_mediatime(double samples, int rate);
 uint32_t get_std_video_local_mediatime(void);
 
 typedef long long time_ns_t;
+time_ns_t get_time_in_ns();
 /// @todo
 /// The naming is inconsistent - whereas US_IN_NS is the 1 us represented in ns,
 /// MS_IN_SEC is count of milliseconds in a second. Unify the use.
@@ -98,18 +99,6 @@ typedef long long time_ns_t;
 #define NS_TO_US(val_ns) ((val_ns) / 1000)
 #define MS_TO_NS(val_ms) ((time_ns_t) (val_ms) * 1000)
 #define SEC_TO_NS(val_sec) ((val_sec) * 1000LL * 1000 * 1000)
-
-// old macOS compat
-#if defined __APPLE__ && __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ < 101500
-#define TIME_UTC 1
-int timespec_get(struct timespec *ts, int base);
-#endif
-
-static inline time_ns_t get_time_in_ns() {
-        struct timespec ts = { 0, 0 };
-        timespec_get(&ts, TIME_UTC);
-        return ts.tv_sec * NS_IN_SEC + ts.tv_nsec;
-}
 
 #ifdef __cplusplus
 }
