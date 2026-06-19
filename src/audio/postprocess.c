@@ -247,6 +247,7 @@ audio_postprocess_done(struct state_audio_postprocess *postprocess)
         audio_frame2_delete(postprocess->decoded);
         audio_frame2_delete(postprocess->resample_remainder);
         delete_resampler(postprocess->resampler);
+        free(postprocess->scale);
         free(postprocess);
 }
 
