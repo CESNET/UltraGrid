@@ -77,8 +77,7 @@ struct state_video_compress_oapv {
         oapv_bitb_t bitb{};         // bitstream buffer (output)
         oapve_stat_t stat{};        // encoding status (output)
 
-        oapv_frms_t input_frm{};    // frame for input
-        oapv_imgb_t *imgb = nullptr;         // planar pixel data of input frame
+        Oapv_Frames input_frms;    // frame for input
 
         video_desc saved_desc{}; // last configured video description
 
@@ -89,7 +88,6 @@ struct state_video_compress_oapv {
 };
 
 state_video_compress_oapv::~state_video_compress_oapv() {
-        ug_oapv_imgb_free(imgb);
         free(bitb.addr);
 }
 
@@ -296,16 +294,14 @@ bool configure_with(state_video_compress_oapv *s, video_desc desc){
 
         s->cdsc.param[FRM_INDEX].profile_idc = map_color_spaces_to_profiles(conv_struct->dst_color_format);
 
-        s->imgb = create_oapv_imgb(desc.width, desc.height, conv_struct->dst_color_format);
-        if (!s->imgb){
+        if (!s->input_frms.configure_with(desc.width, desc.height, conv_struct->dst_color_format)){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to set up input buffer\n");
                 return false;
         }
-        s->input_frm.frm[FRM_INDEX].imgb      = s->imgb;
 
         int raw_bytes = 0;
-        for (int i = 0; i < s->imgb->np; i++) {
-                raw_bytes += s->imgb->bsize[i];
+        for (int i = 0; i < s->input_frms.get_primary()->imgb->np; i++) {
+                raw_bytes += s->input_frms.get_primary()->imgb->bsize[i];
         }
         // allocate bitstream buffer with size based on raw input size * 2 for safe upper bound
         const int new_buf_size = raw_bytes * 2;
@@ -365,10 +361,10 @@ shared_ptr<video_frame> openapv_compress_tile(void *state, shared_ptr<video_fram
         }
 
         struct tile *in_tile = vf_get_tile(tile.get(), 0);
-        s->convert_to_planar((const uint8_t *) in_tile->data, desc.width, desc.height, s->imgb);
+        s->convert_to_planar((const uint8_t *) in_tile->data, desc.width, desc.height, s->input_frms.get_primary()->imgb);
 
         s->bitb.ssize = 0;
-        int ret = oapve_encode(s->enc_h.get(), &s->input_frm, nullptr, &s->bitb, &s->stat, nullptr);
+        int ret = oapve_encode(s->enc_h.get(), s->input_frms.get_frms(), nullptr, &s->bitb, &s->stat, nullptr);
         if (OAPV_FAILED(ret)) {
                 MSG(ERROR, "oapve_encode failed: %s (%d) (frame dropped)\n", oapv_err_str(ret), ret);
                 return {};
@@ -413,11 +409,6 @@ void* openapv_compress_init(module */*parent*/, const char *opts) {
         }
 
         s->cdsc.max_num_frms = MAX_NUM_FRMS;
-
-        s->input_frm.num_frms                 = MAX_NUM_FRMS;
-        s->input_frm.frm[FRM_INDEX].pbu_type  = OAPV_PBU_TYPE_PRIMARY_FRAME;
-        s->input_frm.frm[FRM_INDEX].group_id  = 1;
-        s->input_frm.frm[FRM_INDEX].imgb      = s->imgb;
 
         if (opts && opts[0] != '\0') {
                 char *fmt = strdup(opts);
