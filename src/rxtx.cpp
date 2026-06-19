@@ -84,7 +84,7 @@ public:
          */
         virtual void       join() noexcept;
         static rxtx *create(std::string const         &name,
-                                  const struct rxtx_params *params) noexcept(false);
+                                  const struct rxtx_params *params) noexcept;
         static void        list(bool full) noexcept;
         void set_audio_spec(const struct audio_desc *desc, int audio_rx_port,
                             int audio_tx_port, bool ipv6) noexcept;
@@ -347,7 +347,7 @@ void *rxtx::video_sender_loop() {
  */
 rxtx *
 rxtx::create(string const              &proto,
-                   const struct rxtx_params *params) noexcept(false)
+                   const struct rxtx_params *params) noexcept
 {
         const struct rxtx_medium_params *params_audio =
             &params->medium[TX_MEDIA_AUDIO];
