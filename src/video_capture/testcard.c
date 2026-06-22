@@ -67,7 +67,8 @@
 
 #include "audio/types.h"
 #include "audio/utils.h"
-#include "compat/net.h"                     // for ntohs
+#include "compat/c23.h"    // IWYU pragma: keep
+#include "compat/endian.h" // for be16toh
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -340,7 +341,7 @@ static size_t testcard_load_from_file_pam(const char *filename, struct video_des
                 uint16_t *in = (uint16_t *)(void *) data;
                 uint16_t *out = (uint16_t *)(void *) *in_file_contents;
                 for (size_t i = 0; i < (size_t) info.width * info.height * 3; ++i) {
-                        *out++ = ntohs(*in++) * ((1<<16U) / (info.maxval + 1));
+                        *out++ = be16toh(*in++) * ((1<<16U) / (info.maxval + 1));
                 }
         } else {
                 memcpy(*in_file_contents, data, data_len);
@@ -520,6 +521,37 @@ validate_settings(struct testcard_state *s, struct video_desc desc)
         return true;
 }
 
+static bool
+parse_size(struct video_desc *desc, const char *val)
+{
+        // WIDTHxHEIGHT
+        if (isdigit(val[0]) && strchr(val, 'x') != nullptr) {
+                char *endptr = nullptr;
+                desc->width  = strtol(val, &endptr, 10);
+                if (*endptr != 'x') {
+                        MSG(ERROR, "Excess width chars, got %s!\n", val);
+                        return false;
+                }
+                endptr += 1;
+                desc->height = strtol(endptr, &endptr, 10);
+                if (*endptr != '\0') {
+                        MSG(ERROR, "Excess height chars, got %s!\n", val);
+                        return false;
+                }
+                return true;
+        }
+
+        // assuming eg. s=VGA -> set just size 640x480 (differs from mode=)
+        struct video_desc size_dsc = get_video_desc_from_string(val);
+        desc->width                = size_dsc.width;
+        desc->height               = size_dsc.height;
+        if (size_dsc.width * size_dsc.height == 0) {
+                MSG(ERROR, "Wrong size of video mode: %s!\n", val);
+                return false;
+        }
+        return true;
+}
+
 static int vidcap_testcard_init(const struct vidcap_params *params, void **state)
 {
         struct testcard_state *s = NULL;
@@ -555,6 +587,10 @@ static int vidcap_testcard_init(const struct vidcap_params *params, void **state
 
         tmp = strtok_r(ptr, ":", &save_ptr);
         while (tmp) {
+                char *val = strchr(tmp, '=');
+                if (val != nullptr) {
+                        val += 1;
+                }
                 if (strcmp(tmp, "p") == 0) {
                         s->pan = 48;
                 } else if (strcmp(tmp, "i") == 0) {
@@ -566,47 +602,34 @@ static int vidcap_testcard_init(const struct vidcap_params *params, void **state
                 } else if (strcmp(tmp, "still") == 0) {
                         s->still_image = true;
                 } else if (IS_KEY_PREFIX(tmp, "pattern")) {
-                        const char *pattern = strchr(tmp, '=') + 1;
-                        strncpy(s->pattern, pattern, sizeof s->pattern - 1);
+                        strcpy_ch(s->pattern, val);
                 } else if (IS_KEY_PREFIX(tmp, "codec")) {
-                        desc.color_spec = get_codec_from_name(strchr(tmp, '=') + 1);
+                        desc.color_spec = get_codec_from_name(val);
                         if (desc.color_spec == VIDEO_CODEC_NONE) {
-                                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong color spec: %s\n", strchr(tmp, '=') + 1);
+                                MSG(ERROR, "Wrong color spec: %s\n", val);
                                 goto error;
                         }
                 } else if (IS_KEY_PREFIX(tmp, "mode")) {
                         codec_t saved_codec = desc.color_spec;
-                        desc = get_video_desc_from_string(strchr(tmp, '=') + 1);
+                        desc = get_video_desc_from_string(val);
                         desc.color_spec = saved_codec;
                 } else if (IS_KEY_PREFIX(tmp, "size")) {
-                        if (!strncmp(tmp, "s=", 2)) {
-                                MSG(WARNING, "parameter s= denotes now size "
-                                             "(not strip)\n");
-                        }
-                        tmp = strchr(tmp, '=') + 1;
-                        if (isdigit(tmp[0]) && strchr(tmp, 'x') != NULL) {
-                                desc.width = atoi(tmp);
-                                desc.height = atoi(strchr(tmp, 'x') + 1);
-                        } else {
-                                struct video_desc size_dsc =
-                                    get_video_desc_from_string(tmp);
-                                desc.width = size_dsc.width;
-                                desc.height = size_dsc.height;
+                        if (!parse_size(&desc, val)) {
+                                goto error;
                         }
                 } else if (IS_KEY_PREFIX(tmp, "strip")) {
-                        strip_fmt = strchr(tmp, '=') + 1;
+                        strip_fmt = val;
                 } else if (IS_KEY_PREFIX(tmp, "fps")) {
-                        if (!parse_fps(strchr(tmp, '=') + 1, &desc)) {
+                        if (!parse_fps(val, &desc)) {
                                 goto error;
                         }
                 } else if (IS_KEY_PREFIX(tmp, "file")) {
-                        filename = strchr(tmp, '=') + 1;
+                        filename = val;
                 } else if (strstr(tmp, "afrequency=") == tmp) {
-                        s->audio_frequency = atoi(strchr(tmp, '=') + 1);
+                        s->audio_frequency = atoi(val);
                 } else if (IS_KEY_PREFIX(tmp, "frames")) {
                         char *endptr = NULL;
-                        s->capture_frames =
-                            strtoll(strchr(tmp, '=') + 1, &endptr, 0);
+                        s->capture_frames = strtoll(val, &endptr, 0);
                         if (*endptr == 'q') {
                                 s->quit_after_capture_frames = true;
                         }
@@ -653,7 +676,11 @@ static int vidcap_testcard_init(const struct vidcap_params *params, void **state
                 get_bits_per_component(s->frame->color_spec), s->pattern, (s->grab_audio ? "on" : "off"));
 
         if (strip_fmt != NULL) {
-                log_msg(LOG_LEVEL_ERROR, "Multi-tile testcard (stripping) is currently broken, you can use eg. \"-t aggregate -t testcard[args] -t testcard[args]\" instead!\n");
+                MSG(ERROR, "Multi-tile testcard (strip=) is currently "
+                           "deprecated!\n");
+                MSG(ERROR, "You can use eg. \"-F split:2:2 -t testcard[args]\" "
+                           "instead (alternatively vcap/aggregate with "
+                           "multiple testcards).\n");
                 goto error;
 #if 0
                 if(configure_tiling(s, strip_fmt) != 0) {
