@@ -393,6 +393,10 @@ void* openapv_compress_init(module */*parent*/, const char *opts) {
                 return nullptr;
         }
 
+        s->cdsc.param->qp = OAPVE_PARAM_QP_AUTO;
+        s->cdsc.param->rc_type = OAPV_RC_ABR;
+        s->cdsc.param->bitrate = 0;
+
         s->cdsc.max_num_frms = MAX_NUM_FRMS;
 
         if (opts && opts[0] != '\0') {
