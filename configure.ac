@@ -2509,7 +2509,7 @@ ENSURE_FEATURE_PRESENT([${jpegxs_req?}], [${jpegxs?}], [SVT-JPEG-XS not found])
 openapv=no
 
 AC_ARG_ENABLE(openapv,
-[  --disable-openapv       disable OPEN APV compression (auto)],
+[  --disable-openapv       disable OPEN APV compression (auto)]
 [                         Requires: oapv],
 	[openapv_req=$enableval],
         [openapv_req=$build_default]
