@@ -1,0 +1,5 @@
+IMO it may ensures that .o files can be linked with both -flto and
+without. It might also be a possible AUR workaround because openapv
+CMakeList had some issue. Anyways not needed now and doesn't seem to have
+any impact, neither on compile time (measured) or on the linked result
+(man page and 2nd link). Let the openapv rather do the stuff by itself.
