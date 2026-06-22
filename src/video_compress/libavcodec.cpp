@@ -513,6 +513,36 @@ ranged_stod(const char *val, double min, double max) noexcept(false)
         return dbl;
 }
 
+/**
+ * @returns codec_t representation of val and ensures that the codec
+ *                  will be possible to compress (known+encoder present)
+ * @retval VC_NONE if either of above was not fulfilled (error already print)
+ */
+static codec_t
+lavc_get_codec_check(const char *val)
+{
+        codec_t ugc = get_codec_from_name(val);
+        if (ugc == VC_NONE) {
+                MSG(ERROR, "Unable to find codec: \"%s\"\n", val);
+                return ugc;
+        }
+        enum AVCodecID avc = get_ug_to_av_codec(ugc);
+        if (avc == AV_CODEC_ID_NONE) {
+                MSG(ERROR,
+                    "No known mapping from %s to FFmpeg compression (either "
+                    "unsupporetd by FF or unimplemented by UG)!\n",
+                    get_codec_name(ugc));
+                return VC_NONE;
+        }
+        const AVCodec *codec = avcodec_find_encoder(avc);
+        if (codec != nullptr) {
+                return ugc;
+        }
+        MSG(ERROR, "Codec %s supported by FFmpeg but no encoder found!\n",
+                avcodec_get_name(avc));
+        return VC_NONE;
+}
+
 int
 parse_fmt(struct state_video_compress_libav *s, char *fmt) noexcept(false)
 {
@@ -531,21 +561,23 @@ parse_fmt(struct state_video_compress_libav *s, char *fmt) noexcept(false)
         char *item, *save_ptr = NULL;
 
         while ((item = strtok_r(fmt, ":", &save_ptr)) != NULL) {
+                char *val = strchr(item, '=');
+                if (val != nullptr) {
+                        val += 1;
+                }
                 if (strcasecmp("help", item) == 0 || strcmp(item, "fullhelp") == 0) {
                         show_help = strcmp(item, "fullhelp") == 0 ? HELP_FULL
                                                                   : HELP_NORMAL;
                 } else if (IS_KEY_PREFIX(item, "codec")) {
-                        const char *const codec = strchr(item, '=') + 1;
-                        s->requested_codec_id   = get_codec_from_name(codec);
+                        s->requested_codec_id = lavc_get_codec_check(val);
                         if (s->requested_codec_id == VIDEO_CODEC_NONE) {
-                                log_msg(LOG_LEVEL_ERROR, "[lavc] Unable to find codec: \"%s\"\n", codec);
                                 return -1;
                         }
                 } else if (IS_KEY_PREFIX(item, "encoder")) {
-                        s->req_encoder = strchr(item, '=') + 1;
+                        s->req_encoder = val;
                 } else if (IS_KEY_PREFIX(item, "bitrate")) {
                         s->params.requested_bitrate =
-                            unit_evaluate(strchr(item, '=') + 1, nullptr);
+                            unit_evaluate(val, nullptr);
                         if (s->params.requested_bitrate < 0) {
                                 return -1;
                         }
@@ -564,10 +596,9 @@ parse_fmt(struct state_video_compress_libav *s, char *fmt) noexcept(false)
                         if (strstr(item, "q=") == item) {
                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Option \"q=\" is deprecated, use \"cqp=\" instead.\n");
                         }
-                        s->params.requested_cqp = stoi(strchr(item, '=') + 1);
+                        s->params.requested_cqp = stoi(val);
                 } else if (IS_KEY_PREFIX(item, "subsampling")) {
-                        s->req_conv_prop.subsampling =
-                            atoi(strchr(item, '=') + 1);
+                        s->req_conv_prop.subsampling = atoi(val);
                         if (s->req_conv_prop.subsampling < 1000) {
                                 s->req_conv_prop.subsampling *= 10; // 420->4200
                         }
@@ -578,7 +609,7 @@ parse_fmt(struct state_video_compress_libav *s, char *fmt) noexcept(false)
                                 return -1;
                         }
                 } else if (IS_KEY_PREFIX(item, "depth")) {
-                        s->req_conv_prop.depth = atoi(strchr(item, '=') + 1);
+                        s->req_conv_prop.depth = atoi(val);
                 } else if (strcasecmp(item, "rgb") == 0 || strcasecmp(item, "yuv") == 0) {
                         s->req_conv_prop.rgb = strcasecmp(item, "rgb") == 0;
                 } else if (strstr(item, "intra_refresh") != nullptr) {
@@ -586,15 +617,14 @@ parse_fmt(struct state_video_compress_libav *s, char *fmt) noexcept(false)
                 } else if (strstr(item, "interlaced_dct") != nullptr) {
                         s->params.interlaced_dct = (int) (strstr(item, "interlaced_dct") == item);
                 } else if (IS_KEY_PREFIX(item, "threads")) {
-                        char *threads = strchr(item, '=') + 1;
+                        char *threads = val;
                         if (strchr(threads, ',')) {
                                 s->conv_thread_count = stoi(strchr(threads, ',') + 1);
                                 *strchr(threads, ',') = '\0';
                         }
                         s->params.thread_mode = threads;
                 } else if(strncasecmp("slices=", item, strlen("slices=")) == 0) {
-                        char *slices = strchr(item, '=') + 1;
-                        s->params.slices = stoi(slices);
+                        s->params.slices = stoi(val);
                 } else if(strncasecmp("gop=", item, strlen("gop=")) == 0) {
                         char *gop = item + strlen("gop=");
                         s->requested_gop = atoi(gop);
@@ -1124,7 +1154,10 @@ const AVCodec *get_av_codec(struct state_video_compress_libav *s, codec_t *ug_co
                 return codec;
         }
         // Finally, try to open any encoder for requested codec
-        return avcodec_find_encoder(get_ug_to_av_codec(*ug_codec));
+        const AVCodec *codec =
+            avcodec_find_encoder(get_ug_to_av_codec(*ug_codec));
+        assert(codec != nullptr); // asserted by lavc_get_codec_check
+        return codec;
 }
 
 static bool configure_swscale(struct state_video_compress_libav *s, struct video_desc desc, enum AVPixelFormat sws_out_pixfmt) {
@@ -1218,7 +1251,6 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         s->saved_desc = {};
         codec_t ug_codec = s->requested_codec_id == VIDEO_CODEC_NONE ? DEFAULT_CODEC : s->requested_codec_id;
         AVPixelFormat pix_fmt = AV_PIX_FMT_NONE;
-        const AVCodec *codec = nullptr;
 #ifdef HAVE_SWSCALE
         sws_freeContext(s->sws_ctx);
         s->sws_ctx = nullptr;
@@ -1227,7 +1259,9 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
 
         s->params.desc = desc;
 
-        if ((codec = get_av_codec(s, &ug_codec, codec_is_a_rgb(desc.color_spec))) == nullptr) {
+        const AVCodec *codec =
+            get_av_codec(s, &ug_codec, codec_is_a_rgb(desc.color_spec));
+        if (codec == nullptr) {
                 return false;
         }
         log_msg(LOG_LEVEL_NOTICE, "[lavc] Using codec: %s, encoder: %s\n",
@@ -2438,16 +2472,18 @@ static void libavcodec_check_messages(struct state_video_compress_libav *s)
         while ((msg = check_message(&s->module_data))) {
                 struct msg_change_compress_data *data =
                         (struct msg_change_compress_data *) msg;
-                struct response *r;
-                if (parse_fmt(s, data->config_string) == 0) {
-                        log_msg(LOG_LEVEL_NOTICE, "[Libavcodec] Compression successfully changed.\n");
-                        r = new_response(RESPONSE_OK, NULL);
-                } else {
-                        log_msg(LOG_LEVEL_ERROR, "[Libavcodec] Unable to change compression!\n");
-                        r = new_response(RESPONSE_INT_SERV_ERR, NULL);
+                if (parse_fmt(s, data->config_string) != 0) {
+                        // NOTE: s->req_XY may not be now consistent with
+                        // factual state, but we will not configure...
+                        MSG(ERROR, "Unable to change compression!\n");
+                        free_message(msg,
+                                     new_response(RESPONSE_INT_SERV_ERR,
+                                                  "wrong compress setting!"));
+                        continue;
                 }
+                MSG(NOTICE, "Compression successfully changed.\n");
                 memset(&s->saved_desc, 0, sizeof(s->saved_desc));
-                free_message(msg, r);
+                free_message(msg, new_response(RESPONSE_OK, nullptr));
         }
 
 }
