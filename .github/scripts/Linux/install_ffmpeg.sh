@@ -69,7 +69,6 @@ install_nv_codec_headers() (
 
 install_oapv() (
         git clone --depth 1 https://github.com/AcademySoftwareFoundation/openapv.git
-        export CFLAGS='-ffat-lto-objects'
         cmake -B openapv/build -S openapv \
                 -DCMAKE_BUILD_TYPE=Release
         cmake --build openapv/build --parallel "$(nproc)"
