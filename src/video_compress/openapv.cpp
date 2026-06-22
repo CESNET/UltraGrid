@@ -74,7 +74,6 @@ struct state_video_compress_oapv {
         oapve_cdesc_t cdsc{};       // description used for encoder creation (params, threads, …)
         
         oapv_bitb_t bitb{};         // bitstream buffer (output)
-        std::vector<char> bitb_data;
         oapve_stat_t stat{};        // encoding status (output)
 
         Oapv_Frames input_frms;    // frame for input
@@ -302,8 +301,6 @@ bool configure_with(state_video_compress_oapv *s, video_desc desc){
         // allocate bitstream buffer with size based on raw input size * 2 for safe upper bound
         const int new_buf_size = raw_bytes * 2;
 
-        s->bitb_data.resize(new_buf_size);
-        s->bitb.addr = s->bitb_data.data();
         s->bitb.bsize = new_buf_size;
         s->cdsc.max_bs_buf_size = new_buf_size;
 
@@ -353,17 +350,15 @@ shared_ptr<video_frame> openapv_compress_tile(void *state, shared_ptr<video_fram
         struct tile *in_tile = vf_get_tile(tile.get(), 0);
         s->convert_to_planar((const uint8_t *) in_tile->data, desc.width, desc.height, s->input_frms.get_primary()->imgb);
 
+        shared_ptr<video_frame> out = s->pool.get_frame();
         s->bitb.ssize = 0;
+        s->bitb.addr = out->tiles[0].data;
         int ret = oapve_encode(s->enc_h.get(), s->input_frms.get_frms(), nullptr, &s->bitb, &s->stat, nullptr);
         if (OAPV_FAILED(ret)) {
                 MSG(ERROR, "oapve_encode failed: %s (%d) (frame dropped)\n", oapv_err_str(ret), ret);
                 return {};
         }
-
-        shared_ptr<video_frame> out = s->pool.get_frame();
-        struct tile *out_tile = vf_get_tile(out.get(), 0);
-        memcpy(out_tile->data, s->bitb.addr, s->stat.write);
-        out_tile->data_len = s->stat.write;
+        out->tiles[0].data_len = s->stat.write;
 
         vf_copy_metadata(out.get(), tile.get());
 
