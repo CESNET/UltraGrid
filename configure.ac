@@ -2509,27 +2509,27 @@ ENSURE_FEATURE_PRESENT([${jpegxs_req?}], [${jpegxs?}], [SVT-JPEG-XS not found])
 openapv=no
 
 AC_ARG_ENABLE(openapv,
-[  --disable-openapv       disable OPEN APV compression (auto)]
-[                         Requires: oapv],
+[  --disable-openapv       disable OpenAPV compression (auto)]
+[                          Requires: oapv],
 	[openapv_req=$enableval],
         [openapv_req=$build_default]
 )
 
-PKG_CHECK_MODULES([OPENAPV], [oapv >= 0.2.1.1],
-    [FOUND_OPENAPV_DEP=yes],
-    [FOUND_OPENAPV_DEP=no]
-)
+if test "${openapv_req:?}" != no; then
+        PKG_CHECK_MODULES([OPENAPV], [oapv >= 0.2.1.1],
+            [FOUND_OPENAPV_DEP=yes], [FOUND_OPENAPV_DEP=no])
+fi
 
-if test "$openapv_req" != no -a "$FOUND_OPENAPV_DEP" = yes; then
+if test "${FOUND_OPENAPV_DEP-}" = yes; then
         OPENAPV_COMMON_OBJS="src/openapv/openapv_common.o"
         OPENAPV_COMPRESS_OBJ="$OPENAPV_COMMON_OBJS src/openapv/to_openapv_conversions.o src/video_compress/openapv.o"
         OPENAPV_DECOMPRESS_OBJ="$OPENAPV_COMMON_OBJS src/openapv/from_openapv_conversions.o src/video_decompress/openapv.o"
         add_module vcompress_openapv "$OPENAPV_COMPRESS_OBJ" "$OPENAPV_LIBS"
         add_module vdecompress_openapv "$OPENAPV_DECOMPRESS_OBJ" "$OPENAPV_LIBS"
         openapv=yes
-else
-        openapv=no
 fi
+
+ENSURE_FEATURE_PRESENT([${openapv_req:?}], [${openapv:?}], [oapv not found!])
 
 # -------------------------------------------------------------------------------------------------
 # GPUJPEG
@@ -3983,8 +3983,8 @@ add_column "CUDA DXT" "${cuda_dxt?}"
 add_column "GPUJPEG" "${gpujpeg?}"
 add_column "GPUJPEG transcode to DXT" "${gpujpeg_to_dxt?}"
 add_column "JPEG XS" "${jpegxs?}"
-add_column "OPEN APV" "${openapv}"
 add_column "Lavc (VDP ${lavc_hwacc_vdpau?}, VA ${lavc_hwacc_vaapi?})" "${libavcodec?}"
+add_column "OpenAPV" "${openapv?}"
 add_column "Realtime DXT" "${rtdxt?}"
 add_column "UYVY dummy compression" "${uyvy?}"
 end_section
