@@ -93,7 +93,7 @@ audio_alsa_probe(struct device_info **available_devices, int *count,
                 }
 
                 char *dir = snd_device_name_get_hint(*it, "IOID");
-                if (dir == nullptr) { // NULL means both
+                if (dir != nullptr) { // NULL means both
                         bool is_input = strcmp(dir, "Input") == 0;
                         free(dir);
                         if (for_input != is_input) {
