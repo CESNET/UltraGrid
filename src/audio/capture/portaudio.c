@@ -58,6 +58,7 @@ struct module;
 #include "audio/audio_capture.h"
 #include "audio/portaudio_common.h"
 #include "audio/types.h"
+#include "compat/c23.h"     // IWYU pragma: keep
 #include "compat/strings.h" // strdupa
 #include "debug.h"
 #include "host.h"
@@ -80,12 +81,13 @@ struct state_portaudio_capture {
         struct ring_buffer *buffer;
 };
 
+static void audio_cap_portaudio_done(void *state);
+
 /*
  * For Portaudio threads-related issues see
  * http://www.portaudio.com/trac/wiki/tips/Threading
  */
 static int         portaudio_start_stream(PaStream *stream);
-static void        portaudio_close(PaStream *stream); // closes and frees all audio resources ( according to valgrind this is not true..  )
 static int         callback( const void *inputBuffer, void *outputBuffer,
                 unsigned long framesPerBuffer,
                 const PaStreamCallbackTimeInfo* timeInfo,
@@ -108,13 +110,6 @@ static void audio_cap_portaudio_probe(struct device_info **available_devices, in
 {
         *deleter = free;
         audio_portaudio_probe(available_devices, count, PORTAUDIO_IN);
-}
-
-static void portaudio_close(PaStream * stream)	// closes and frees all audio resources
-{
-	Pa_StopStream(stream);	// may not be necessary
-        Pa_CloseStream(stream);
-	Pa_Terminate();
 }
 
 static _Bool
@@ -182,22 +177,19 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
                 return NULL;
         }
         
-        struct state_portaudio_capture *s = calloc(1, sizeof *s);
-
         log_msg(LOG_LEVEL_INFO, "Initializing portaudio capture.\n");
 
-        pthread_mutex_init(&s->lock, NULL);
-        pthread_cond_init(&s->cv, NULL);
-	
 	error = Pa_Initialize();
         if (error != paNoError) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "error initializing portaudio\n");
                 log_msg(LOG_LEVEL_ERROR, "\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
-                free(s);
 		return NULL;
 	}
 
-	log_msg(LOG_LEVEL_INFO, "Using PortAudio version: %s\n", Pa_GetVersionText());
+        struct state_portaudio_capture *s = calloc(1, sizeof *s);
+
+        pthread_mutex_init(&s->lock, nullptr);
+        pthread_cond_init(&s->cv, nullptr);
 
 	PaStreamParameters inputParameters;
 
@@ -227,8 +219,7 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
 	}
 
         if(device_info == NULL) {
-                free(s);
-                Pa_Terminate();
+                audio_cap_portaudio_done(s);
                 return NULL;
         }
 
@@ -237,7 +228,7 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Requested %d input channels, device offers only %d.\n",
                                 s->frame.ch_count,
                                 device_info->maxInputChannels);
-                free(s);
+                audio_cap_portaudio_done(s);
 		return NULL;
         }
         if (audio_capture_bps == 4) {
@@ -270,7 +261,8 @@ static void * audio_cap_portaudio_init(struct module *parent, const char *cfg)
 	if (error != paNoError) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Error opening audio stream\n");
                 log_msg(LOG_LEVEL_ERROR, "\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
-		return NULL;
+                audio_cap_portaudio_done(s);
+                return nullptr;
 	}
 
         s->frame.max_size = (s->frame.bps * s->frame.ch_count) * s->frame.sample_rate / 1000 * BUF_MS;
@@ -329,8 +321,15 @@ static struct audio_frame * audio_cap_portaudio_read(void *state)
 
 static void audio_cap_portaudio_done(void *state)
 {
-        struct state_portaudio_capture *s = (struct state_portaudio_capture *) state;
-        portaudio_close(s->stream);
+        struct state_portaudio_capture *s = state;
+
+        if (s->stream) {
+                Pa_StopStream(s->stream); // may not be necessary
+                Pa_CloseStream(s->stream);
+        }
+
+        Pa_Terminate();
+
         free(s->frame.data);
         pthread_mutex_destroy(&s->lock);
         pthread_cond_destroy(&s->cv);

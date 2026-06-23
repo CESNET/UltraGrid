@@ -244,6 +244,8 @@ void portaudio_print_version() {
 #else // compat
         log_msg(LOG_LEVEL_INFO, MOD_NAME "Using %s\n", Pa_GetVersionText());
 #endif
+
+        Pa_Terminate();
 }
 
 /**
