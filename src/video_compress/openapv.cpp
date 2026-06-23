@@ -186,13 +186,6 @@ bool state_video_compress_oapv::parse_fmt(char *fmt)
                                 return false;
                         }
                         cdsc.threads = threads;
-                } else if (IS_KEY_PREFIX(tok, "rc")) {
-                        const int rc = atoi(val);
-                        if (rc != OAPV_RC_CQP && rc != OAPV_RC_ABR) {
-                                MSG(ERROR, "Invalid rc type '%s' (0 = CQP, 1 = ABR).\n", val);
-                                return false;
-                        }
-                        cdsc.param[FRM_INDEX].rc_type = rc;
                 } else if (IS_KEY_PREFIX(tok, "qp")) {
                         const int qp = atoi(val);
                         if ((qp < 0 || qp > 75) && qp != OAPVE_PARAM_QP_AUTO) {
@@ -368,7 +361,7 @@ shared_ptr<video_frame> openapv_compress_tile(void *state, shared_ptr<video_fram
 void openapv_print_help(){
         color_printf(TBOLD("OpenAPV") " compression usage:\n");
         color_printf("\t" TBOLD(
-                TRED("-c openapv") "[:threads=<n>][:rc=<0|1>][:qp=<n>][:bitrate=<br>]"
+                TRED("-c openapv") "[:threads=<n>][:qp=<n>][:bitrate=<br>]"
                 "[:preset=<0-4>][:tile_w=<n>][:tile_h=<n>]"
                 "[:use_filler=<0|1>][:qp_offset_c1=<n>][:qp_offset_c2=<n>][:qp_offset_c3=<n>]") "\n");
         color_printf("\t" TBOLD(TRED("-c openapv") ":help") "\n");
