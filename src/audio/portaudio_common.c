@@ -152,12 +152,8 @@ print_supported_parameters(const PaDeviceInfo             *device_info,
 static bool
 has_channels(const PaDeviceInfo *device_info, enum portaudio_device_direction dir)
 {
-
-        if ((dir == PORTAUDIO_IN && device_info->maxInputChannels == 0) ||
-            device_info->maxOutputChannels == 0) {
-                return false;
-        }
-        return true;
+        return (dir == PORTAUDIO_IN && device_info->maxInputChannels > 0) ||
+               (dir == PORTAUDIO_OUT && device_info->maxOutputChannels > 0);
 }
 
 void
