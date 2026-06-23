@@ -127,9 +127,9 @@ const struct {
                 ":qp=", false, "255"
         },
         {"Bit rate", "bitrate",
-                "\t\tTarget bitrate in kbps (e.g. 50000). Used with ABR rate control.\n"
+                "\t\tTarget bitrate in bps. Used with ABR rate control.\n"
                 "\t\tAlternatively a unit suffix can be used (e.g. 50M = 50000 kbps).\n",
-                ":bitrate=", false, "50000"
+                ":bitrate=", false, "50M"
         },
         {"Preset", "preset",
                 "\t\tEncoder speed/quality trade-off preset:\n"
@@ -196,18 +196,16 @@ bool state_video_compress_oapv::parse_fmt(char *fmt)
                         cdsc.param[FRM_INDEX].rc_type = OAPV_RC_CQP;
                 } else if (IS_KEY_PREFIX(tok, "bitrate")) {
                         const char *endptr = nullptr;
-                        long long br = unit_evaluate(val, &endptr);
-                        if (br == LLONG_MIN || *endptr != '\0' || br <= 0) {
+                        long long rate_bps = unit_evaluate(val, &endptr);
+                        if (rate_bps == LLONG_MIN || *endptr != '\0') {
                                 MSG(ERROR, "Invalid bitrate value '%s'.\n", val);
                                 return false;
                         }
-                        // unit_evaluate returns bytes/bits – the value is in kbps here
-                        // accept plain numbers as kbps, suffixed values convert from bps to kbps
-                        cdsc.param[FRM_INDEX].bitrate = (int)(br / 1000);
-                        if (cdsc.param[FRM_INDEX].bitrate == 0) {
-                                // plain small number was given, treat as kbps directly
-                                cdsc.param[FRM_INDEX].bitrate = (int) br;
+                        if(rate_bps < 1000){
+                                MSG(ERROR, "Specified bitrate %lld is less than 1kbps. Refusing to continue\n", rate_bps);
+                                return false;
                         }
+                        cdsc.param[FRM_INDEX].bitrate = (int)(rate_bps / 1000);
                 } else if (IS_KEY_PREFIX(tok, "preset")) {
                         const int preset = atoi(val);
                         if (preset < OAPV_PRESET_FASTEST || preset > OAPV_PRESET_PLACEBO) {
