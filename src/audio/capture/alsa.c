@@ -51,8 +51,7 @@
 #include <alsa/asoundlib.h>       // for snd_strerror, _snd_pcm_access, snd_...
 #include <assert.h>               // for assert
 #include <errno.h>                // for ENODEV, EPIPE
-#include <stdbool.h>              // for bool, false, true
-#include <stdio.h>                // for fprintf, stderr, printf
+#include <stdio.h>                // for NULL, printf
 #include <stdlib.h>               // for free, malloc, atoi, calloc
 #include <string.h>               // for strlen, strcpy, strncmp, strstr
 #include <sys/time.h>             // for gettimeofday, timeval
@@ -61,6 +60,7 @@
 #include "audio/audio_capture.h"
 #include "audio/types.h"
 #include "audio/utils.h"
+#include "compat/c23.h" // IWYU pragma: keep
 #include "debug.h"
 #include "host.h"                 // for audio_capture_channels, exit_uv
 #include "lib_common.h"
@@ -159,7 +159,7 @@ static void * audio_cap_alsa_init(struct module *parent, const char *cfg)
                         if (strncmp(item, "frames=", strlen("frames=")) == 0) {
                                 s->frames = atoi(item + strlen("frames="));
                         } else {
-                                fprintf(stderr, "[ALSA cap.] Unknown option: %s\n", item);
+                                MSG(ERROR, "Unknown option: %s\n", item);
                                 goto error;
                         }
                         opts = NULL;
@@ -170,8 +170,7 @@ static void * audio_cap_alsa_init(struct module *parent, const char *cfg)
         rc = snd_pcm_open(&s->handle, name,
                 SND_PCM_STREAM_CAPTURE, 0);
         if (rc < 0) {
-                fprintf(stderr, MOD_NAME "unable to open pcm device: %s\n",
-                        snd_strerror(rc));
+                MSG(ERROR, "unable to open pcm device: %s\n", snd_strerror(rc));
                 goto error;
         }
         print_alsa_device_info(s->handle, MOD_NAME);
@@ -182,8 +181,8 @@ static void * audio_cap_alsa_init(struct module *parent, const char *cfg)
         /* Fill it in with default values. */
         rc = snd_pcm_hw_params_any(s->handle, params);
         if (rc < 0) {
-                fprintf(stderr, MOD_NAME "unable to set default parameters: %s\n",
-                        snd_strerror(rc));
+                MSG(ERROR, "unable to set default parameters: %s\n",
+                    snd_strerror(rc));
                 goto error;
         }
 
@@ -238,8 +237,8 @@ static void * audio_cap_alsa_init(struct module *parent, const char *cfg)
         rc = snd_pcm_hw_params_set_access(s->handle, params,
                 s->non_interleaved ? SND_PCM_ACCESS_RW_NONINTERLEAVED : SND_PCM_ACCESS_RW_INTERLEAVED);
         if (rc < 0) {
-                fprintf(stderr, MOD_NAME "unable to set interleaved mode: %s\n",
-                        snd_strerror(rc));
+                MSG(ERROR, "unable to set interleaved mode: %s\n",
+                    snd_strerror(rc));
                 goto error;
         }
 
@@ -248,8 +247,8 @@ static void * audio_cap_alsa_init(struct module *parent, const char *cfg)
         rc = snd_pcm_hw_params_set_format(s->handle, params,
                 format);
         if (rc < 0) {
-                fprintf(stderr, MOD_NAME "unable to set capture format: %s\n",
-                        snd_strerror(rc));
+                MSG(ERROR, "unable to set capture format: %s\n",
+                    snd_strerror(rc));
                 goto error;
         }
 
@@ -258,8 +257,8 @@ static void * audio_cap_alsa_init(struct module *parent, const char *cfg)
         rc = snd_pcm_hw_params_set_rate_resample(s->handle,
                         params, val);
         if(rc < 0) {
-                fprintf(stderr, MOD_NAME "Warning: Unable to set resampling: %s\n",
-                        snd_strerror(rc));
+                MSG(WARNING, "Warning: Unable to set resampling: %s\n",
+                    snd_strerror(rc));
         }
 
         /* set sampling rate */
@@ -268,9 +267,9 @@ static void * audio_cap_alsa_init(struct module *parent, const char *cfg)
         rc = snd_pcm_hw_params_set_rate_near(s->handle, params,
                 &val, &dir);
         if (rc < 0) {
-                fprintf(stderr, "[ALSA cap.] unable to set sampling rate (%s %d): %s\n",
-                        dir == 0 ? "=" : (dir == -1 ? "<" : ">"),
-                        val, snd_strerror(rc));
+                MSG(ERROR, "unable to set sampling rate (%s %d): %s\n",
+                    dir == 0 ? "=" : (dir == -1 ? "<" : ">"), val,
+                    snd_strerror(rc));
                 goto error;
         }
 
@@ -280,8 +279,8 @@ static void * audio_cap_alsa_init(struct module *parent, const char *cfg)
                 if (s->frame.ch_count == 1) { // some devices cannot do mono
                         snd_pcm_hw_params_set_channels_first(s->handle, params, &s->min_device_channels);
                 } else {
-                        fprintf(stderr, MOD_NAME "unable to set channel count: %s\n",
-                                        snd_strerror(rc));
+                        MSG(ERROR, "unable to set channel count: %s\n",
+                            snd_strerror(rc));
                         goto error;
                 }
         }
@@ -294,15 +293,15 @@ static void * audio_cap_alsa_init(struct module *parent, const char *cfg)
         rc = snd_pcm_hw_params_set_period_size_near(s->handle,
                 params, &s->frames, &dir);
         if (rc < 0) {
-                fprintf(stderr, "[ALSA cap.] unable to set frame period (%ld): %s\n",
-                                s->frames, snd_strerror(rc));
+                MSG(ERROR, "unable to set frame period (%ld): %s\n", s->frames,
+                    snd_strerror(rc));
         }
 
         /* Write the parameters to the driver */
         rc = snd_pcm_hw_params(s->handle, params);
         if (rc < 0) {
-                fprintf(stderr, MOD_NAME "unable to set hw parameters: %s\n",
-                        snd_strerror(rc));
+                MSG(ERROR, "unable to set hw parameters: %s\n",
+                    snd_strerror(rc));
                 goto error;
         }
 
@@ -365,24 +364,27 @@ audio_cap_alsa_read(void *state)
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "short read, read %d frames\n", rc);
         }
 
-        if(rc > 0) {
-                if ((int) s->min_device_channels > s->frame.ch_count && s->frame.ch_count == 1) {
-                        demux_channel(s->frame.data, (char *) s->tmp_data, s->frame.bps,
-                                        rc * s->frame.bps * s->min_device_channels,
-                                        s->min_device_channels, /* channels (originally) */
-                                        0 /* we want first channel */
-                                );
-                }
-                s->frame.data_len = rc * s->frame.bps * s->frame.ch_count;
-                if (s->frame.bps == 1) {
-                        // should be unsigned2signed but it works in both directions
-                        signed2unsigned(s->frame.data, s->frame.data, s->frame.data_len);
-                }
-                s->captured_samples += rc;
-                return &s->frame;
-        } else {
-                return NULL;
+        if (rc <= 0) {
+                return nullptr;
         }
+
+        if ((int) s->min_device_channels > s->frame.ch_count &&
+            s->frame.ch_count == 1) {
+                demux_channel(
+                    s->frame.data, s->tmp_data, s->frame.bps,
+                    rc * s->frame.bps * s->min_device_channels,
+                    s->min_device_channels, /* channels (originally) */
+                    0                       /* we want first channel */
+                );
+        }
+        s->frame.data_len = rc * s->frame.bps * s->frame.ch_count;
+        if (s->frame.bps == 1) {
+                // should be unsigned2signed but it works in both directions
+                signed2unsigned(s->frame.data, s->frame.data,
+                                s->frame.data_len);
+        }
+        s->captured_samples += rc;
+        return &s->frame;
 }
 
 static void audio_cap_alsa_done(void *state)
@@ -391,9 +393,10 @@ static void audio_cap_alsa_done(void *state)
         struct timeval t;
 
         gettimeofday(&t, NULL);
-        printf("[ALSA cap.] Captured %lld samples in %f seconds (%f samples per second).\n",
-                        s->captured_samples, tv_diff(t, s->start_time),
-                        s->captured_samples / tv_diff(t, s->start_time));
+        MSG(INFO,
+            "Captured %lld samples in %f seconds (%f samples per second).\n",
+            s->captured_samples, tv_diff(t, s->start_time),
+            s->captured_samples / tv_diff(t, s->start_time));
         snd_pcm_drop(s->handle);
         snd_pcm_close(s->handle);
         free(s->frame.data);
