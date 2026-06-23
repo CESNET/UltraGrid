@@ -87,6 +87,8 @@ struct state_portaudio_playback {
         bool quiet;
 };
 
+static void audio_play_portaudio_done(void *state);
+
 /*
  * For Portaudio threads-related issues see
  * http://www.portaudio.com/trac/wiki/tips/Threading
@@ -217,18 +219,15 @@ audio_play_portaudio_init(const struct audio_playback_opts *opts)
                 device_info = Pa_GetDeviceInfo(Pa_GetDefaultOutputDevice());
         }
         if (device_info == NULL) {
-                Pa_Terminate();
-                free(s);
+                audio_play_portaudio_done(s);
                 return NULL;
         }
 	s->max_output_channels = device_info->maxOutputChannels;
-        Pa_Terminate();
 
         s->quiet = true;
         
         if (!audio_play_portaudio_reconfigure(s, (struct audio_desc){2, 48000, 2, AC_PCM})) {
-                Pa_Terminate();
-                free(s);
+                audio_play_portaudio_done(s);
                 return NULL;
         }
 
@@ -240,6 +239,7 @@ static void audio_play_portaudio_done(void *state)
         struct state_portaudio_playback *s = state;
         cleanup(s);
         free(s);
+        Pa_Terminate();
 }
 
 static void cleanup(struct state_portaudio_playback * s)
@@ -248,7 +248,6 @@ static void cleanup(struct state_portaudio_playback * s)
         s->stream = NULL;
         audio_buffer_destroy(s->data);
         s->data = NULL;
-	Pa_Terminate();
 }
 
 static QSORT_S_COMP_DEFINE(sample_rate_compare, a, b, c)
@@ -364,15 +363,6 @@ static bool audio_play_portaudio_reconfigure(void *state, struct audio_desc desc
         s->desc = desc;
 
         log_msg(LOG_LEVEL_INFO, MOD_NAME "(Re)initializing portaudio playback.\n");
-
-        error = Pa_Initialize();
-        if (error != paNoError) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "error initializing portaudio\n");
-                log_msg(LOG_LEVEL_ERROR, "\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
-                return false;
-        }
-
-        log_msg(LOG_LEVEL_INFO, "Using PortAudio version: %s\n", Pa_GetVersionText());
 
         // default device
         if (s->device == -1) {
