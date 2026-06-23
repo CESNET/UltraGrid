@@ -200,6 +200,7 @@ bool state_video_compress_oapv::parse_fmt(char *fmt)
                                 return false;
                         }
                         cdsc.param[FRM_INDEX].qp = (unsigned char) qp;
+                        cdsc.param[FRM_INDEX].rc_type = OAPV_RC_CQP;
                 } else if (IS_KEY_PREFIX(tok, "bitrate")) {
                         const char *endptr = nullptr;
                         long long br = unit_evaluate(val, &endptr);
@@ -214,7 +215,6 @@ bool state_video_compress_oapv::parse_fmt(char *fmt)
                                 // plain small number was given, treat as kbps directly
                                 cdsc.param[FRM_INDEX].bitrate = (int) br;
                         }
-                        cdsc.param[FRM_INDEX].rc_type = OAPV_RC_ABR;
                 } else if (IS_KEY_PREFIX(tok, "preset")) {
                         const int preset = atoi(val);
                         if (preset < OAPV_PRESET_FASTEST || preset > OAPV_PRESET_PLACEBO) {
@@ -405,6 +405,11 @@ void* openapv_compress_init(module */*parent*/, const char *opts) {
                         return nullptr;
                 }
                 free(fmt);
+        }
+
+        if(s->cdsc.param->bitrate != 0 && s->cdsc.param->rc_type == OAPV_RC_CQP){
+                log_msg(LOG_LEVEL_FATAL, MOD_NAME "QP and bitrate can't be set at the same time!\n");
+                return nullptr;
         }
 
         return s.release();
