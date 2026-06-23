@@ -184,6 +184,7 @@ struct hd_rum_translator_state {
     vector<replica *> replicas;
     std::shared_ptr<socket_udp> server_socket;
     void *decompress = nullptr;
+    bool capture_filter_set = false;
     struct state_recompress *recompress = nullptr;
 };
 
@@ -331,6 +332,23 @@ static VOID CALLBACK wsa_deleter(DWORD /* dwErrorCode */,
 }
 #endif
 
+/// prints a warning if there is a setting not applicable on forward-only port
+static void
+print_unapplied_config_warns(const char *fec, bool cap_filter_used)
+{
+        if (fec != nullptr) {
+                MSG(WARNING, "Requested FEC for forwarding-only port "
+                             "won't be applied, compression "
+                             "specification required alongside!\n");
+                handle_error(1); // exit if user requested strict error handling
+        }
+        if (cap_filter_used) {
+                MSG(WARNING, "Requested capture filter won't be applied for "
+                             "forwarding-only output port.\n");
+                handle_error(1); // exit if user requested strict error handling
+        }
+}
+
 static int create_output_port(struct hd_rum_translator_state *s,
         const char *addr, int rx_port, int tx_port, int bufsize,
         struct rxtx_params *opts,const char *compression, const char *fec,
@@ -351,7 +369,11 @@ static int create_output_port(struct hd_rum_translator_state *s,
         }
         s->replicas.push_back(rep);
 
-        rep->type = compression ? replica::type_t::RECOMPRESS : replica::type_t::USE_SOCK;
+        rep->type = replica::type_t::RECOMPRESS;
+        if (compression == nullptr) {
+                rep->type = replica::type_t::USE_SOCK;
+                print_unapplied_config_warns(fec, s->capture_filter_set);
+        }
         int idx = recompress_add_port(s->recompress,
                 addr, compression ? compression : "none",
                 0, tx_port, opts, &rep->mod, fec, bitrate);
@@ -1104,6 +1126,7 @@ int main(int argc, char **argv)
     if(!state.decompress) {
         EXIT(EXIT_FAIL_DECODER);
     }
+    state.capture_filter_set = params.capture_filter != nullptr;
 
     if(params.server_port > 0){
             state.server_socket = std::shared_ptr<socket_udp>(udp_init("localhost", params.server_port, 0, 255, 0, false), udp_exit);
@@ -1131,7 +1154,7 @@ int main(int argc, char **argv)
 
         int idx = create_output_port(&state,
                 h.addr, rx_port, tx_port, state.bufsize, &h.rxtx_opts,
-                h.compression, h.compression ? h.fec : nullptr, h.bitrate);
+                h.compression, h.fec, h.bitrate);
         if(idx < 0) {
             EXIT(EXIT_FAILURE);
         }
