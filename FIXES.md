@@ -1,3 +1,15 @@
+#### 1.10.6
+
+* use latest AJA SDK
+* fix audio network packets not being freed under some conditions
+* trafic shaper - use CLOCK_MONOTONIC - this prevents freeze in Win
+  when resuming from S3 sleep
+* really add files required to run standalone configure without
+  the need for autoconf/automake
+* [v4l2] fix use-after-free (hopefully just dev name not print)
+* [acap/portaudio] fix some cap devices not shown in help
+* [portaudio] improved exitting (fix a crash)
+
 #### 1.10.5
 
 * fix seldom audio corruption
