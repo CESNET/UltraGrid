@@ -78,6 +78,7 @@ struct state_alsa_capture {
         char *tmp_data;
 
         snd_pcm_uframes_t frames;
+        ///< actual number of captured channels (>= frame.ch_count)
         unsigned int min_device_channels;
 
         struct timeval start_time;
@@ -247,8 +248,8 @@ static void * audio_cap_alsa_init(struct module *parent, const char *cfg)
         rc = snd_pcm_hw_params_set_format(s->handle, params,
                 format);
         if (rc < 0) {
-                MSG(ERROR, "unable to set capture format: %s\n",
-                    snd_strerror(rc));
+                MSG(ERROR, "unable to set capture sample format (BPS=%dB): %s\n",
+                    s->frame.bps, snd_strerror(rc));
                 goto error;
         }
 
@@ -279,8 +280,14 @@ static void * audio_cap_alsa_init(struct module *parent, const char *cfg)
                 if (s->frame.ch_count == 1) { // some devices cannot do mono
                         snd_pcm_hw_params_set_channels_first(s->handle, params, &s->min_device_channels);
                 } else {
-                        MSG(ERROR, "unable to set channel count: %s\n",
-                            snd_strerror(rc));
+                        unsigned min = 0;
+                        unsigned max= 0;
+                        snd_pcm_hw_params_get_channels_min(params, &min);
+                        snd_pcm_hw_params_get_channels_max(params, &max);
+                        MSG(ERROR,
+                            "unable to set channel count to %d: %s (device min: "
+                            "%u, max: %u)\n",
+                            s->frame.ch_count, snd_strerror(rc), min, max);
                         goto error;
                 }
         }
