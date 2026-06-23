@@ -102,10 +102,12 @@ m4_defun([MY_CHECK_FRAMEWORK],
         fi])
 
 AC_MSG_CHECKING([GIT presence])
-if which git
+srcdir=$(dirname "$0")
+if command -v git >/dev/null  && test -d "${srcdir?}/.git"
 then
+        AC_MSG_RESULT(yes);
         AC_MSG_CHECKING([GIT branch])
-        git_branch=$(srcdir=$(dirname "$0"); cd "$srcdir"; git name-rev --name-only HEAD)
+        git_branch=$(cd "${srcdir?}"; git name-rev --name-only HEAD)
         if test "$git_branch"; then
                 AC_DEFINE_UNQUOTED([GIT_BRANCH], "$git_branch", [Current GIT branch])
                 AC_MSG_RESULT($git_branch);
@@ -113,13 +115,15 @@ then
                 AC_MSG_RESULT(no);
         fi
         AC_MSG_CHECKING([GIT revision])
-        git_rev=$(srcdir=$(dirname "$0"); cd "$srcdir"; git rev-parse --short HEAD)
+        git_rev=$(cd "${srcdir?}"; git rev-parse --short HEAD)
         if test "$git_rev"; then
                 AC_DEFINE_UNQUOTED([GIT_REV], "$git_rev", [Current GIT revision])
                 AC_MSG_RESULT($git_rev);
         else
                 AC_MSG_RESULT(no);
         fi
+else
+        AC_MSG_RESULT(no);
 fi
 
 # TODO: remove plaform macros definitions
