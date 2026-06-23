@@ -35,7 +35,7 @@ std::vector<SettingItem> getAudioPlayback(AvailableSettings *availSettings){
 
 	for(const auto &i : availSettings->getDevices(AUDIO_PLAYBACK)){
 		SettingItem item;
-		item.name = i.name;
+		item.name = i.type + ": " + i.name;
 		item.opts.push_back({optStr, i.type});
 		item.opts.push_back({optStr + "." + i.type + ".device", i.deviceOpt});
 		auto embedAudioIt = i.extra.find("isEmbeddedAudio");
@@ -59,7 +59,7 @@ std::vector<SettingItem> getAudioSrc(AvailableSettings *availSettings){
 
 	for(const auto &i : availSettings->getDevices(AUDIO_SRC)){
 		SettingItem item;
-		item.name = i.name;
+		item.name = i.type + ": " + i.name;
 		item.opts.push_back({optStr, i.type});
 		item.opts.push_back({optStr + "." + i.type + ".device", i.deviceOpt});
 		auto embedAudioIt = i.extra.find("isEmbeddedAudio");
