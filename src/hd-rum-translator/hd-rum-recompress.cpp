@@ -129,7 +129,9 @@ recompress_output_port::recompress_output_port(
         params.receiver = this->host.c_str();
         params.medium[TX_MEDIA_VIDEO].rx_port = rx_port;
         params.medium[TX_MEDIA_VIDEO].tx_port = tx_port;
-        params.medium[TX_MEDIA_VIDEO].fec = fec;
+        if (fec != nullptr) {
+                params.medium[TX_MEDIA_VIDEO].fec = fec;
+        }
         params.video_bitrate_limit = bitrate;
 
         // UltraGrid RTP - fllowing already set by VRXTX_INIT

@@ -309,6 +309,7 @@ init_medium_state(struct rtp_rxtx_common_priv_state *s,
                 { &video_offset, params->video_bitrate_limit,
                  MODULE_CLASS_VIDEO                                              },
         };
+        assert(params_medium->fec != nullptr);
         const char       *medium_str    = get_tx_name(t);
         volatile int     *medium_offset = medium_defaults[t].medium_offset;
         long long         bitrate_limit = medium_defaults[t].bitrate_limit;
