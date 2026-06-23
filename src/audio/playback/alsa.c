@@ -709,7 +709,8 @@ static void audio_play_alsa_probe(struct device_info **available_devices, int *c
 {
         *deleter = free;
         const char *whitelist[] = {"pulse", "dmix"};
-        audio_alsa_probe(available_devices, count, whitelist, sizeof(whitelist) / sizeof(*whitelist));
+        audio_alsa_probe(available_devices, count, whitelist,
+                         sizeof(whitelist) / sizeof(*whitelist), false);
         strcpy((*available_devices)[0].dev, "");
         strcpy((*available_devices)[0].name, "Default Linux audio output");
 }
@@ -727,7 +728,7 @@ static void audio_play_alsa_help(void) {
         printf("\n");
 
         printf("Available ALSA playback devices:\n");
-        audio_alsa_list_devices();
+        audio_alsa_list_devices(false);
 }
 
 static bool is_default_pulse(void)

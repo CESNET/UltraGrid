@@ -43,6 +43,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "compat/c23.h" // IWYU pragma: keep
 #include "debug.h"
 #include "types.h"
 #include "utils/color_out.h"
@@ -52,7 +53,7 @@ static inline void
 alsa_strcpy_replace_nl(const char *name, unsigned out_size, char *out_name)
 {
         char *out_name_end = out_name + out_size;
-        while (strchr(name, '\n') != NULL) {
+        while (strchr(name, '\n') != nullptr) {
                 unsigned len = strchr(name, '\n') - name;
                 out_name +=
                     snprintf(out_name, out_name_end - out_name, "%.*s - ", len, name);
@@ -61,10 +62,9 @@ alsa_strcpy_replace_nl(const char *name, unsigned out_size, char *out_name)
         (void) snprintf(out_name, out_name_end - out_name, "%s", name);
 }
 
-static inline void audio_alsa_probe(struct device_info **available_devices,
-                                    int *count,
-                                    const char **whitelist,
-                                    size_t whitelist_size)
+static inline void
+audio_alsa_probe(struct device_info **available_devices, int *count,
+                 const char **whitelist, size_t whitelist_size, bool for_input)
 {
         void **hints;
         snd_device_name_hint(-1, "pcm", &hints);
@@ -92,6 +92,15 @@ static inline void audio_alsa_probe(struct device_info **available_devices,
                         continue;
                 }
 
+                char *dir = snd_device_name_get_hint(*it, "IOID");
+                if (dir == nullptr) { // NULL means both
+                        bool is_input = strcmp(dir, "Input") == 0;
+                        free(dir);
+                        if (for_input != is_input) {
+                                continue;
+                        }
+                }
+
                 snprintf_ch((*available_devices)[*count].dev, ":%s", id);
                 free(id);
 
@@ -106,11 +115,11 @@ static inline void audio_alsa_probe(struct device_info **available_devices,
         snd_device_name_free_hint(hints);
 }
 
-static inline void audio_alsa_list_devices(void)
+static inline void audio_alsa_list_devices(bool input)
 {
         struct device_info *available_devices;
         int count;
-        audio_alsa_probe(&available_devices, &count, NULL, 0);
+        audio_alsa_probe(&available_devices, &count, nullptr, 0, input);
         strcpy(available_devices[0].dev, "");
         strcpy(available_devices[0].name, "default ALSA device (same as \"alsa:default\")");
         for(int i = 0; i < count; i++){

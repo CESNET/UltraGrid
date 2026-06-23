@@ -91,7 +91,8 @@ static void audio_cap_alsa_probe(struct device_info **available_devices, int *co
 {
         *deleter = free;
         const char *whitelist[] = {"pulse", "dsnoop"};
-        audio_alsa_probe(available_devices, count, whitelist, sizeof(whitelist) / sizeof(*whitelist));
+        audio_alsa_probe(available_devices, count, whitelist,
+                         sizeof(whitelist) / sizeof(*whitelist), true);
         strcpy((*available_devices)[0].dev, "");
         strcpy((*available_devices)[0].name, "Default Linux audio input");
 }
@@ -107,7 +108,7 @@ static void audio_cap_alsa_help(void)
         color_printf(TERM_BOLD "\t\tframes=<frames>" TERM_RESET " number of audio frames captured at a moment\n");
 
         printf("\nAvailable ALSA capture devices\n");
-        audio_alsa_list_devices();
+        audio_alsa_list_devices(true);
 }
 
 static const int bps_preference[] = { 2, 4, 3, 1 };
