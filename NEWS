@@ -3,6 +3,8 @@ next
 * added AES67 capture/playback
 * support for JPEG-XS
 * support for Open Media Transport
+* added OpenAPV compress/decompress modules
+* GUI: Improve audio device list
 
 1.10
 ====
