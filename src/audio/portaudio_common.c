@@ -264,6 +264,15 @@ void audio_portaudio_probe(struct device_info **available_devices, int *count, e
                 notice = " (no device)";
                 numDevices = 0;
         }
+
+        /* Portaudio reports a lot of audio devices that are either not very useful, or already available
+         * through other better suited modules. To make the GUI audio device drop down list less confusing
+         * report only the default device */
+        const bool supress_listing = true;
+        if(supress_listing){
+                numDevices = 0;
+        }
+
         *available_devices = calloc(1 + numDevices, sizeof(struct device_info));
         strncpy((*available_devices)[0].dev, "", sizeof (*available_devices)[0].dev);
         snprintf((*available_devices)[0].name, sizeof (*available_devices)[0].name, "Portaudio default %s%s", dir == PORTAUDIO_IN ? "input" : "output", notice);
