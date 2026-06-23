@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2015-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,8 +44,22 @@
 #include <string.h>
 
 #include "debug.h"
-#include "utils/color_out.h"
 #include "types.h"
+#include "utils/color_out.h"
+#include "utils/macros.h"
+
+static inline void
+alsa_strcpy_replace_nl(const char *name, unsigned out_size, char *out_name)
+{
+        char *out_name_end = out_name + out_size;
+        while (strchr(name, '\n') != NULL) {
+                unsigned len = strchr(name, '\n') - name;
+                out_name +=
+                    snprintf(out_name, out_name_end - out_name, "%.*s - ", len, name);
+                name += len + 1;
+        }
+        (void) snprintf(out_name, out_name_end - out_name, "%s", name);
+}
 
 static inline void audio_alsa_probe(struct device_info **available_devices,
                                     int *count,
@@ -78,32 +92,13 @@ static inline void audio_alsa_probe(struct device_info **available_devices,
                         continue;
                 }
 
-                strcpy((*available_devices)[*count].dev, ":");
-                strncat((*available_devices)[*count].dev, id,
-                                sizeof (*available_devices)[*count].dev -
-                                strlen((*available_devices)[*count].dev) - 1);
+                snprintf_ch((*available_devices)[*count].dev, ":%s", id);
                 free(id);
 
                 char *name = snd_device_name_get_hint(*it, "DESC");
-                char *tok = name;
-                while(tok){
-                        char *newline = strchr(tok, '\n');
-                        if(newline){
-                                *newline = '\0';
-                                strncat((*available_devices)[*count].name, tok,
-                                                sizeof (*available_devices)[*count].name -
-                                                strlen((*available_devices)[*count].name) - 1);
-                                strncat((*available_devices)[*count].name, " - ",
-                                                sizeof (*available_devices)[*count].name -
-                                                strlen((*available_devices)[*count].name) - 1);
-                                tok = newline + 1;
-                        } else {
-                                strncat((*available_devices)[*count].name, tok,
-                                                sizeof (*available_devices)[*count].name -
-                                                strlen((*available_devices)[*count].name) - 1);
-                                tok = NULL;
-                        }
-                }
+                alsa_strcpy_replace_nl(name,
+                                       sizeof(*available_devices)[*count].name,
+                                       (*available_devices)[*count].name);
                 free(name);
                 (*count)++;
         }
