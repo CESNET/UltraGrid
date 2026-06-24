@@ -112,12 +112,6 @@ struct audio_frame2;
 static void tx_update(struct tx *tx, struct video_frame *frame, int substream);
 static uint32_t format_interl_fps_hdr_row(enum interlacing_t interlacing, double input_fps);
 
-// rtp_send_data_hdr() needs (char *) but sometimes we have ptr to const data
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wcast-qual"
-#endif
-
 static void
 tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 uint32_t ts, int send_m,
@@ -888,7 +882,8 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
         long data_sent = 0;
         const int max_len = tx->mtu - hdrs_len;
         do {
-                const char *data     = chan_data + pos;
+                const char *data_c   = chan_data + pos;
+                char       *data     = CONST_CAST(char *, data, data_c);
                 int         data_len = max_len;
                 if (pos + data_len >=
                     (unsigned int) audio_frame2_get_data_len(buffer, channel)) {
@@ -903,7 +898,7 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
                 char encrypted_data[RTP_MAX_PACKET_LEN + MAX_CRYPTO_EXCEED];
                 if (tx->encryption) {
                         data_len = tx->enc_funcs->encrypt(
-                            tx->encryption, (char *) data, data_len,
+                            tx->encryption, data, data_len,
                             (char *) rtp_hdr,
                             rtp_hdr_len - sizeof(crypto_payload_hdr_t),
                             encrypted_data);
@@ -919,7 +914,7 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
                                   0, /* contributing sources */
                                   0, /* contributing sources length */
                                   (char *) rtp_hdr, rtp_hdr_len,
-                                  (char *) data, data_len, 0, 0, 0);
+                                  data, data_len, 0, 0, 0);
 
         } while (pos < audio_frame2_get_data_len(buffer, channel));
 
@@ -1104,7 +1099,8 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
                 bool eof = endptr == start + data_len;
                 bool lastNALUnitFragment = false; // by default
                 unsigned curNALOffset = 0;
-                char *nalc = (char *) nal;
+                const char *cnal = (const char *) nal;
+                char *nalc = CONST_CAST(char *, nalc, cnal);
 
 		while(!lastNALUnitFragment){
 			// We have NAL unit data in the buffer.  There are three cases to consider:
@@ -1278,7 +1274,8 @@ void tx_send_h265(struct tx *tx, struct video_frame *frame,
                 }
 
                 if (nalsize <= maxPacketSize) { // single NALU packet
-                        char *payload = (char *) nal;
+                        const char *cnal = (const char *) nal;
+                        char *payload = CONST_CAST(char *, payload, cnal);
                         if (rtp_send_data_hdr(rtp_session, ts, pt, 1 /* m */, 0,
                                               nullptr, (char *) nullptr, 0,
                                               payload, (int) nalsize, nullptr,
@@ -1303,11 +1300,12 @@ void tx_send_h265(struct tx *tx, struct video_frame *frame,
                                 } else {
                                         size = maxPacketSize;
                                 }
-                                char *payload = (char *) nal;
+                                const char *cnal = (const char *) nal;
+                                char *payload = CONST_CAST(char *, payload, cnal);
                                 if (rtp_send_data_hdr(
                                         rtp_session, ts, pt, m, 0, nullptr,
                                         (char *) hdr, sizeof hdr,
-                                        (char *) payload, (int) size, nullptr,
+                                        payload, (int) size, nullptr,
                                         0, 0) < 0) {
                                         error_msg("There was a problem sending "
                                                   "the RTP "

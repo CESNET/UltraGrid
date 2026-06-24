@@ -185,5 +185,13 @@ enum {
 #define IS_PREFIX(tok, key) \
         (IS_PREFIX_WO_VAL(tok, key) || IS_KEY_PREFIX(tok, key))
 
+#define CONST_CAST(T, dst, src)                                                \
+        *(T *) memcpy((void *) &(dst), (const void *) &(src), sizeof(src));    \
+        static_assert(_Generic((dst), T: 1, default: 0),                       \
+                      "dst (" #dst ") has wrong type (exptected: " #T ")");    \
+        static_assert(_Generic((src), const T: 1, default: 0),                 \
+                      "src (" #src ") has wrong type (expected: const " #T     \
+                      ")")
+
 #endif // !defined UTILS_MACROS_H_1982D373_8862_4453_ADFB_33AECC853E48
 

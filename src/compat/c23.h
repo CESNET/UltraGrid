@@ -56,7 +56,12 @@
         #define nullptr NULL
 #endif
 
-// countof
+// for static_assert
+#if __STDC_VERSION__ < 202311L
+        #include <assert.h>
+#endif
+
+// for countof (not C23 but C29)
 #if __STDC_VERSION__ > 202311L && __has_include(<stdcountof.h>)
         #include <stdcountof.h>
 #elif !defined countof
