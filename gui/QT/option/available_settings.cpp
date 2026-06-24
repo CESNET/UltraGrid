@@ -175,20 +175,20 @@ void AvailableSettings::queryVideoCompress(std::string_view line){
 
 	compMod.opts = parseCapabOpts(obj);
 
-	if(obj.contains("codecs") && obj["codecs"].isArray()){
-		for(const QJsonValue &val : obj["codecs"].toArray()){
-			QJsonObject codecJson = val.toObject();
+	if(const auto codecs = obj["codecs"]; codecs.isArray()){
+		for(const auto &codec_val : codecs.toArray()){
+			QJsonObject codecJson = codec_val.toObject();
 
 			Codec codec;
 			maybeWriteString(codecJson, "name", codec.name);
 			codec.module_name = compMod.name;
-			if(codecJson.contains("priority") && codecJson["priority"].isDouble()){
-				codec.priority = codecJson["priority"].toInt();
+			if(const auto priority = codecJson["priority"]; priority.isDouble()){
+				codec.priority = priority.toInt();
 			}
 
-			if(codecJson.contains("encoders") && codecJson["encoders"].isArray()){
-				for(const QJsonValue &val : codecJson["encoders"].toArray()){
-					QJsonObject encoderJson = val.toObject();
+			if(const auto encoders = codecJson["encoders"]; encoders.isArray()){
+				for(const auto enc : encoders.toArray()){
+					QJsonObject encoderJson = enc.toObject();
 
 					Encoder encoder;
 					maybeWriteString(encoderJson, "name", encoder.name);
