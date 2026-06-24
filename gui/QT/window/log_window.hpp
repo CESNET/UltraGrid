@@ -10,7 +10,7 @@ class LogWindow : public QDialog{
 	Q_OBJECT
 
 public:
-	LogWindow(QWidget *parent = 0);
+	LogWindow(QWidget *parent = nullptr);
 	void write(const QString& str);
 
 private:

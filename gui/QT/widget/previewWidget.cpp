@@ -57,7 +57,7 @@ static void compileShader(GLuint shaderId, QOpenGLFunctions_3_3_Core *f){
 	f->glGetShaderiv(shaderId, GL_INFO_LOG_LENGTH, &len);
 	if (len > 0){
 		std::vector<char> errorMsg(len+1);
-		f->glGetShaderInfoLog(shaderId, len, NULL, &errorMsg[0]);
+		f->glGetShaderInfoLog(shaderId, len, nullptr, &errorMsg[0]);
 		printf("%s\n", errorMsg.data());
 	}
 }
@@ -119,9 +119,9 @@ void PreviewWidget::initializeGL(){
 	GLuint vertexShader = f->glCreateShader(GL_VERTEX_SHADER);
 	GLuint fragShader = f->glCreateShader(GL_FRAGMENT_SHADER);
 
-	f->glShaderSource(vertexShader, 1, &vert_src, NULL);
+	f->glShaderSource(vertexShader, 1, &vert_src, nullptr);
 	compileShader(vertexShader, f);
-	f->glShaderSource(fragShader, 1, &frag_src, NULL);
+	f->glShaderSource(fragShader, 1, &frag_src, nullptr);
 	compileShader(fragShader, f);
 
 	program = f->glCreateProgram();
@@ -160,7 +160,7 @@ void PreviewWidget::initializeGL(){
 			GL_FLOAT,
 			GL_FALSE,
 			4 * sizeof(float),
-			(void*)0
+			nullptr
 			);
 	f->glEnableVertexAttribArray(1);
 	f->glVertexAttribPointer(

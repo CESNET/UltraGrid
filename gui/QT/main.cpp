@@ -12,7 +12,7 @@
 
 static bool show_help(char *argv[]) {
 	const char *progname = argv[0];
-	while (*argv != NULL) {
+	while (*argv != nullptr) {
 		if (strcmp(*argv, "-h") == 0 || strcmp(*argv, "--help") == 0) {
 			printf("Usage:\n");
 			printf("\t%s [-h|--help|--with-uv <uv>|--config <config_path>]\n", progname);

@@ -23,7 +23,7 @@ class UltragridWindow : public QMainWindow{
 	Q_OBJECT
 
 public:
-	UltragridWindow(QWidget *parent = 0);
+	UltragridWindow(QWidget *parent = nullptr);
 	static QString findUltragridExecutable();
 
 	void initializeUgOpts();
