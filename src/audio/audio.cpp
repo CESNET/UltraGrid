@@ -565,7 +565,7 @@ static void *audio_receiver_thread(void *arg)
                         if (!decode_audio_frame_postprocess(
                                 s->pp, cur_frame->frame, &f, &expected_bytes_cum,
                                 &received_bytes_cum)) {
-                                CONTINUE;
+                                break;
                         }
 
                         if (s->muted_receiver || s->volume != 1) {
