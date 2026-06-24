@@ -22,7 +22,7 @@ greaterThan(QT_MAJOR_VERSION, 5) {
     QT += opengl openglwidgets
 }
 
-CONFIG += c++latest
+CONFIG += c++2a
 CONFIG += silent
 
 LIBS += -pthread
