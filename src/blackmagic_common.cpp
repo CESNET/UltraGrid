@@ -504,9 +504,15 @@ bool decklink_set_profile(IDeckLink *deckLink, bmd_option const &req_profile, bo
                 }
         }
 
-        if (!found && ret) { // no err but not found
-                LOG(LOG_LEVEL_WARNING) << "[DeckLink] did not find suitable duplex profile!\n";
-                ret = false;
+        if (ret) {
+                const char *fcc = (const char *) &profileID;
+                if (!found) {// no err but not found
+                        MSG(WARNING,
+                            "Did not find suitable profile for '%.4s'!\n", fcc);
+                        ret = false;
+                } else {
+                        MSG(VERBOSE, "Found/set profile for %.4s!\n", fcc);
+                }
         }
 
 cleanup:
@@ -1046,33 +1052,25 @@ bmd_option::parse(const char *val)
                 return true;
         }
 
-        // check number
-        bool is_number = true;
-        bool decimal_point = false;
-        for (size_t i = 0; i < strlen(val); ++i) {
-                if (i == 0 && strncasecmp(val, "0x", 2) == 0) {
-                        i += 1;
-                        continue;
+        // check decimal number
+        char *endptr = nullptr;
+        (void) strtol(val, &endptr, 0);
+        if (endptr != nullptr && *endptr == '\0') {
+                if (strlen(val) == 4) {
+                        MSG(WARNING,
+                            "Value %s interpretted as a number - encose in '' "
+                            "(\'%s\' in shell) to interpret as FourCC (or "
+                            "prepend '+' to signalize a number to suppress "
+                            "this warning).\n",
+                            val, val);
                 }
-                if (val[i] == '.') {
-                        if (decimal_point) { // there was already decimal point
-                                is_number = false;
-                                break;
-                        }
-                        decimal_point = true;
-                        continue;
-                }
-                is_number = is_number && isxdigit(val[i]);
-                if (i == 0 && (val[i] == '-' || val[i] == '+')) {
-                        is_number = true;
-                }
+                set_int(stoi(val, nullptr, 0));
+                return true;
         }
-        if (is_number) {
-                if (decimal_point) {
-                        set_float(stod(val));
-                } else {
-                        set_int(stoi(val, nullptr, 0));
-                }
+        // check float
+        (void) strtod(val, &endptr);
+        if (endptr != nullptr && *endptr == '\0') {
+                set_float(stod(val));
                 return true;
         }
         if (strlen(val) <= 4) {
