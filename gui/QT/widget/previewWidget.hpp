@@ -2,8 +2,6 @@
 #define PREVIEWWIDGET_HPP
 
 #include <QOpenGLWidget>
-#include <QOpenGLFunctions>
-#include <QSharedMemory>
 #include <QOpenGLVertexArrayObject>
 #include <QTimer>
 #include <string_view>
