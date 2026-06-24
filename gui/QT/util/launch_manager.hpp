@@ -52,7 +52,7 @@ private slots:
 class LaunchManager : public QObject{
 	Q_OBJECT
 public:
-	~LaunchManager();
+	~LaunchManager() override;
 
 	void launch(std::unique_ptr<LaunchContext>&& ctx);
 	void stop();

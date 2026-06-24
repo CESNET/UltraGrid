@@ -10,11 +10,11 @@
 
 #include "ssrc_container.hpp"
 
-class RecvReportWidget : public QProgressBar{
+class RecvReportWidget final : public QProgressBar{
 	Q_OBJECT
 public:
 	RecvReportWidget(QWidget *parent = nullptr);
-	~RecvReportWidget() = default;
+	~RecvReportWidget() override = default;
 
 	void updateVal();
 	void parseLine(std::string_view line);

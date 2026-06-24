@@ -10,11 +10,11 @@
 
 #include "ssrc_container.hpp"
 
-class BandwidthWidget : public QLabel{
+class BandwidthWidget final : public QLabel{
 	Q_OBJECT
 public:
 	BandwidthWidget(QWidget *parent = nullptr);
-	~BandwidthWidget() = default;
+	~BandwidthWidget() override = default;
 
 	void updateVal();
 	void parseLine(std::string_view line);

@@ -12,10 +12,10 @@ Q_OBJECT
 public:
 	CheckableUi(Settings *settings, const std::string &opt);
 
-	virtual ~CheckableUi() {  }
+	~CheckableUi() override = default;
 
 protected:
-	virtual void connectSignals() override = 0;
+	void connectSignals() override = 0;
 	bool getOptValue();
 	void updateUiState() override = 0;
 	virtual void updateUiState(bool checked) = 0;

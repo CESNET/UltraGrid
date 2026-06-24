@@ -29,7 +29,7 @@ public:
 	void initializeUgOpts();
 
 protected:
-	void closeEvent(QCloseEvent *);
+	void closeEvent(QCloseEvent *) override;
 
 private:
 	void start();

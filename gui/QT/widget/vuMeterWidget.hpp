@@ -11,7 +11,7 @@
 
 class ControlPort;
 
-class VuMeterWidget : public QWidget{
+class VuMeterWidget final : public QWidget{
 	Q_OBJECT
 public:
 	VuMeterWidget(QWidget *parent);
@@ -23,7 +23,7 @@ public:
 	void setOnRightSide(bool side) { onRightSide = side; }
 
 protected:
-	void paintEvent(QPaintEvent *paintEvent);
+	void paintEvent(QPaintEvent *paintEvent) override;
 
 private:
 	using clock = std::chrono::steady_clock;

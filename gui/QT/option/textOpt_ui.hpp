@@ -13,10 +13,10 @@ Q_OBJECT
 public:
 	TextOptUi(Settings *settings, const std::string &opt);
 
-	virtual ~TextOptUi() {  }
+	~TextOptUi() override = default;
 
 protected:
-	virtual void connectSignals() override = 0;
+	void connectSignals() override = 0;
 	std::string getOptValue();
 	void updateUiState() override = 0;
 	virtual void updateUiState(const std::string &str) = 0;

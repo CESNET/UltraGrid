@@ -9,19 +9,19 @@
 #include "ipc_frame.h"
 #include "ipc_frame_unix.h"
 
-class PreviewWidget : public QOpenGLWidget{
+class PreviewWidget final : public QOpenGLWidget{
 public:
 	PreviewWidget(QWidget *parent);
-	~PreviewWidget();
+	~PreviewWidget() override;
 
 	void setKey(std::string_view key);
 	void start();
 	void stop();
 
 protected:
-	void initializeGL();
-	void resizeGL(int w, int h);
-	void paintGL();
+	void initializeGL() override;
+	void resizeGL(int w, int h) override;
+	void paintGL() override;
 
 private:
 	bool loadFrame();

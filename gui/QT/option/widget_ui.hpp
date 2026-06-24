@@ -18,7 +18,7 @@ public:
 	WidgetUi& operator=(const WidgetUi&) = delete;
 	WidgetUi& operator=(WidgetUi&&) = delete;
 
-	virtual ~WidgetUi();
+	~WidgetUi() override;
 
 	void setOpt(const std::string &opt);
 

@@ -14,7 +14,7 @@ class ControlPort : public QObject{
 	Q_OBJECT
 public:
 	ControlPort();
-	~ControlPort() = default;
+	~ControlPort() override = default;
 
 	void connect(int local_port);
 	void parseLine(std::string_view line);

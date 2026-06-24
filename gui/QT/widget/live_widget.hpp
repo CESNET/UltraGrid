@@ -3,14 +3,14 @@
 
 #include <QWidget>
 
-class LiveWidget : public QWidget{
+class LiveWidget final : public QWidget{
 	Q_OBJECT
 public:
 	LiveWidget(QWidget *parent);
 
 
 protected:
-	void paintEvent(QPaintEvent *paintEvent);
+	void paintEvent(QPaintEvent *paintEvent) override;
 
 public slots:
 	void setLive(bool live);
