@@ -90,9 +90,9 @@ public:
                             int audio_tx_port, bool ipv6) noexcept;
 
         const struct rxtx_info *m_impl_funcs = nullptr;
-        void                         *m_impl_state = nullptr;
+        void                   *m_impl_state = nullptr;
 
-        enum rxtx_mode rxtx_mode[NUM_TX_MEDIA];
+        enum rxtx_mode rxtx_mode[NUM_TX_MEDIA] = {};
 
 protected:
         rxtx(const char *protocol_name,

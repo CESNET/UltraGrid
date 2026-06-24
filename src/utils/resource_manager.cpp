@@ -170,8 +170,8 @@ class resource_manager_t {
                 ~resource_manager_t() {
                         for_each(m_objs.begin(),
                                         m_objs.end(), func_delete);
-                        pthread_mutex_destroy(&m_access_lock);
-                        pthread_mutex_destroy(&m_excl_lock);
+                        CHK_PTHR(pthread_mutex_destroy(&m_access_lock));
+                        CHK_PTHR(pthread_mutex_destroy(&m_excl_lock));
                 }
 
                 void lock() {

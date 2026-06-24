@@ -94,6 +94,7 @@ struct h264_rtp_rxtx {
 // protoypes
 static void rtps_server_usage();
 static int  get_rtsp_server_port(const char *config);
+static void done(void *state);
 
 static void *
 create_rxtx_rtsp(const struct rxtx_params *params)
@@ -126,6 +127,7 @@ create_rxtx_rtsp(const struct rxtx_params *params)
                                                : 0));
         if (avType == rtsp_type_none) {
                 printf("[RTSP SERVER CHECK] no stream type... check capture devices input...\n");
+                done(s);
                 return nullptr;
         }
         s->rtsp_params.avType = avType;
@@ -134,6 +136,7 @@ create_rxtx_rtsp(const struct rxtx_params *params)
         s->rtsp_params.rtp_video_src_port = params->medium[TX_MEDIA_VIDEO].rx_port;
         s->rtp_common                   = rtp_rxtx_common_init(params);
         if (s->rtp_common == nullptr) {
+                done(s);
                 return nullptr;
         }
         return s;
