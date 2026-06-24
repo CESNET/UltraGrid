@@ -2,7 +2,7 @@
 #include "spinbox_ui.hpp"
 #include "overload.hpp"
 
-SpinBoxUi::SpinBoxUi(QSpinBox *spinbox, Settings *settings, const std::string &opt) : 
+SpinBoxUi::SpinBoxUi(QSpinBox *spinbox, Settings *settings, const std::string &opt) :
 	TextOptUi(settings, opt),
 	spinbox(spinbox)
 {

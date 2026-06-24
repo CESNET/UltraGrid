@@ -1,6 +1,6 @@
 #include "lineedit_ui.hpp"
 
-LineEditUi::LineEditUi(QLineEdit *line, Settings *settings, const std::string &opt) : 
+LineEditUi::LineEditUi(QLineEdit *line, Settings *settings, const std::string &opt) :
 	TextOptUi(settings, opt),
 	line(line)
 {

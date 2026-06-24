@@ -42,7 +42,7 @@ void RecvReportWidget::parseLine(std::string_view line){
 	report.total = packets;
 	report.lost = packets * (loss / 100.f);
 	report.rtt_usec = rtt;
-	
+
 	reports.insert(ssrc, report, elapsedTimer.elapsed());
 	updateVal();
 }

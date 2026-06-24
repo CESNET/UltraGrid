@@ -172,7 +172,7 @@ void VuMeterWidget::paintScale(QPainter& painter,
 		bool leftTicks,
 		bool rightTicks)
 {
-	const int barHeight = height - meterVerticalPad * 2 - meterBarPad * 2;	
+	const int barHeight = height - meterVerticalPad * 2 - meterBarPad * 2;
 	const int barStart = y + meterVerticalPad + meterBarPad;
 	const float stepPx = (float) barHeight / std::fabs(zeroLevel);
 

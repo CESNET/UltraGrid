@@ -66,7 +66,7 @@ std::vector<SettingItem> getVideoModes(AvailableSettings *availSettings){
 						{"video.source." + cap.type + "." + opt.opt, opt.val});
 			}
 			res.push_back(std::move(item));
-		} 
+		}
 	}
 
 	return res;

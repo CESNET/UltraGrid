@@ -1,4 +1,4 @@
-#include <QIntValidator> 
+#include <QIntValidator>
 #include "settings_window.hpp"
 
 SettingsWindow::SettingsWindow(QWidget *parent): QDialog(parent){

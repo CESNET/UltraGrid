@@ -174,7 +174,7 @@ void UltragridWindow::launchQuery(){
 	ui.statusbar->addWidget(&extraPtr->queryMsg);
 	availableSettings.queryBegin();
 
-	connect(&ctx->process, &QProcess::started, 
+	connect(&ctx->process, &QProcess::started,
 			[this]()
 			{
 				ui.startButton->setEnabled(false);
@@ -197,10 +197,10 @@ void UltragridWindow::launchQuery(){
 								std::string item = settingTypeToStr(type);
 								item += ":";
 								item += mod;
-								extraPtr->safeModeQueue.push_back(std::move(item));	
+								extraPtr->safeModeQueue.push_back(std::move(item));
 							}
 						}
-						extraPtr->safeModeQueue.emplace_back("noprobe");	
+						extraPtr->safeModeQueue.emplace_back("noprobe");
 						availableSettings.queryBegin();
 					} else {
 						extraPtr->safeModeFails.push_back(extraPtr->currentQuery);
@@ -227,7 +227,7 @@ void UltragridWindow::launchQuery(){
 				if(extraPtr->safeMode && !extraPtr->safeModeFails.empty()){
 					QMessageBox msgBox;
 					std::string msg = "Ultragrid crashed when querying the following modules."
-							" Some options may be missing as a result.\n"; 
+							" Some options may be missing as a result.\n";
 
 					for(const auto& i : extraPtr->safeModeFails){
 						msg += "\n";
@@ -275,7 +275,7 @@ void UltragridWindow::checkPreview(){
 
 		QMessageBox warningBox(this);
 		warningBox.setWindowTitle("Preview disabled");
-		warningBox.setText("Preview is disabled, because UltraGrid was compiled" 
+		warningBox.setText("Preview is disabled, because UltraGrid was compiled"
 				" without preview and multiplier displays."
 				" Please build UltraGrid configured with the --enable-qt flag"
 				" to enable preview.");
@@ -439,7 +439,7 @@ bool UltragridWindow::launchPreview(){
 	log.write("Preview: " + argListToString(ctx->args) + "\n\n");
 #endif
 
-	connect(&ctx->process, &QProcess::started, 
+	connect(&ctx->process, &QProcess::started,
 			[this]() { previewStatus.setText("Preview: Running"); });
 
 	connect(ctx.get(), &LaunchContext::processTerminated,

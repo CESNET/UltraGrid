@@ -3,7 +3,7 @@
 RadioButtonUi::RadioButtonUi(QAbstractButton *btn,
 		const std::string &selectedVal,
 		Settings *settings,
-		const std::string &opt) : 
+		const std::string &opt) :
 	WidgetUi(settings, opt),
 	btn(btn),
 	selectedVal(selectedVal)
