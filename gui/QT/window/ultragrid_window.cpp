@@ -175,14 +175,14 @@ void UltragridWindow::launchQuery(){
 	availableSettings.queryBegin();
 
 	connect(&ctx->process, &QProcess::started, 
-			[=]()
+			[this]()
 			{
 				ui.startButton->setEnabled(false);
 				ui.startButton->setText("Querying...");
 			});
 
 	connect(ctx.get(), &LaunchContext::processTerminated,
-			[=](int ec, QProcess::ExitStatus es, bool requested)
+			[this, extraPtr](int ec, QProcess::ExitStatus es, bool requested)
 			{
 				ui.startButton->setEnabled(true);
 				ui.startButton->setText("Start");
@@ -246,7 +246,7 @@ void UltragridWindow::launchQuery(){
 			});
 
 	connect(ctx.get(), &LaunchContext::processOutputLine,
-			[=](std::string_view line) { availableSettings.queryLine(line); });
+			[this](std::string_view line) { availableSettings.queryLine(line); });
 
 	launchMngr.launch(std::move(ctx));
 }
@@ -347,7 +347,7 @@ void UltragridWindow::start(){
 	clearFmtLabels();
 
 	connect(&ctx->process, &QProcess::started,
-			[=]()
+			[this]()
 			{
 				ui.startButton->setText("Stop");
 				ui.startButton->setEnabled(true);
@@ -357,7 +357,7 @@ void UltragridWindow::start(){
 			});
 
 	connect(ctx.get(), &LaunchContext::processTerminated,
-			[=](int ec, QProcess::ExitStatus es, bool requested)
+			[this](int ec, QProcess::ExitStatus es, bool requested)
 			{
 				ui.startButton->setText("Start");
 				ui.startButton->setEnabled(true);
@@ -392,10 +392,10 @@ void UltragridWindow::start(){
 			});
 
 	connect(ctx.get(), &LaunchContext::processOutputRead,
-			[=](QString str) { log.write(str); });
+			[this](QString str) { log.write(str); });
 
 	connect(ctx.get(), &LaunchContext::processOutputLine,
-			[=](std::string_view sv)
+			[this](std::string_view sv)
 			{
 				rtcpRr.parseLine(sv);
 				controlPort.parseLine(sv);
@@ -440,10 +440,10 @@ bool UltragridWindow::launchPreview(){
 #endif
 
 	connect(&ctx->process, &QProcess::started, 
-			[=]() { previewStatus.setText("Preview: Running"); });
+			[this]() { previewStatus.setText("Preview: Running"); });
 
 	connect(ctx.get(), &LaunchContext::processTerminated,
-			[=](int ec, QProcess::ExitStatus es, bool requested)
+			[this](int ec, QProcess::ExitStatus es, bool requested)
 			{
 				if(!requested && (es == QProcess::ExitStatus::CrashExit || ec != 0)){
 					previewStatus.setText("Preview: Crashed");
@@ -453,7 +453,7 @@ bool UltragridWindow::launchPreview(){
 			});
 
 	connect(ctx.get(), &LaunchContext::processOutputLine,
-			[=](std::string_view sv) { controlPort.parseLine(sv); });
+			[this](std::string_view sv) { controlPort.parseLine(sv); });
 
 	launchMngr.launch(std::move(ctx));
 	return true;

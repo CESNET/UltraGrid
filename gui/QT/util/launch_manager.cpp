@@ -74,7 +74,7 @@ LaunchContext::Type LaunchManager::getCurrentStatus() const{
 }
 
 LaunchContext::LaunchContext(){
-	connect(&killTimer, &QTimer::timeout, [=](){ process.kill(); });
+	connect(&killTimer, &QTimer::timeout, [this](){ process.kill(); });
 	killTimer.setSingleShot(true);
 	connect(&process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
 			this, &LaunchContext::processTerminationHandler);
