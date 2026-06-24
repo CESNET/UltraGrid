@@ -35,16 +35,16 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "blackmagic_common.hpp"
+
 #include <algorithm>
 #include <atomic>                // for atomic
 #include <cassert>
-#include <cctype>                // for isxdigit
 #include <chrono>                // for seconds
 #include <climits>               // for UINT_MAX
 #include <cinttypes>             // for PRId64
 #include <condition_variable>
-#include <csignal>
-#include <cstdio>                // for fprintf, stderr
+#include <cstdio>                // for printf, snprintf
 #include <cstdint>               // for int64_t, uint32_t
 #include <cstdlib>               // for free
 #include <cstring>               // for strlen, NULL, strdup, memcpy, size_t
@@ -56,11 +56,8 @@
 #include <stdexcept>
 #include <utility>
 
-#include "compat/misc.h"         // for strncasecmp
-#include "compat/net.h"          // for htonl, ntohl
-#include "compat/strings.h"      // for strncasecmp
 #include "DeckLinkAPIVersion.h"
-#include "blackmagic_common.hpp"
+#include "compat/endian.h"       // for be32toh, htobe32
 #include "debug.h"
 #include "host.h"
 #include "tv.h"
@@ -300,13 +297,14 @@ void print_decklink_version()
         APIInformation = CreateDeckLinkAPIInformationInstance();
         if(APIInformation == NULL) {
 #endif
-                fprintf(stderr, "Cannot get API information! Perhaps drivers not installed.\n");
+                MSG(ERROR, "Cannot get API information! Perhaps drivers not "
+                           "installed.\n");
                 goto cleanup;
         }
 
         result = APIInformation->GetString(BMDDeckLinkAPIVersion, &current_version);
         if (result != S_OK) {
-                fprintf(stderr, "Cannot get API version string!\n");
+                MSG(ERROR, "Cannot get API version string!\n");
                 goto cleanup;
         }
         currentVersionCString = get_cstr_from_bmd_api_str(current_version);
@@ -557,7 +555,7 @@ bool bmd_check_stereo_profile(IDeckLink *deckLink) {
         if (BMDProfileID profile_active = decklink_get_active_profile_id(deckLink)) {
                 if (profile_active != bmdProfileOneSubDeviceHalfDuplex &&
                                 profile_active != bmdProfileOneSubDeviceFullDuplex) {
-                        uint32_t profile_fcc_host = ntohl(profile_active);
+                        uint32_t profile_fcc_host = be32toh(profile_active);
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Active profile '%.4s' may not be compatible with stereo mode.\n", (char *) &profile_fcc_host);
                         log_msg(LOG_LEVEL_INFO, MOD_NAME "Use 'profile=' parameter to set 1-subdevice mode in either '1dhd' (half) or '1dfd' (full) duplex.\n");
                 }
@@ -588,7 +586,7 @@ uint32_t bmd_read_fourcc(const char *str) {
         } u;
         memset(u.c4, ' ', 4);
         memcpy(u.c4, str, min(strlen(str), sizeof u.c4));
-        return htonl(u.fourcc);
+        return htobe32(u.fourcc);
 }
 
 std::ostream &operator<<(std::ostream &output, REFIID iid)
@@ -815,7 +813,7 @@ static string fcc_to_string(uint32_t fourcc) {
                 char c[5];
                 uint32_t i;
         } fcc{};
-        fcc.i = htonl(fourcc);
+        fcc.i = htobe32(fourcc);
         return string("'") + fcc.c + "'";
 }
 
@@ -954,7 +952,7 @@ bmd_opt_help()
                 if (opt_name_map[i].fourcc == 0) {
                         color_printf("\n%s:\n", opt_name_map[0].name);
                 } else {
-                        uint32_t val = htonl(opt_name_map[i].fourcc);
+                        uint32_t val = htobe32(opt_name_map[i].fourcc);
                         color_printf("- " TBOLD("%.4s") " - %s\n",
                                      (char *) &val, opt_name_map[i].name);
                 }
@@ -967,7 +965,7 @@ bmd_opt_help()
         color_printf("Incomplete " TBOLD("(!)") " list of values:\n");
         color_printf("(note that the value belongs to its appropriate key)\n");
         for (unsigned i = 0; i < std::size(val_name_map); ++i) {
-                uint32_t val = htonl(val_name_map[i].fourcc);
+                uint32_t val = htobe32(val_name_map[i].fourcc);
                 color_printf("- " TBOLD("%.4s") " - %s\n", (char *) &val,
                              val_name_map[i].name);
         }
@@ -1234,7 +1232,7 @@ string bmd_get_flags_str(BMDDisplayModeFlags flags) {
 void print_bmd_device_profiles(const char *line_prefix)
 {
         for (const auto &p : kDeviceProfiles) {
-                const uint32_t fcc = htonl(p.first);
+                const uint32_t fcc = htobe32(p.first);
                 color_printf("%s" TBOLD("%.4s") " - %s (%s)\n", line_prefix, (const char *) &fcc, p.second.first, p.second.second);
         }
         color_printf("%s" TBOLD("keep") " - keep device setting\n", line_prefix);
@@ -1345,7 +1343,7 @@ print_bmd_attribute(IDeckLinkProfileAttributes *deckLinkAttributes,
                 BMDDeckLinkAttributeID key;
         };
         memcpy(fcc, query_prop_fcc, min(strlen(query_prop_fcc), sizeof fcc));
-        key = (BMDDeckLinkAttributeID) htonl(key);
+        key = (BMDDeckLinkAttributeID) htobe32(key);
         BMD_BOOL      bool_val{};
         int64_t       int_val{};
         double        float_val{};
@@ -1741,7 +1739,7 @@ class BMDNotificationCallback : public IDeckLinkNotificationCallback
                 if (cur_temp >= m_tempThresholdErr) {
                         log_msg(LOG_LEVEL_ERROR,
                                 "%sDevice is overheating! The temperature is "
-                                "%" PRId64 " °C.\n",
+                                "%" PRId64 " deg C.\n",
                                 m_logPrefix.c_str(), cur_temp);
                         return;
                 }
