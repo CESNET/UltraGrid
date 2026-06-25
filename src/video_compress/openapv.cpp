@@ -47,6 +47,7 @@
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/misc.h"
+#include "utils/text.h"
 #include "video_compress.h"
 #include "video_frame.h"
 #include "video.h"
@@ -122,40 +123,35 @@ const struct {
         },
         {"Bit rate", "bitrate",
                 "\t\tTarget bitrate in bps. Used with ABR rate control.\n"
-                "\t\tAlternatively a unit suffix can be used (e.g. 50M = 50000 kbps).\n",
+                "\t\tSI unit suffix can be used (e.g. 50M = 50000 kbps).\n",
                 ":bitrate=", false, "50M"
         },
         {"Preset", "preset",
                 "\t\tEncoder speed/quality trade-off preset:\n"
-                "\t\t 0 = fastest, 1 = fast, 2 = medium (default), 3 = slow, 4 = placebo\n",
-                ":preset=", false, "2"
+                "\t\tfastest, fast, medium (default), slow, placebo\n",
+                ":preset=", false, "medium"
         },
-        {"Tile width", "tile_w",
+        {"Tile width", "tile-w",
                 "\t\tWidth of encoding tile in pixels. Must be a multiple of macroblock\n"
-                "\t\twidth (" TOSTRING(OAPV_MB_W) "). 0 = auto (default).\n",
-                ":tile_w=", false, "0"
+                "\t\twidth (" TOSTRING(OAPV_MB_W) "), minimum is 256.\n",
+                ":tile-w=", false, "0"
         },
-        {"Tile height", "tile_h",
+        {"Tile height", "tile-h",
                 "\t\tHeight of encoding tile in pixels. Must be a multiple of macroblock\n"
-                "\t\theight (" TOSTRING(OAPV_MB_H) "). 0 = auto (default).\n",
-                ":tile_h=", false, "0"
+                "\t\theight (" TOSTRING(OAPV_MB_H) "), minimum is 256.\n",
+                ":tile-h=", false, "0"
         },
-        {"Use filler", "use_filler",
-                "\t\tInsert filler data to achieve tight constant bitrate (ABR only).\n"
-                "\t\t0 = disabled (default), 1 = enabled.\n",
-                ":use_filler=", false, "0"
+        {"Chroma QP offset 1", "qp-offset-c1",
+                "\t\tQP offset for first chroma channel (Cb). Default: 0.\n",
+                ":qp-offset-c1=", false, "0"
         },
-        {"Chroma QP offset 1", "qp_offset_c1",
-                "\t\tQP offset for first chroma channel (Cb). Range: -32~31. Default: 0.\n",
-                ":qp_offset_c1=", false, "0"
+        {"Chroma QP offset 2", "qp-offset-c2",
+                "\t\tQP offset for second chroma channel (Cr). Default: 0.\n",
+                ":qp-offset-c2=", false, "0"
         },
-        {"Chroma QP offset 2", "qp_offset_c2",
-                "\t\tQP offset for second chroma channel (Cr). Range: -32~31. Default: 0.\n",
-                ":qp_offset_c2=", false, "0"
-        },
-        {"Chroma QP offset 3", "qp_offset_c3",
-                "\t\tQP offset for third chroma channel (Cg/A). Range: -32~31. Default: 0.\n",
-                ":qp_offset_c3=", false, "0"
+        {"Chroma QP offset 3", "qp-offset-c3",
+                "\t\tQP offset for third chroma channel (Cg/A). Default: 0.\n",
+                ":qp-offset-c3=", false, "0"
         },
 };
 
@@ -198,57 +194,45 @@ bool state_video_compress_oapv::parse_fmt(char *fmt)
                         }
                         cdsc.param[FRM_INDEX].bitrate = (int)(rate_bps / 1000);
                 } else if (IS_KEY_PREFIX(tok, "preset")) {
-                        const int preset = atoi(val);
-                        if (preset < OAPV_PRESET_FASTEST || preset > OAPV_PRESET_PLACEBO) {
-                                MSG(ERROR, "Invalid preset '%s' (0=fastest .. 4=placebo).\n", val);
+                        if (oapve_param_parse(&cdsc.param[FRM_INDEX], "preset", val) != 0) {
+                                MSG(ERROR, "Invalid preset '%s' (fastest, fast, medium, slow, placebo).\n", val);
                                 return false;
                         }
-                        cdsc.param[FRM_INDEX].preset = preset;
-                } else if (IS_KEY_PREFIX(tok, "tile_w")) {
-                        const int tw = atoi(val);
-                        if (tw < 0 || (tw > 0 && (tw % OAPV_MB_W) != 0)) {
-                                MSG(ERROR, "Invalid tile_w '%s' (must be 0 or a multiple of %d).\n", val, OAPV_MB_W);
+                } else if (strstr(tok, "tile-w=") == tok) {
+                        if (oapve_param_parse(&cdsc.param[FRM_INDEX], "tile-w", val) != 0) {
+                                MSG(ERROR,
+                                    "Invalid tile-h '%s' (must be at least %d "
+                                    "and a multiple of %d).\n",
+                                    val, OAPV_MIN_TILE_W, OAPV_MB_W);
                                 return false;
                         }
-                        cdsc.param[FRM_INDEX].tile_w = tw;
-                } else if (IS_KEY_PREFIX(tok, "tile_h")) {
-                        const int th = atoi(val);
-                        if (th < 0 || (th > 0 && (th % OAPV_MB_H) != 0)) {
-                                MSG(ERROR, "Invalid tile_h '%s' (must be 0 or a multiple of %d).\n", val, OAPV_MB_H);
+                } else if (strstr(tok, "tile-h=") == tok) {
+                        if (oapve_param_parse(&cdsc.param[FRM_INDEX], "tile-h", val) != 0) {
+                                MSG(ERROR,
+                                    "Invalid tile-h '%s' (must be at least %d "
+                                    "and a multiple of %d).\n",
+                                    val, OAPV_MIN_TILE_W, OAPV_MB_W);
                                 return false;
                         }
-                        cdsc.param[FRM_INDEX].tile_h = th;
-                } else if (IS_KEY_PREFIX(tok, "use_filler")) {
-                        const int uf = atoi(val);
-                        if (uf != 0 && uf != 1) {
-                                MSG(ERROR, "Invalid use_filler '%s' (0 or 1).\n", val);
+                } else if (strstr(tok, "qp-offset-c1=") == tok ||
+                           strstr(tok, "qp-offset-c2=") == tok ||
+                           strstr(tok, "qp-offset-c3=") == tok) {
+                        char *key = tok;
+                        *strchr(key, '=') = '\0';
+                        if (oapve_param_parse(&cdsc.param[FRM_INDEX], key, val) != 0) {
+                                MSG(ERROR,
+                                    "Invalid %s '%s'.\n", key, val);
                                 return false;
                         }
-                        cdsc.param[FRM_INDEX].use_filler = uf;
-                } else if (IS_KEY_PREFIX(tok, "qp_offset_c1")) {
-                        const int v = atoi(val);
-                        if (v < -32 || v > 31) {
-                                MSG(ERROR, "Invalid qp_offset_c1 '%s' (range: -32~31).\n", val);
-                                return false;
-                        }
-                        cdsc.param[FRM_INDEX].qp_offset_c1 = (signed char) v;
-                } else if (IS_KEY_PREFIX(tok, "qp_offset_c2")) {
-                        const int v = atoi(val);
-                        if (v < -32 || v > 31) {
-                                MSG(ERROR, "Invalid qp_offset_c2 '%s' (range: -32~31).\n", val);
-                                return false;
-                        }
-                        cdsc.param[FRM_INDEX].qp_offset_c2 = (signed char) v;
-                } else if (IS_KEY_PREFIX(tok, "qp_offset_c3")) {
-                        const int v = atoi(val);
-                        if (v < -32 || v > 31) {
-                                MSG(ERROR, "Invalid qp_offset_c3 '%s' (range: -32~31).\n", val);
-                                return false;
-                        }
-                        cdsc.param[FRM_INDEX].qp_offset_c3 = (signed char) v;
                 } else {
-                        MSG(ERROR, "Unknown option or missing value: %s\n", tok);
-                        return false;
+                        char *key = tok;
+                        *strchr(key, '=') = '\0';
+                        if (oapve_param_parse(&cdsc.param[FRM_INDEX], key, val) != 0) {
+                                MSG(ERROR,
+                                    "Unknown option or invalid value: %s=%s\n",
+                                    key, val);
+                                return false;
+                        }
                 }
         }
 
@@ -351,13 +335,20 @@ void openapv_print_help(){
         color_printf(TBOLD("OpenAPV") " compression usage:\n");
         color_printf("\t" TBOLD(
                 TRED("-c openapv") "[:qp=<n>|:bitrate=<br>][:threads=<n>]"
-                "[:preset=<0-4>][:tile_w=<n>][:tile_h=<n>]"
-                "[:use_filler=<0|1>][:qp_offset_c1=<n>][:qp_offset_c2=<n>][:qp_offset_c3=<n>]") "\n");
+                "[:preset=<preset>][:tile-w=<n>][:tile-h=<n>]"
+                "[:qp-offset-c1=<n>][:qp-offset-c2=<n>][:qp-offset-c3=<n>]") "\n");
         color_printf("\t" TBOLD(TRED("-c openapv") ":help") "\n");
         color_printf("\nwhere:\n");
         for (const auto &opt : usage_opts) {
                 color_printf("\t" TBOLD("<%s>") "\n%s\n", opt.key, opt.description);
         }
+
+        color_printf_wrapped("Other codec options like "
+                TBOLD("color-primaries") ", " TBOLD("color-transfer") ", "
+                TBOLD("color-matrix") ", " TBOLD("color-range") " and others "
+                "are also allowed and are passed through to the codec. "
+                "Example: " TBOLD("-c openapv:color-range=full") ".\n");
+
         color_printf("\n");
 }
 
