@@ -139,7 +139,7 @@ static void maybeWriteString (const QJsonObject& obj,
 		}
 }
 
-std::vector<CapabOpt> parseCapabOpts(const QJsonObject& obj){
+static std::vector<CapabOpt> parseCapabOpts(const QJsonObject& obj){
 	std::vector<CapabOpt> opts;
 
 	if(obj.contains("options") && obj["options"].isArray()){
