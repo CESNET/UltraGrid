@@ -98,6 +98,7 @@
 extern "C" {
 #endif
 
+bool isMsysPty(int fd);
 bool color_output_init(void);
 [[gnu::format(printf, 1, 2)]] int color_printf(const char *format, ...);
 

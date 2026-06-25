@@ -73,9 +73,13 @@ static bool setWinTermAnsiColors(DWORD stream) {
         }
         return true;
 }
+#endif // defined _WIN32
 
 /// Taken from [rang](https://github.com/agauniyal/rang)
-static bool isMsysPty(int fd) {
+bool
+isMsysPty(int fd)
+{
+#ifdef _WIN32
         // Dynamic load for binary compatibility with old Windows
         BOOL (*ptrGetFileInformationByHandleEx)(
             HANDLE hFile, FILE_INFO_BY_HANDLE_CLASS FileInformationClass,
@@ -120,8 +124,11 @@ static bool isMsysPty(int fd) {
         }
 
         return true;
+#else
+        (void) fd;
+        return false;
+#endif
 }
-#endif // defined _WIN32
 
 ADD_TO_PARAM("log-color", "* log-color[=no]\n"
                  "  Force enable/disable ANSI text formatting.\n");

@@ -49,6 +49,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
+#include "utils/text.h"      // for c8_to_mb
 #include "video.h"
 #include "video_capture.h"
 
@@ -800,9 +801,11 @@ static int vidcap_avfoundation_init(const struct vidcap_params *params, void **s
         if (!ret) {
                 return VIDCAP_INIT_FAIL;
         }
-        // c8rtomb not yet supported on mac - pass the str through
-        color_printf((const char *) u8"🔴 " MOD_NAME TBOLD(TYELLOW("This"
-                     " application is capturing computer video.")) "\n");
+        char rec_fallb_sym[128] = TBOLD(TRED("(RECORDING)"));
+        const char *rec_sym = c8_to_mb(u8"🔴", sizeof rec_fallb_sym,
+                                       rec_fallb_sym);
+        color_printf("%s " MOD_NAME TBOLD(TYELLOW("This"
+                     " application is capturing computer video.")) "\n", rec_sym);
         *state = ret;
         return VIDCAP_INIT_OK;
 }

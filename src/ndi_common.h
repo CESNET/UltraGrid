@@ -167,7 +167,7 @@ static inline void
 ndi_print_copyright()
 {
         char r_fallb_sym[128] = "(r)";
-        char *reg_sym = c8_to_mb(u8"®", sizeof r_fallb_sym, r_fallb_sym);
+        const char *reg_sym = c8_to_mb(u8"®", sizeof r_fallb_sym, r_fallb_sym);
 
         color_printf(TERM_BOLD TERM_FG_BLUE
                      "This application uses NDI%s available "

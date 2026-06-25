@@ -1739,8 +1739,8 @@ class BMDNotificationCallback : public IDeckLinkNotificationCallback
                 // check overheating
                 if (cur_temp >= m_tempThresholdErr) {
                         char  deg_fallb_sym[128] = "deg ";
-                        char *deg_sym = c8_to_mb(u8"°", sizeof deg_fallb_sym,
-                                                 deg_fallb_sym);
+                        const char *deg_sym            = c8_to_mb(
+                            u8"°", sizeof deg_fallb_sym, deg_fallb_sym);
                         log_msg(LOG_LEVEL_ERROR,
                                 "%sDevice is overheating! The temperature is "
                                 "%" PRId64 " %sC.\n",

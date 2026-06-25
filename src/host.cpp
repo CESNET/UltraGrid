@@ -544,6 +544,7 @@ struct init_data *common_preinit(int argc, char *argv[])
 #endif
 
         struct init_data init{};
+        bool is_win_utf8_terminal = false;
 #ifdef _WIN32
         WSADATA wsaData;
         int err = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -578,8 +579,12 @@ struct init_data *common_preinit(int argc, char *argv[])
                              "consider using Windows Terminal instead!\n");
                 Sleep(1000);
         }
+        is_win_utf8_terminal = (getenv("TERM") == nullptr &&
+                          _isatty(fileno(stdout)) &&
+                          win_has_ancestor_process("WindowsTerminal.exe"))
+                || isMsysPty(fileno(stdout));
 #endif
-        u8_to_mb_init(); // setlocale(LC_CTYPE, "");
+        u8_to_mb_init(is_win_utf8_terminal); // setlocale(LC_CTYPE, "");
 
         if (strstr(argv[0], "run_tests") == nullptr) {
                 open_all("ultragrid_*.so", init.opened_libs); // load modules
