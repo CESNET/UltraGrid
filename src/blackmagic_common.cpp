@@ -65,6 +65,7 @@
 #include "utils/debug.h"         // for DEBUG_TIMER_*
 #include "utils/macros.h"        // for STR_LEN, snprintf_ch, IS_FCC
 #include "utils/string.h"        // for DELDEL
+#include "utils/text.h"          // for c8_to_mb
 #include "utils/windows.h"
 #include "utils/worker.h"
 
@@ -1737,10 +1738,13 @@ class BMDNotificationCallback : public IDeckLinkNotificationCallback
                                          &cur_temp);
                 // check overheating
                 if (cur_temp >= m_tempThresholdErr) {
+                        char  deg_fallb_sym[128] = "deg ";
+                        char *deg_sym = c8_to_mb(u8"°", sizeof deg_fallb_sym,
+                                                 deg_fallb_sym);
                         log_msg(LOG_LEVEL_ERROR,
                                 "%sDevice is overheating! The temperature is "
-                                "%" PRId64 " deg C.\n",
-                                m_logPrefix.c_str(), cur_temp);
+                                "%" PRId64 " %sC.\n",
+                                m_logPrefix.c_str(), cur_temp, deg_sym);
                         return;
                 }
                 if (cur_temp < m_tempThresholdWarn &&

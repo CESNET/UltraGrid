@@ -63,6 +63,12 @@ bool draw_line_scaled(char *buf, int pitch, const char *text, uint32_t fg,
 
 const char *const *get_font_candidates(void);
 
+void  u8_to_mb_init();
+char *u8_to_mb(const unsigned char *u8_str, size_t buflen, char *out_fallback);
+// convenience macro casting char8_t pointer to (const unsigned char *)
+#define c8_to_mb(c8_str, buflen, out_fallback)                                 \
+        u8_to_mb((const unsigned char *) (c8_str), buflen, (out_fallback))
+
 #ifdef __cplusplus
 }
 #endif

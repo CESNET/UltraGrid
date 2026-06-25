@@ -37,6 +37,10 @@
 
 #include "utils/text.h"
 
+#ifdef HAVE_CONFIG_H
+#include "config.h" // for HAVE_C8RTOMB
+#endif
+
 #include <assert.h>             // for assert
 #include <ctype.h>              // for isalnum
 #include <limits.h>             // for INT_MAX, PATH_MAX
@@ -44,13 +48,20 @@
 #include <stdlib.h>             // for getenv, malloc, free, realloc
 #include <string.h>             // for memcpy, strlen, strpbrk
 #include <unistd.h>             // for unlink
+#ifdef HAVE_C8RTOMB
+#include <locale.h>             // for setlocale
+#include <uchar.h>              // for c8rtomb
+#endif
 
+#include "compat/c23.h" // IWYU pragma: keep
 #include "debug.h"
 #include "utils/bitmap_font.h"
 #include "utils/color_out.h" // prune_ansi_sequences
 #include "utils/fs.h"
 #include "utils/macros.h"    // for snprintf_ch
 #include "utils/pam.h"
+
+#define MOD_NAME "[utils/text] "
 
 static bool
 urlencode_is_rfc3986_unreserved(int c)
@@ -418,4 +429,74 @@ get_font_candidates()
 
         ret = (const char *const *) ptrs;
         return ret;
+}
+
+void
+u8_to_mb_init()
+{
+#ifdef HAVE_C8RTOMB
+        #ifndef __linux__
+                #warning "c8rtomb tested just in Linux - please check..."
+        #endif
+        const char *lc_ctype = setlocale(LC_CTYPE, "");
+        if (lc_ctype == nullptr) {
+                MSG(WARNING, "Cannot set locale.");
+        } else {
+                MSG(DEBUG, "LC_CTYPE set to: %s\n", lc_ctype);
+        }
+#endif
+}
+
+/**
+ * Tries to convert utf-8 string to locale-specific multibyte string or returns
+ * fallback.
+ *
+ * @param buflen  out_fallback buffer length long enough to hold the converted
+                  string with some headroom (MB_LEN_MAX-1)
+ * @param[in,out] out_fallback NUL-terminated fallback string. If conversion
+ *                succeeds, it is rewritten by the u8_str converted to MBS
+ * @returns out_fallback. If u8_str not convertible (eg. terminal in ASCII),
+ * the content of out_fallback is returned unchanged (so that it should contain
+ * the fallback and in any case it must be NULL-terminated).
+ *
+ * u8_to_mb_init() must be called otherwise conv never suceeds and fallback ret
+ *
+ * This is the correct way to output UTF-8, but at this time, c8rtomb is not yet
+ * widely supported so if it is impotant that the u8_str is displayed and not the
+ * fallback, prefer passing the UTF-8 string through. Also if is probable that
+ * the term will likely to present the UTF-8 correcty. Most modern systems do.
+ */
+char *
+u8_to_mb(const unsigned char *u8_str, size_t buflen, char *out_fallback)
+{
+#ifdef HAVE_C8RTOMB
+        mbstate_t ps = { 0 };
+        const char8_t *in_ptr = u8_str;
+        // check convertibility first
+        do {
+                char discard[MB_LEN_MAX];
+                size_t ret = c8rtomb(discard, *in_ptr, &ps);
+                if (ret == (size_t) -1) { // not convertible
+                        return out_fallback;
+                }
+        } while (*in_ptr++ != '\0');
+        // actual conversion
+        in_ptr = u8_str;
+        char *out_ptr = out_fallback;
+        do {
+                if (buflen < MB_LEN_MAX) {
+                        MSG(WARNING, "utf-8 string truncated.\n");
+                        assert(buflen >= 1);
+                        *out_ptr = '\0';
+                        break;
+                }
+                size_t ret = c8rtomb(out_ptr, *in_ptr, &ps);
+                assert(ret != (size_t) -1);
+                out_ptr += ret;
+                buflen -= ret;
+        } while (*in_ptr++ != '\0');
+#else
+        (void) u8_str, (void) buflen;
+#endif
+        return out_fallback;
 }

@@ -579,6 +579,7 @@ struct init_data *common_preinit(int argc, char *argv[])
                 Sleep(1000);
         }
 #endif
+        u8_to_mb_init(); // setlocale(LC_CTYPE, "");
 
         if (strstr(argv[0], "run_tests") == nullptr) {
                 open_all("ultragrid_*.so", init.opened_libs); // load modules

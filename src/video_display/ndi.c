@@ -217,7 +217,7 @@ static void *display_ndi_init(struct module *parent, const char *fmt, unsigned i
 {
         UNUSED(flags);
         UNUSED(parent);
-        NDI_PRINT_COPYRIGHT();
+        ndi_print_copyright();
 
         if (strcmp(fmt, "help") == 0) {
                 usage();

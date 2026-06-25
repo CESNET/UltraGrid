@@ -51,6 +51,7 @@
 #include "utils/color_out.h"
 #include "utils/fs.h"       // for MAX_PATH_SIZE, PATH_SEPARATOR
 #include "utils/macros.h"   // for MAX, MERGE, TOSTRING, snprintf_ch
+#include "utils/text.h"     // c8_to_mb
 
 #define MOD_NAME "[NDI] "
 
@@ -83,7 +84,9 @@
 typedef MAKE_NDI_LIB_NAME(NDI_API_VERSION) NDIlib_t;
 typedef const NDIlib_t* NDIlib_load_f(void);
 
-static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
+static inline const NDIlib_t *
+NDIlib_load(LIB_HANDLE *lib)
+{
         char ndi_path[MAX_PATH_SIZE];
         const char *lib_cand[] = { getenv(NDILIB_REDIST_FOLDER)
                                        ? getenv(NDILIB_REDIST_FOLDER)
@@ -151,21 +154,27 @@ static const NDIlib_t *NDIlib_load(LIB_HANDLE *lib) {
         return ret;
 }
 
-static void close_ndi_library(LIB_HANDLE hNDILib) {
+static inline void
+close_ndi_library(LIB_HANDLE hNDILib)
+{
         if (!hNDILib) {
                 return;
         }
         dlclose(hNDILib);
 }
 
-// casting to (const char *) is OK - we use/assume UTF-8 terminal
-#define NDI_PRINT_COPYRIGHT \
-        color_printf(TERM_BOLD TERM_FG_BLUE "%s\n\n" TERM_RESET, \
-                     (const char *) u8"This application uses NDI® available " \
-                     u8"from https://ndi.video/\n" \
-                     u8"NDI® is a registered trademark of " \
-                     u8"Vizrt NDI AB."); \
-        int not_defined_function
+static inline void
+ndi_print_copyright()
+{
+        char r_fallb_sym[128] = "(r)";
+        char *reg_sym = c8_to_mb(u8"®", sizeof r_fallb_sym, r_fallb_sym);
+
+        color_printf(TERM_BOLD TERM_FG_BLUE
+                     "This application uses NDI%s available "
+                     "from https://ndi.video/\n"
+                     "NDI%s is a registered trademark of "
+                     "Vizrt NDI AB.\n\n" TERM_RESET, reg_sym, reg_sym);
+}
 
 #undef MOD_NAME
 

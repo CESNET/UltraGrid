@@ -432,6 +432,8 @@ AC_CHECK_LIB(rt, timer_create)
 AC_CHECK_FUNC(sin, MATHLIBS="", MATHLIBS="-lm")
 AC_SUBST(MATHLIBS)
 
+AC_CHECK_FUNCS(c8rtomb)
+
 # -------------------------------------------------------------------------------------------------
 # See if this system supports sched_setscheduler()
 
