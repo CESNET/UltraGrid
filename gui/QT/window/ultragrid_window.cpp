@@ -392,7 +392,7 @@ void UltragridWindow::start(){
 			});
 
 	connect(ctx.get(), &LaunchContext::processOutputRead,
-			[this](QString str) { log.write(str); });
+			[this](const QString& str) { log.write(str); });
 
 	connect(ctx.get(), &LaunchContext::processOutputLine,
 			[this](std::string_view sv)

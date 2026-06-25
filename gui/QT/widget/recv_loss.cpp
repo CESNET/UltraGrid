@@ -51,7 +51,7 @@ void RecvLossWidget::parseLine(std::string_view line){
 	updateVal();
 }
 
-void RecvLossWidget::addReport(std::string ident, int received, int total){
+void RecvLossWidget::addReport(const std::string& ident, int received, int total){
 	SSRC_report rep;
 	rep.received = received;
 	rep.total = total;

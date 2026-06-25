@@ -24,7 +24,7 @@ public:
 	QAbstractSocket::SocketState getState() const;
 
 	using LineCallback = std::function<void(std::string_view)>;
-	void addLineCallback(LineCallback callback) { lineCallbacks.push_back(callback); }
+	void addLineCallback(const LineCallback& callback) { lineCallbacks.push_back(callback); }
 
 signals:
 	void connected();

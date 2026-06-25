@@ -33,7 +33,7 @@ private:
 	};
 	SSRC_container<std::string, SSRC_report, decltype(elapsedTimer.elapsed())> reports;
 
-	void addReport(std::string ident, int received, int total);
+	void addReport(const std::string& ident, int received, int total);
 	void updateVal();
 };
 
