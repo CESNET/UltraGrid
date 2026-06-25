@@ -13,7 +13,7 @@
 class RecvLossWidget final : public QProgressBar{
 Q_OBJECT
 public:
-	RecvLossWidget(QWidget *parent = nullptr);
+	explicit RecvLossWidget(QWidget *parent = nullptr);
 	~RecvLossWidget() override = default;
 
 	void parseLine(std::string_view);

@@ -6,7 +6,7 @@
 class LiveWidget final : public QWidget{
 	Q_OBJECT
 public:
-	LiveWidget(QWidget *parent);
+	explicit LiveWidget(QWidget *parent);
 
 
 protected:

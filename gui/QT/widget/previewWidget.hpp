@@ -11,7 +11,7 @@
 
 class PreviewWidget final : public QOpenGLWidget{
 public:
-	PreviewWidget(QWidget *parent);
+	explicit PreviewWidget(QWidget *parent);
 	~PreviewWidget() override;
 
 	void setKey(std::string_view key);

@@ -13,7 +13,7 @@
 class RecvReportWidget final : public QProgressBar{
 	Q_OBJECT
 public:
-	RecvReportWidget(QWidget *parent = nullptr);
+	explicit RecvReportWidget(QWidget *parent = nullptr);
 	~RecvReportWidget() override = default;
 
 	void updateVal();

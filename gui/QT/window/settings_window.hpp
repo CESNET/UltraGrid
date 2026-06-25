@@ -9,7 +9,7 @@ class SettingsWindow : public QDialog{
 	Q_OBJECT
 
 public:
-	SettingsWindow(QWidget *parent = nullptr);
+	explicit SettingsWindow(QWidget *parent = nullptr);
 
 	void init(SettingsUi *settingsUi);
 

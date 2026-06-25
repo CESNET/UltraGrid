@@ -14,7 +14,7 @@ class ControlPort;
 class VuMeterWidget final : public QWidget{
 	Q_OBJECT
 public:
-	VuMeterWidget(QWidget *parent);
+	explicit VuMeterWidget(QWidget *parent);
 
 	void parseLine(std::string_view line);
 	void setControlPort(ControlPort *controlPort);

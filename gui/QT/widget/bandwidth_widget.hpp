@@ -13,7 +13,7 @@
 class BandwidthWidget final : public QLabel{
 	Q_OBJECT
 public:
-	BandwidthWidget(QWidget *parent = nullptr);
+	explicit BandwidthWidget(QWidget *parent = nullptr);
 	~BandwidthWidget() override = default;
 
 	void updateVal();
