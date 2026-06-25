@@ -115,12 +115,6 @@ const struct {
                 "\t\tNumber of encoder threads. 0 = auto (default).\n",
                 ":threads=", false, "0"
         },
-        {"Rate control", "rc",
-                "\t\tRate control type:\n"
-                "\t\t 0 = CQP (constant quantization parameter, default)\n"
-                "\t\t 1 = ABR (average bitrate)\n",
-                ":rc=", false, "0"
-        },
         {"Quantization parameter", "qp",
                 "\t\tQuantization parameter. Range: 0~63 (10-bit), 0~75 (12-bit).\n"
                 "\t\tUsed with CQP rate control. 255 = auto (default).\n",
@@ -187,13 +181,10 @@ bool state_video_compress_oapv::parse_fmt(char *fmt)
                         }
                         cdsc.threads = threads;
                 } else if (IS_KEY_PREFIX(tok, "qp")) {
-                        const int qp = atoi(val);
-                        if ((qp < 0 || qp > 75) && qp != OAPVE_PARAM_QP_AUTO) {
+                        if (oapve_param_parse(&cdsc.param[FRM_INDEX], "qp", val) != 0) {
                                 MSG(ERROR, "Invalid QP value '%s' (0~75 or 255 for auto).\n", val);
                                 return false;
                         }
-                        cdsc.param[FRM_INDEX].qp = (unsigned char) qp;
-                        cdsc.param[FRM_INDEX].rc_type = OAPV_RC_CQP;
                 } else if (IS_KEY_PREFIX(tok, "bitrate")) {
                         const char *endptr = nullptr;
                         long long rate_bps = unit_evaluate(val, &endptr);
@@ -359,7 +350,7 @@ shared_ptr<video_frame> openapv_compress_tile(void *state, shared_ptr<video_fram
 void openapv_print_help(){
         color_printf(TBOLD("OpenAPV") " compression usage:\n");
         color_printf("\t" TBOLD(
-                TRED("-c openapv") "[:threads=<n>][:qp=<n>][:bitrate=<br>]"
+                TRED("-c openapv") "[:qp=<n>|:bitrate=<br>][:threads=<n>]"
                 "[:preset=<0-4>][:tile_w=<n>][:tile_h=<n>]"
                 "[:use_filler=<0|1>][:qp_offset_c1=<n>][:qp_offset_c2=<n>][:qp_offset_c3=<n>]") "\n");
         color_printf("\t" TBOLD(TRED("-c openapv") ":help") "\n");
