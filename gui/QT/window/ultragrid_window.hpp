@@ -1,10 +1,7 @@
 #ifndef ULTRAGRID_WINDOW_HPP
 #define ULTRAGRID_WINDOW_HPP
 
-#include <QProcess>
 #include <QStringList>
-#include <vector>
-#include <memory>
 #include <string_view>
 
 #include "ui_ultragrid_window.h"
@@ -16,7 +13,6 @@
 #include "launch_manager.hpp"
 #include "recv_report.hpp"
 #include "recv_loss.hpp"
-#include "line_buffer.hpp"
 #include "control_port.hpp"
 
 class UltragridWindow : public QMainWindow{

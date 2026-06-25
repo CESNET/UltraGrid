@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include "bandwidth_widget.hpp"
 #include "utils/string_view_utils.hpp"
 

@@ -5,7 +5,6 @@
 #include <QWidget>
 #include <QPaintEvent>
 #include <memory>
-#include <atomic>
 #include <chrono>
 #include <string_view>
 

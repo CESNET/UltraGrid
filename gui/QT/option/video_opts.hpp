@@ -2,7 +2,6 @@
 #define VIDEO_OPTS_HPP
 
 #include <vector>
-#include <string>
 #include "available_settings.hpp"
 #include "settings.hpp"
 #include "extra_callback_data.hpp"
