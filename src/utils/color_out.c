@@ -75,61 +75,6 @@ static bool setWinTermAnsiColors(DWORD stream) {
 }
 #endif // defined _WIN32
 
-/// Taken from [rang](https://github.com/agauniyal/rang)
-bool
-isMsysPty(int fd)
-{
-#ifdef _WIN32
-        // Dynamic load for binary compatibility with old Windows
-        BOOL (*ptrGetFileInformationByHandleEx)(
-            HANDLE hFile, FILE_INFO_BY_HANDLE_CLASS FileInformationClass,
-            LPVOID lpFileInformation, DWORD dwBufferSize) = nullptr;
-        ptrGetFileInformationByHandleEx = (void *)
-            GetProcAddress(GetModuleHandle(TEXT("kernel32.dll")),
-                           "GetFileInformationByHandleEx");
-        if (!ptrGetFileInformationByHandleEx) {
-                return false;
-        }
-
-        HANDLE h = (HANDLE) (intptr_t) _get_osfhandle(fd);
-        if (h == INVALID_HANDLE_VALUE) {
-                return false;
-        }
-
-        // Check that it's a pipe:
-        if (GetFileType(h) != FILE_TYPE_PIPE) {
-                return false;
-        }
-
-        // POD type is binary compatible with FILE_NAME_INFO from WinBase.h
-        // It have the same alignment and used to avoid UB in caller code
-        struct MY_FILE_NAME_INFO {
-                DWORD FileNameLength;
-                WCHAR FileName[MAX_PATH];
-        };
-
-        struct MY_FILE_NAME_INFO pNameInfo = { 0 };
-
-        // Check pipe name is template of
-        // {"cygwin-","msys-"}XXXXXXXXXXXXXXX-ptyX-XX
-        if (!ptrGetFileInformationByHandleEx(h, FileNameInfo, &pNameInfo,
-                                sizeof pNameInfo)) {
-                return false;
-        }
-        // std::wstring name(pNameInfo.FileName, pNameInfo.FileNameLength / sizeof(WCHAR));
-        if ((wcsstr(pNameInfo.FileName, L"msys-") == nullptr &&
-             wcsstr(pNameInfo.FileName, L"cygwin-") == nullptr) ||
-            wcsstr(pNameInfo.FileName, L"-pty") == nullptr) {
-                return false;
-        }
-
-        return true;
-#else
-        (void) fd;
-        return false;
-#endif
-}
-
 ADD_TO_PARAM("log-color", "* log-color[=no]\n"
                  "  Force enable/disable ANSI text formatting.\n");
 ADD_TO_PARAM("log-nocolor", "* log-nocolor\n"
@@ -155,8 +100,7 @@ is_output_color()
                 return strcmp(env_val, "0") != 0;
         }
 #ifdef _WIN32
-        return isMsysPty(fileno(stdout)) ||
-               (_isatty(fileno(stdout)) &&
+        return (_isatty(fileno(stdout)) &&
                 setWinTermAnsiColors(STD_OUTPUT_HANDLE));
 #else
         return isatty(fileno(stdout));

@@ -581,8 +581,14 @@ struct init_data *common_preinit(int argc, char *argv[])
         }
         is_win_utf8_terminal = (getenv("TERM") == nullptr &&
                           _isatty(fileno(stdout)) &&
-                          win_has_ancestor_process("WindowsTerminal.exe"))
-                || isMsysPty(fileno(stdout));
+                          win_has_ancestor_process("WindowsTerminal.exe"));
+        if (!is_win_utf8_terminal) { // check MSYS term
+                char *con            = getenv("MSYSCON");
+                char *lc_ctype       = getenv("LC_CTYPE");
+                is_win_utf8_terminal = con != nullptr && lc_ctype != nullptr &&
+                                       strcmp(con, "mintty.exe") == 0 &&
+                                       strstr(lc_ctype, ".UTF-8") != nullptr;
+        }
 #endif
         u8_to_mb_init(is_win_utf8_terminal); // setlocale(LC_CTYPE, "");
 
