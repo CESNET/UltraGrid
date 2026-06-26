@@ -107,7 +107,7 @@ public:
         uint64_t get_time();
 
         const char* get_clock_id_str();
-        void wait_for_lock();
+        bool wait_for_lock();
         [[nodiscard]] bool is_locked() const;
 
 private:

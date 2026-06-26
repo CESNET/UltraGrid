@@ -43,6 +43,7 @@
 #include "utils/thread.h"
 #include "compat/platform_sched.h"
 #include "debug.h"
+#include "host.h"
 
 #define MOD_NAME "[PTP] "
 #define PTP_PORT_EVENT 319
@@ -276,10 +277,15 @@ void Ptp_clock::processPtpPkt(uint8_t *buf, size_t len, uint64_t pkt_ts){
 
 }
 
-void Ptp_clock::wait_for_lock(){
+bool Ptp_clock::wait_for_lock(){
         std::unique_lock<std::mutex> l(mut);
 
-        cv.wait(l, [&]{ return locked; });
+        using namespace std::chrono_literals;
+        while(!cv.wait_for(l, 1s, [&]{ return locked; })){
+                if(!should_run) return false;
+        }
+
+        return true;
 }
 
 uint64_t Ptp_clock::get_time(){
@@ -311,6 +317,8 @@ void Ptp_clock::ptp_worker_event(){
 
         if(!ptp_sock){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to create sock\n");
+                exit_uv(-1);
+                should_run = false;
                 return;
         }
 
@@ -340,6 +348,8 @@ void Ptp_clock::ptp_worker_general(){
 
         if(!ptp_sock){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to create sock\n");
+                exit_uv(-1);
+                should_run = false;
                 return;
         }
 
