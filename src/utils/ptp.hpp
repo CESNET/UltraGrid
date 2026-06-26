@@ -99,6 +99,8 @@ namespace detail{
  */
 class Ptp_clock{
 public:
+        ~Ptp_clock() { stop(); }
+
         void start(std::string_view interface_name);
         void stop();
 
