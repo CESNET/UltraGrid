@@ -85,6 +85,7 @@
 #include "utils/macros.h"        // for OPTIMIZED_FOR, STRINGIFY
 #include "utils/misc.h"          // for ug_strerror
 #include "utils/pthread.h"       // for ug_pthread_*
+#include "utils/text.h"          // c8_to_mb
 #include "video.h"
 #include "video_display.h"
 
@@ -585,6 +586,9 @@ gl_print_current_platform()
 static void
 gl_show_help(bool full)
 {
+        char fn1_flbk[128] = "[1]";
+        const char *footn1 = c8_to_mb(u8"\xC2\xB9", sizeof fn1_flbk, fn1_flbk);
+
         color_printf("usage:\n");
         color_printf(TBOLD(TRED("\t-d gl[:<options>]") "%s")
                      "\n",
@@ -625,8 +629,8 @@ gl_show_help(bool full)
             TBOLD("\tsize=<W>x<H>")
                      "\twindow size in pixels, with optional position; full\n"
                      "\t\t\tsyntax: " TBOLD("[<W>x<H>][{+-}<X>[{+-}<Y>]]")
-                     "%s\n",
-                     full ? " [1]" : "");
+                     TBOLD(" %s") "\n",
+                     full ? footn1 : "");
         if (full) {
                 color_printf(
                     TBOLD("\tsize=<mode_name>")
@@ -658,8 +662,8 @@ gl_show_help(bool full)
                              "\tuse platform (usable only in Linux)\n");
                 color_printf(TBOLD("\t--param " GL_DISABLE_10B_OPT_PARAM_NAME)
                     "\tdo not set 10-bit framebuffer (performance issues)\n");
-                color_printf("\n" TBOLD("[1]")
-                             " position doesn't work in Wayland\n");
+                color_printf("\n" TBOLD("%s")
+                             " position doesn't work in Wayland\n", footn1);
         } else {
                 color_printf(
                     "\t(use \"" TBOLD("fullhelp") "\" to see options)\n");

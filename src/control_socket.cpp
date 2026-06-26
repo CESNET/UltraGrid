@@ -71,6 +71,7 @@
 #include "utils/color_out.h"       // for TBOLD, color_printf
 #include "utils/net.h"
 #include "utils/macros.h"    // for MODULE_MAGIC
+#include "utils/text.h"      // for c8_to_mb
 #include "utils/thread.h"
 
 #define MAX_CLIENTS 16
@@ -1065,6 +1066,8 @@ get_control_state(struct module *mod)
 }
 
 static void print_control_help() {
+        char fn1_flbk[128] = "[1]";
+        const char *footn1 = c8_to_mb(u8"\xC2\xB9", sizeof fn1_flbk, fn1_flbk);
         color_printf("Control internal commands:\n"
                         TBOLD("\texit") "\n"
                         TBOLD("\tpause") "\n"
@@ -1074,17 +1077,18 @@ static void print_control_help() {
                         TBOLD("\tfec {audio|video} <fec-string>") "\n"
                         TBOLD("\tcompress <new-compress>") "\n"
                         TBOLD("\tcompress param <new-compress-param>") "\n"
-                        TBOLD("\tvolume {up|down}") " [1]\n"
-                        TBOLD("\tav-delay <ms>") " [1]\n"
+                        TBOLD("\tvolume {up|down}") " %s\n"
+                        TBOLD("\tav-delay <ms>") " %s\n"
                         TBOLD("\tmute") " - toggles receiver mute\n"
                         TBOLD("\t[un]mute-{receiver,sender}")
                                 " - (un)mutes audio sender or receiver\n"
                         TBOLD("\tpostprocess <new_postprocess> | flush") "\n"
-                        TBOLD("\tdump-tree")"\n");
+                        TBOLD("\tdump-tree")"\n", footn1, footn1);
         color_printf("\nOther commands can be issued directly to individual "
                         "modules (see \"" TBOLD("dump-tree") "\"), eg.:\n"
                         "\t" TBOLD("capture.filter mirror") "\n"
                         "\nSometimes those modules support help (eg. \"" TBOLD("capture.filter help") "\")\n\n");
-        color_printf((const char *) TBOLD("[1]")
-                                    " audio commands applying to receiver\n\n");
+        color_printf(TBOLD("%s")
+                     " audio commands applying to receiver\n\n",
+                     footn1);
 }
