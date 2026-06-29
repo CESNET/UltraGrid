@@ -56,7 +56,7 @@ extern void glutMainLoopEvent(void);
 #endif /* HAVE_MACOSX */
 #endif /* HAVE_GLUT */
 
-static inline int dxt_get_size(int width, int height, enum dxt_type format)
+static inline size_t dxt_get_size(size_t width, size_t height, enum dxt_type format)
 {
     assert( format == DXT_TYPE_DXT5_YCOCG || format == DXT_TYPE_DXT1 ||  format == DXT_TYPE_DXT1_YUV );
 

@@ -23,13 +23,15 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+#include "dxt_encoder.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
-#include "dxt_encoder.h"
-#include "dxt_util.h"
-#include "dxt_glsl.h"
+
+#include <assert.h> // for assert
+#include <stdio.h>  // for fprintf, stderr, printf
+#include <stdlib.h> // for free, malloc
 #if defined __APPLE__
 #include <Availability.h>
 #if defined __MAC_10_11
@@ -39,6 +41,10 @@
 #else // ! defined __APPLE__
 #include <GL/glew.h>
 #endif
+
+#include "dxt_common.h" // for dxt_format, dxt_type, DXT_IMAGE...
+#include "dxt_glsl.h"   // for vp_compress, vp_compress_legacy
+#include "dxt_util.h"   // for dxt_shader_create_from_source
 
 #if defined __APPLE__ && !defined __MAC_10_11
 #define glGenFramebuffers glGenFramebuffersEXT
@@ -271,7 +277,7 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
         
     glGenBuffersARB(1, &encoder->pbo_out); //Allocate PBO
     glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, encoder->pbo_out);
-    glBufferDataARB(GL_PIXEL_PACK_BUFFER_ARB, ((width + 3) / 4 * 4) * ((height + 3) / 4 * 4)  / (encoder->type == DXT_TYPE_DXT5_YCOCG ? 1 : 2), 0, GL_STREAM_READ_ARB);
+    glBufferDataARB(GL_PIXEL_PACK_BUFFER_ARB, dxt_get_size(width, height, encoder->type), 0, GL_STREAM_READ_ARB);
     glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, 0);
     
 #endif
@@ -442,13 +448,8 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
 int
 dxt_encoder_buffer_allocate(struct dxt_encoder* encoder, unsigned char** image_compressed, int* image_compressed_size)
 {
-    int size = 0;
-    if ( encoder->type == DXT_TYPE_DXT5_YCOCG )
-        size = (encoder->width / 4) * (encoder->height / 4) * 4 * sizeof(int);
-    else if ( encoder->type == DXT_TYPE_DXT1 )
-        size = (encoder->width / 4) * (encoder->height / 4) * 2 * sizeof(int);
-    else
-        assert(0);
+    int size =
+        dxt_get_size(encoder->width, encoder->height, encoder->type);
         
     *image_compressed = (unsigned char*)malloc(size);
     if ( *image_compressed == NULL )
@@ -676,7 +677,7 @@ dxt_encoder_compress_texture(struct dxt_encoder* encoder, int texture, unsigned 
                                             GL_READ_ONLY_ARB);
     if(ptr)
     {
-        memcpy(image_compressed, ptr, ((encoder->width + 3) / 4 * 4) * ((encoder->height + 3) / 4 * 4) / (encoder->type == DXT_TYPE_DXT5_YCOCG ? 1 : 2));
+        memcpy(image_compressed, ptr, dxt_get_size(encoder->width, encoder->height, encoder->type));
         glUnmapBufferARB(GL_PIXEL_PACK_BUFFER_ARB);
     }
 
