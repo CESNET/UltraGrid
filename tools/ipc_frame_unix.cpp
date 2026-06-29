@@ -50,16 +50,15 @@ struct Wsa_guard{
 
 
 struct Ipc_frame_reader{
-        Wsa_guard guard;
-        fd_t listen_fd;
-        fd_t data_fd;
+        [[maybe_unused]] Wsa_guard guard;
+        fd_t listen_fd = INVALID_SOCKET;
+        fd_t data_fd = INVALID_SOCKET;
         std::string path;
 };
 
 Ipc_frame_reader *ipc_frame_reader_new(const char *path){
         auto reader = std::make_unique<Ipc_frame_reader>();
         reader->path = path;
-        reader->data_fd = INVALID_SOCKET;
 
         reader->listen_fd = socket(AF_UNIX, SOCK_STREAM, 0);
         if(reader->listen_fd == INVALID_SOCKET){
