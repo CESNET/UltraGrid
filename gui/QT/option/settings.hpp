@@ -51,7 +51,7 @@ public:
 	std::string getValue() const;
 	std::string getSubVals() const;
 	std::string getParam() const;
-	OptType getType() const { return type; };
+	OptType getType() const { return type; }
 	virtual std::string getLaunchOption() const;
 
 	virtual void setValue(const std::string &val, bool suppressCallback = false);
@@ -61,7 +61,7 @@ public:
 	bool isEnabled() const { return enabled; }
 	void setEnabled(bool enable, bool suppressCallback = false);
 
-	void setType(OptType type) { this->type = type; };
+	void setType(OptType type) { this->type = type; }
 
 	void addSuboption(Option *sub, const std::string &limit = "");
 	void addOnChangeCallback(Callback callback);
