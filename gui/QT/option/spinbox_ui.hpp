@@ -8,7 +8,7 @@ class SpinBoxUi : public TextOptUi{
 Q_OBJECT
 
 public:
-	SpinBoxUi(QSpinBox *line, Settings *settings, const std::string &opt);
+	SpinBoxUi(QSpinBox *spinbox, Settings *settings, const std::string &opt);
 
 private:
 	QSpinBox *spinbox;
