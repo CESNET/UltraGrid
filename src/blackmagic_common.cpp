@@ -65,7 +65,7 @@
 #include "utils/debug.h"         // for DEBUG_TIMER_*
 #include "utils/macros.h"        // for STR_LEN, snprintf_ch, IS_FCC
 #include "utils/string.h"        // for DELDEL
-#include "utils/unicode.h"       // for u8s_to_mbs
+#include "utils/unicode.h"       // for wcs_to_mbs_fallb
 #include "utils/windows.h"
 #include "utils/worker.h"
 
@@ -1739,7 +1739,7 @@ class BMDNotificationCallback : public IDeckLinkNotificationCallback
                 // check overheating
                 if (cur_temp >= m_tempThresholdErr) {
                         char  deg_fallb_sym[128] = "deg ";
-                        const char *deg_sym = u8s_to_mbs(U8_DEGREE_SIGN, deg_fallb_sym);
+                        const char *deg_sym = wcs_to_mbs_fallb(W_DEGREE_SIGN, deg_fallb_sym);
                         log_msg(LOG_LEVEL_ERROR,
                                 "%sDevice is overheating! The temperature is "
                                 "%" PRId64 " %sC.\n",

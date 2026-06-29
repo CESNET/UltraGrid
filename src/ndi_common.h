@@ -51,7 +51,7 @@
 #include "utils/color_out.h"
 #include "utils/fs.h"       // for MAX_PATH_SIZE, PATH_SEPARATOR
 #include "utils/macros.h"   // for MAX, MERGE, TOSTRING, snprintf_ch
-#include "utils/unicode.h"  // u8s_to_mbs
+#include "utils/unicode.h"  // wcs_to_mbs_fallb
 
 #define MOD_NAME "[NDI] "
 
@@ -167,7 +167,7 @@ static inline void
 ndi_print_copyright()
 {
         char r_fallb_sym[128] = "(r)";
-        const char *reg_sym = u8s_to_mbs(U8_REGISTERED_SIGN, r_fallb_sym);
+        const char *reg_sym = wcs_to_mbs_fallb(W_REGISTERED_SIGN, r_fallb_sym);
 
         color_printf(TERM_BOLD TERM_FG_BLUE
                      "This application uses NDI%s available "

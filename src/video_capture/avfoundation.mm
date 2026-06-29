@@ -49,7 +49,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
-#include "utils/unicode.h"   // for u8s_to_mbs
+#include "utils/unicode.h"   // for wcs_to_mbs_fallb
 #include "video.h"
 #include "video_capture.h"
 
@@ -802,7 +802,7 @@ static int vidcap_avfoundation_init(const struct vidcap_params *params, void **s
                 return VIDCAP_INIT_FAIL;
         }
         char rec_fallb_sym[128] = TBOLD(TRED("(RECORDING)"));
-        const char *rec_sym = u8s_to_mbs(U8_LARGE_RED_CIRCLE, rec_fallb_sym);
+        const char *rec_sym = wcs_to_mbs_fallb(W_LARGE_RED_CIRCLE, rec_fallb_sym);
         color_printf("%s " MOD_NAME TBOLD(TYELLOW("This"
                      " application is capturing computer video.")) "\n", rec_sym);
         *state = ret;
