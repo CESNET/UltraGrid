@@ -48,7 +48,7 @@ private:
 
 	void updateUiItems();
 
-	void optChangeCallback(Option &opt, bool suboption) override;
+	void optChangeCallback(Option &changedOpt, bool suboption) override;
 
 	void selectOption();
 

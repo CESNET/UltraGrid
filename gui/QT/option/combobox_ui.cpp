@@ -88,11 +88,11 @@ void ComboBoxUi::selectOption(){
 	}
 }
 
-void ComboBoxUi::optChangeCallback(Option &opt, bool suboption){
+void ComboBoxUi::optChangeCallback(Option &changedOpt, bool suboption){
 	if(suboption || ignoreCallback)
 		return;
 
-	if(opt.getName() != this->opt)
+	if(changedOpt.getName() != this->opt)
 		updateUiItems();
 
 	selectOption();

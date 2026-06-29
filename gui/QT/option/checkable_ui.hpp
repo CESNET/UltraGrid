@@ -20,7 +20,7 @@ protected:
 	void updateUiState() override = 0;
 	virtual void updateUiState(bool checked) = 0;
 
-	void optChangeCallback(Option &opt, bool suboption) override;
+	void optChangeCallback(Option &changedOpt, bool suboption) override;
 
 protected slots:
 	void boxClicked(bool checked);

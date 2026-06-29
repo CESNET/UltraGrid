@@ -41,7 +41,7 @@ protected:
 
 	virtual void connectSignals() = 0;
 	virtual void updateUiState() = 0;
-	virtual void optChangeCallback(Option &opt, bool suboption) = 0;
+	virtual void optChangeCallback(Option &changedOpt, bool suboption) = 0;
 
 signals:
 	void changed();
