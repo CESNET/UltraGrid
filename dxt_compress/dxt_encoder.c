@@ -676,7 +676,7 @@ dxt_encoder_compress_texture(struct dxt_encoder* encoder, int texture, unsigned 
                                             GL_READ_ONLY_ARB);
     if(ptr)
     {
-        memcpy(image_compressed, ptr, ((encoder->width + 3) / 4 * 4) * ((encoder->height + 3) / 4 * 4) / (encoder->type == DXT_TYPE_DXT5_YCOCG ? 1 : 2));
+        memcpy(image_compressed, ptr, (size_t)((encoder->width + 3) / 4 * 4) * ((encoder->height + 3) / 4 * 4) / (encoder->type == DXT_TYPE_DXT5_YCOCG ? 1 : 2));
         glUnmapBufferARB(GL_PIXEL_PACK_BUFFER_ARB);
     }
 
