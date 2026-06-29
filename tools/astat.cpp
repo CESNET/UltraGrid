@@ -112,7 +112,7 @@ static void worker(ug_connection &c)
                 FD_SET(c.should_exit_fd[0], &fds);
                 fd_t nfds = std::max<fd_t>(c.fd, c.should_exit_fd[0]) + 1;
 
-                int rc = select(nfds, &fds, NULL, NULL, NULL);
+                int rc = select(nfds, &fds, nullptr, nullptr, nullptr);
                 if (rc <= 0) {
                         continue;
                 }
@@ -186,13 +186,13 @@ struct ug_connection *ug_control_connection_init(int local_port) {
 
         if (connect(fd, (const sockaddr*) &sin, sizeof sin) == -1) {
                 CLOSESOCKET(fd);
-                return NULL;
+                return nullptr;
         }
 
 	char stats_on[] = "stats on\r\n";
 	if (write_all(fd, stats_on, sizeof stats_on) != sizeof stats_on) {
                 CLOSESOCKET(fd);
-                return NULL;
+                return nullptr;
 	}
 
         platform_pipe_init(should_exit_fd);
