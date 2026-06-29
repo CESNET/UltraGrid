@@ -109,6 +109,7 @@
 #include "utils/string_view_utils.hpp"
 #include "utils/text.h"
 #include "utils/thread.h"
+#include "utils/unicode.h" // u8_out_init
 #include "utils/windows.h"
 #include "video_capture.h"
 #include "video_codec.h"                // for get_codec_name, get_codec_nam...
@@ -590,7 +591,7 @@ struct init_data *common_preinit(int argc, char *argv[])
                                        strstr(lc_ctype, ".UTF-8") != nullptr;
         }
 #endif
-        u8_to_mb_init(is_win_utf8_terminal); // setlocale(LC_CTYPE, "");
+        u8_out_init(is_win_utf8_terminal); // setlocale(LC_CTYPE, "");
 
         if (strstr(argv[0], "run_tests") == nullptr) {
                 open_all("ultragrid_*.so", init.opened_libs); // load modules

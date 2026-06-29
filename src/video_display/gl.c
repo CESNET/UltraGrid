@@ -85,7 +85,7 @@
 #include "utils/macros.h"        // for OPTIMIZED_FOR, STRINGIFY
 #include "utils/misc.h"          // for ug_strerror
 #include "utils/pthread.h"       // for ug_pthread_*
-#include "utils/text.h"          // c8_to_mb
+#include "utils/unicode.h"       // u8s_to_mbs
 #include "video.h"
 #include "video_display.h"
 
@@ -587,7 +587,7 @@ static void
 gl_show_help(bool full)
 {
         char fn1_flbk[128] = "[1]";
-        const char *footn1 = c8_to_mb(u8"\xC2\xB9", sizeof fn1_flbk, fn1_flbk);
+        const char *footn1 = u8s_to_mbs(U8_SUPERSCRIPT_ONE, fn1_flbk);
 
         color_printf("usage:\n");
         color_printf(TBOLD(TRED("\t-d gl[:<options>]") "%s")

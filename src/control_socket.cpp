@@ -71,8 +71,8 @@
 #include "utils/color_out.h"       // for TBOLD, color_printf
 #include "utils/net.h"
 #include "utils/macros.h"    // for MODULE_MAGIC
-#include "utils/text.h"      // for c8_to_mb
 #include "utils/thread.h"
+#include "utils/unicode.h"   // for u8s_to_mbs
 
 #define MAX_CLIENTS 16
 #define MOD_NAME "[control_socket] "
@@ -1067,7 +1067,7 @@ get_control_state(struct module *mod)
 
 static void print_control_help() {
         char fn1_flbk[128] = "[1]";
-        const char *footn1 = c8_to_mb(u8"\xC2\xB9", sizeof fn1_flbk, fn1_flbk);
+        const char *footn1 = u8s_to_mbs(U8_SUPERSCRIPT_ONE, fn1_flbk);
         color_printf("Control internal commands:\n"
                         TBOLD("\texit") "\n"
                         TBOLD("\tpause") "\n"

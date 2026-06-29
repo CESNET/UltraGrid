@@ -57,7 +57,7 @@
 #include "utils/macros.h"
 #include "utils/pthread.h"              // for CHK_PTHR
 #include "utils/ring_buffer.h"
-#include "utils/text.h"        // for c8_to_mb
+#include "utils/unicode.h"        // for u8s_to_mbs
 
 #define MOD_NAME "[CoreAudio cap.] "
 
@@ -392,8 +392,7 @@ static void * audio_cap_ca_init(struct module *parent, const char *cfg)
 
         if (!failed) {
                 char rec_fallb_sym[128] = TBOLD(TRED("(RECORDING)"));
-                const char *rec_sym = c8_to_mb(u8"🔴", sizeof rec_fallb_sym,
-                                               rec_fallb_sym);
+                const char *rec_sym = u8s_to_mbs(U8_LARGE_RED_CIRCLE, rec_fallb_sym);
                 color_printf("%s " MOD_NAME TBOLD(TYELLOW("This application"
                              " is capturing computer audio.")) "\n", rec_sym);
                 return s;
