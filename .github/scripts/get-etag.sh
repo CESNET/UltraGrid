@@ -1,21 +1,18 @@
 #!/bin/sh -ux
-# Prints to stdout ETag for given URL.
-# If failed to obtain and $2=optional the particular tag is replaced with a keyword NOTFOUND
+#
+## Prints GH variable $1 equal to ETag of URL in $2. The output is supposed
+## to be redirected to $GITHUB_OUTPUT file.
+##
+## If failed, it is sets $1 to empty string - the reason is to allow
+## partial matching of GH actions/cache.
 
 output=$1
 url=$2
-optional=${3-}
 
 ETAG=$(curl -ILf "$url" | grep -i '^etag' | sed 's/.*"\(.*\)".*/\1/')
+printf '%s=' "$output"
 if [ "$ETAG" ]; then
-        printf '%s=' "$output"
         printf '%s\n' "$ETAG" | sed 's/[^-._A-Za-z0-9]/_/g'
-        exit 0
+else
+        printf '\n'
 fi
-
-if [ "$optional" = optional ]; then
-        echo "$1=NOTFOUND"
-        exit 0
-fi
-
-exit 1
