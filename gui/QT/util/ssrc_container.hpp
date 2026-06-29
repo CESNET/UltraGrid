@@ -22,7 +22,7 @@ private:
 };
 
 template<typename Key_type, typename Val_type, typename Ts_type>
-inline void SSRC_container<Key_type, Val_type, Ts_type>::insert(const Key_type& key, const Val_type& item, Ts_type timestamp){
+void SSRC_container<Key_type, Val_type, Ts_type>::insert(const Key_type& key, const Val_type& item, Ts_type timestamp){
 	Holder *h = nullptr;
 	for(auto& i : items){
 		if(i.key == key){
@@ -42,7 +42,7 @@ inline void SSRC_container<Key_type, Val_type, Ts_type>::insert(const Key_type& 
 }
 
 template<typename Key_type, typename Val_type, typename Ts_type>
-inline void SSRC_container<Key_type, Val_type, Ts_type>::remove_timed_out(Ts_type timeout, Ts_type now){
+void SSRC_container<Key_type, Val_type, Ts_type>::remove_timed_out(Ts_type timeout, Ts_type now){
 	auto endIt = std::remove_if(items.begin(), items.end(),
 			[now, timeout](const Holder& h){ return now - h.timestamp > timeout; });
 
