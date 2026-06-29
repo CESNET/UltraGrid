@@ -229,7 +229,7 @@ jobs:
         done
         mv UltraGrid.dmg UltraGrid-$VERSION.dmg
     - name: Compute checksum
-      run: sha2 -256 UltraGrid-$VERSION.dmg || true
+      run: shasum -a 256 UltraGrid-$VERSION.dmg
     - name: Upload Release Asset
       id: upload-release
       if: (github.repository == 'CESNET/UltraGrid' && github.ref == 'refs/heads/master') || startsWith(github.ref, 'refs/tags/')

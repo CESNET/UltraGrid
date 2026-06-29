@@ -52,7 +52,6 @@ set -- \
         qt \
         sdl3 \
         sdl3_ttf \
-        sha2 `#for cksum in CI YAML` \
         speexdsp \
         vulkan-headers \
         wolfssl \
