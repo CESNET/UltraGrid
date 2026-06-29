@@ -8,7 +8,9 @@ fi
 
 install_ximea() (
         filename=XIMEA.tgz
-        curl -L "$XIMEA_DOWNLOAD_URL" -o "$filename"
+        if [ ! -f "$filename" ]; then
+                curl -L "$XIMEA_DOWNLOAD_URL" -o $filename
+        fi
         tar xzf $filename
         cd package
         sudo ./install -noudev
