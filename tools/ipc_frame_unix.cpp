@@ -135,7 +135,7 @@ static bool try_accept(struct Ipc_frame_reader *reader){
         if(!socket_read_avail(reader->listen_fd))
                 return false;
 
-        reader->data_fd = accept(reader->listen_fd, nullptr, 0);
+        reader->data_fd = accept(reader->listen_fd, nullptr, nullptr);
         return true;
 }
 
@@ -154,7 +154,7 @@ void ipc_frame_reader_wait_connect(struct Ipc_frame_reader *reader){
         if(reader->data_fd != INVALID_SOCKET)
                 return;
 
-        reader->data_fd = accept(reader->listen_fd, nullptr, 0);
+        reader->data_fd = accept(reader->listen_fd, nullptr, nullptr);
 }
 
 static bool do_frame_read(Ipc_frame_reader *reader, Ipc_frame *dst){
