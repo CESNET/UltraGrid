@@ -66,8 +66,7 @@ Ipc_frame_reader *ipc_frame_reader_new(const char *path){
                 return nullptr;
         }
 
-        sockaddr_un addr;
-        memset(&addr, 0, sizeof(addr));
+        sockaddr_un addr{};
         addr.sun_family = AF_UNIX;
         strncpy(addr.sun_path, path, sizeof(addr.sun_path));
         addr.sun_path[sizeof(addr.sun_path) - 1] = '\0';
@@ -192,8 +191,7 @@ Ipc_frame_writer *ipc_frame_writer_new(const char *path){
         auto writer = std::make_unique<Ipc_frame_writer>();
         writer->data_fd = INVALID_SOCKET;
 
-        sockaddr_un addr;
-        memset(&addr, 0, sizeof(addr));
+        sockaddr_un addr{};
         addr.sun_family = AF_UNIX;
         strncpy(addr.sun_path, path, sizeof(addr.sun_path));
         addr.sun_path[sizeof(addr.sun_path) - 1] = '\0';
