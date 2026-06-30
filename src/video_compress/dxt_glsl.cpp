@@ -132,7 +132,7 @@ static int configure_with(struct state_video_compress_rtdxt *s, struct video_fra
                 return false;
         }
 
-        int data_len = 0;
+        size_t data_len = 0;
 
         s->encoder = (struct dxt_encoder **) calloc(frame->tile_count, sizeof(struct dxt_encoder *));
         if(s->color_spec == DXT1) {
