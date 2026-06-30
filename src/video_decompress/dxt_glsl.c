@@ -58,7 +58,6 @@ struct state_decompress_rtdxt {
         struct dxt_decoder *decoder;
 
         struct video_desc desc;
-        int compressed_len;
         int rshift, gshift, bshift;
         int pitch;
         codec_t out_codec;
@@ -74,7 +73,6 @@ static int configure_with(struct state_decompress_rtdxt *decompressor, struct vi
         if(!init_gl_context(&decompressor->context, GL_CONTEXT_ANY)) {
                 fprintf(stderr, "[RTDXT decompress] Failed to create GL context.\n");
                 exit_uv(EXIT_FAILURE);
-                decompressor->compressed_len = 0;
                 return false;
         }
 
@@ -101,7 +99,6 @@ static int configure_with(struct state_decompress_rtdxt *decompressor, struct vi
                 return false;
         }
         
-        decompressor->compressed_len = dxt_get_size(desc.width, desc.height, type);
         decompressor->configured = true;
 
         return true;
