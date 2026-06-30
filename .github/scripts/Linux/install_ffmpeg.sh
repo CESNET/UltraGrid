@@ -69,14 +69,6 @@ install_nv_codec_headers() (
         ( cd nv-codec-headers && make && sudo make install || exit 1 )
 )
 
-install_oapv() (
-        git clone --depth 1 https://github.com/AcademySoftwareFoundation/openapv.git
-        cmake -B openapv/build -S openapv \
-                -DCMAKE_BUILD_TYPE=Release
-        cmake --build openapv/build --parallel "$(nproc)"
-        sudo cmake --install openapv/build
-)
-
 install_onevpl() (
         git clone --depth 1 https://github.com/oneapi-src/oneVPL
         mkdir oneVPL/build
@@ -112,7 +104,6 @@ build_install() (
         install_dav1d
         install_libvpx
         install_nv_codec_headers
-        install_oapv
         install_onevpl
         install_rav1e
         install_svt

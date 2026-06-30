@@ -58,6 +58,7 @@ export FEATURES="\
  --enable-natpmp\
  --enable-ndi\
  --enable-omt\
+ --enable-openapv\
  --enable-openssl\
  --enable-pcp\
  --enable-portaudio\
