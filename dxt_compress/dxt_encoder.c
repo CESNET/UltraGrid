@@ -446,23 +446,6 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
 
 /** Documented at declaration */
 int
-dxt_encoder_buffer_allocate(struct dxt_encoder* encoder, unsigned char** image_compressed, int* image_compressed_size)
-{
-    int size =
-        dxt_get_size(encoder->width, encoder->height, encoder->type);
-        
-    *image_compressed = (unsigned char*)malloc(size);
-    if ( *image_compressed == NULL )
-        return -1;
-        
-    if ( image_compressed_size != NULL )
-        *image_compressed_size = size;
-        
-    return 0;
-}
-
-/** Documented at declaration */
-int
 dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigned char* image_compressed)
 {        
 #ifdef RTDXT_DEBUG
