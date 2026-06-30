@@ -1,23 +1,25 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // Copyright (c) 2026 CESNET, zájmové sdružení právických osob
 
-#include <assert.h> // for assert
-#include <stdint.h> // for uint8_t, int64_t, uint32_t
-#include <stdio.h>  // for FILE, fclose, fopen, fwrite
-#include <stdlib.h> // for abort, free, calloc, malloc
-#include <string.h> // for memcpy, strcmp
+#include <assert.h>  // for assert
+#include <math.h>    // for fabs
+#include <pthread.h> // for pthread_mutex_t
+#include <stdint.h>  // for uint8_t, int64_t, uint32_t
+#include <stdio.h>   // for FILE, fclose, fopen, fwrite
+#include <stdlib.h>  // for abort, free, calloc, malloc
+#include <string.h>  // for memcpy, strcmp
 
 #include "../../ext-deps/libmpegts/common.h" // for TIMESTAMP_CLOCK, TS_CLOCK, TS_PACKE...
 #include "../../ext-deps/libmpegts/libmpegts.h" // for LIBMPEGTS_MPEG2_AAC_1_CHANNEL, LIBM...
 
-#include "audio/types.h"  // for AC_OPUS, AC_AAC, audio_frame2_get_c...
-#include "compat/c23.h"   // for countof
-#include "debug.h"        // for LOG_LEVEL_DEBUG, MSG
-#include "lib_common.h"   // for REGISTER_MODULE, library_class
-#include "rtp/net_udp.h"  // for socket_udp, udp_init, udp_send
-#include "rxtx.h"         // for rxtx_params, RXTX_ABI_VERSION, rxtx...
-#include "types.h"        // for video_frame, tile, kHz48, video_fra...
-#include "utils/macros.h" // for CONST_CAST
+#include "audio/types.h"   // for AC_OPUS, AC_AAC, audio_frame2_get_c...
+#include "compat/c23.h"    // for countof
+#include "debug.h"         // for LOG_LEVEL_DEBUG, MSG
+#include "lib_common.h"    // for REGISTER_MODULE, library_class
+#include "rtp/net_udp.h"   // for socket_udp, udp_init, udp_send
+#include "rxtx.h"          // for rxtx_params, RXTX_ABI_VERSION, rxtx...
+#include "utils/macros.h"  // for CONST_CAST
+#include "utils/pthread.h" // for ug_pthread_mutex_init
 
 struct audio_frame2;
 
@@ -26,16 +28,28 @@ struct audio_frame2;
 #include "types.h"
 
 struct rxtx_mpegts {
-        uint32_t     magic;
-        ts_writer_t *writer;
-        bool         init;
-        long long    frames;
-        socket_udp  *sock;
-        int          mtu;
-
-        double audio_duration;
+        uint32_t        magic;
+        ts_writer_t    *writer;
+        bool            init;
+        socket_udp     *sock;
+        int             mtu;
+        pthread_mutex_t lock;
 
         FILE *dump_f;
+
+        bool use_audio;
+        bool use_video;
+
+        // audio paramsters
+        audio_codec_t ac;
+        double af_duration;
+
+        // video parameters
+        codec_t vc;
+        double  vf_duration;
+
+        double video_duration;
+        double audio_duration;
 };
 
 enum {
@@ -48,11 +62,17 @@ enum {
 static void *
 init(const struct rxtx_params *params)
 {
+        if (params->mtu == 0) {
+                params->mtu = 1500;
+        }
         struct rxtx_mpegts *s = calloc(1, sizeof *s);
+        ug_pthread_mutex_init(&s->lock);
         s->mtu                = params->mtu / TS_PACKET_SIZE * TS_PACKET_SIZE;
         s->writer             = ts_create_writer();
         s->sock               = udp_init(params->receiver, 0, 1234, params->ttl,
                                          params->force_ip_version, false);
+        s->use_audio = params->medium[TX_MEDIA_AUDIO].rxtx_mode & MODE_SENDER;
+        s->use_video = params->medium[TX_MEDIA_VIDEO].rxtx_mode & MODE_SENDER;
 
         if (strcmp(params->protocol_opts, "dump") == 0) {
                 s->dump_f = fopen("out.ts", "wb");
@@ -62,24 +82,50 @@ init(const struct rxtx_params *params)
 }
 
 static bool
-init_video(struct rxtx_mpegts *s)
+init_libmpegts(struct rxtx_mpegts *s)
 {
-        ts_stream_t stream   = { 0 };
-        stream.pid           = VIDEO_PID;
-        stream.stream_format = LIBMPEGTS_VIDEO_AVC;           // = 2 [1]
-        stream.stream_id     = LIBMPEGTS_STREAM_ID_MPEGVIDEO; // = 0xe0 [1]
+        if ((s->use_audio && s->ac == AC_NONE) ||
+            (s->use_video && s->vc == VC_NONE)) {
+                MSG(WARNING, "Waiting for both audio and video present...\n");
+                return false;
+        }
+
+        ts_stream_t stream[2]   = { 0 };
+        int str_cnt = 0;
+        if (s->use_video) {
+                assert(s->vc == H264);
+                stream[str_cnt].pid           = VIDEO_PID;
+                stream[str_cnt].stream_format = LIBMPEGTS_VIDEO_AVC;           // = 2 [1]
+                stream[str_cnt].stream_id     = LIBMPEGTS_STREAM_ID_MPEGVIDEO; // = 0xe0 [1]
+                str_cnt += 1;
+        }
+        if (s->use_audio) {
+                assert(s->ac == AC_OPUS || s->ac == AC_AAC);
+                stream[str_cnt].pid = AUDIO_PID;
+                stream[str_cnt].stream_format =
+                    s->ac == AC_OPUS ? LIBMPEGTS_AUDIO_OPUS
+                                     : LIBMPEGTS_AUDIO_ADTS; // = 2 [1]
+                stream[str_cnt].stream_id =
+                    LIBMPEGTS_STREAM_ID_MPEGAUDIO; // = 0xe0 [1]
+                stream[str_cnt].audio_frame_size =
+                    TIMESTAMP_CLOCK * s->af_duration;
+                str_cnt += 1;
+        }
 
         ts_program_t prog = { 0 }; // = &main_params.programs[0];
         prog.program_num  = 1;
         prog.pmt_pid      = PMT_PID;
         prog.pcr_pid      = PCR_PID;
-        prog.num_streams  = 1;
-        prog.streams      = &stream;
+        prog.num_streams  = str_cnt;
+        prog.streams      = stream;
 
         ts_main_t main_params  = { 0 };
         main_params.lowlatency = 1;
         main_params.ts_id      = 1;
-        main_params.muxrate    = 5000000; // 5 Mbps
+        // even for audio only must be a larger number - see
+        // libmpegts/libmpegts.c:1795, if set to eg 200 kbps check_pcr returns
+        // always 1 and no actual audio data get sent
+        main_params.muxrate = 5000000; // 5 Mbps
         // Constant bitrate - if set to 1, it will fill to match bitrate
         main_params.cbr          = 0;
         main_params.ts_type      = TS_TYPE_GENERIC;
@@ -91,17 +137,35 @@ init_video(struct rxtx_mpegts *s)
                 return false;
         }
 
-        // Setup AVC stream parameters
-        rc = ts_setup_mpegvideo_stream(
-            s->writer,
-            VIDEO_PID, // PID
-            52,        // level
-            AVC_HIGH,  // profile (from avc_profile_t enum) [1]
-            5000000,   // vbv_maxrate (bits/s)
-            1000000,   // vbv_bufsize
-            0          // frame_rate (not used for AVC) [1]
-        );
-        return rc == 0;
+        if (s->use_video) {
+                // Setup AVC stream parameters
+                rc = ts_setup_mpegvideo_stream(
+                    s->writer,
+                    VIDEO_PID, // PID
+                    52,        // level
+                    AVC_HIGH,  // profile (from avc_profile_t enum) [1]
+                    5000000,   // vbv_maxrate (bits/s)
+                    1000000,   // vbv_bufsize
+                    0          // frame_rate (not used for AVC) [1]
+                );
+                if (rc != 0) {
+                        return false;
+                }
+        }
+
+        if (s->use_audio) {
+                rc = s->ac == AC_OPUS
+                         ? ts_setup_opus_stream(s->writer, AUDIO_PID,
+                                                LIBMPEGTS_CHANNEL_CONFIG_MONO)
+                         : ts_setup_mpeg2_aac_stream(
+                               s->writer, AUDIO_PID,
+                               LIBMPEGTS_MPEG2_AAC_LC_PROFILE, // FF default
+                               LIBMPEGTS_MPEG2_AAC_1_CHANNEL);
+                if (rc != 0) {
+                        return false;
+                }
+        }
+        return true;
 }
 
 static void
@@ -123,15 +187,28 @@ udp_send_packets(struct rxtx_mpegts *s, uint8_t *output, int output_len)
 }
 
 static void
-send_video_frame(void *state, struct video_frame *f)
+send_video_frame_impl(struct rxtx_mpegts *s, struct video_frame *f)
 {
-        struct rxtx_mpegts *s = state;
-
         if (!s->init) {
-                if (!init_video(s)) {
-                        abort();
+                s->vc          = f->color_spec;
+                s->vf_duration = 1. / f->fps;
+                if (!init_libmpegts(s)) {
+                        return;
                 }
                 s->init = true;
+        } else {
+                if (s->vc != f->color_spec) {
+                        MSG(ERROR, "video codec changed, reconf not implemented!\n");
+                        return;
+                }
+                double old_fps = 1. / s->vf_duration;
+                if (fabs(f->fps - old_fps) > .001) {
+                        MSG(ERROR,
+                            "FPS changed from %f to %f, reconf not "
+                            "implemented!\n",
+                            old_fps, f->fps);
+                        return;
+                }
         }
 
         ts_frame_t ts_frame = { 0 };
@@ -144,11 +221,14 @@ send_video_frame(void *state, struct video_frame *f)
         // ts_frame.ref_pic_idc   = nal_ref_idc;
 
         // 90kHz clock ticks [1]
-        ts_frame.dts = ts_frame.pts =
-            (s->frames + 1) * (TIMESTAMP_CLOCK / f->fps);
+        double ts = s->video_duration + s->vf_duration;
+        ts_frame.dts = ts_frame.pts = (int64_t) (ts * TIMESTAMP_CLOCK);
+        MSG(DEBUG, "video TS %f s\n", ts);
 
-        ts_frame.cpb_initial_arrival_time = s->frames * (TS_CLOCK / f->fps);
-        ts_frame.cpb_final_arrival_time = (s->frames + 1) * (TS_CLOCK / f->fps);
+        ts_frame.cpb_initial_arrival_time =
+            (int64_t) (s->video_duration * TS_CLOCK);
+        ts_frame.cpb_final_arrival_time =
+            (s->video_duration + s->vf_duration) * TS_CLOCK;
 
         uint8_t *output     = nullptr;
         int      output_len = 0;
@@ -157,58 +237,20 @@ send_video_frame(void *state, struct video_frame *f)
         ts_write_frames(s->writer, &ts_frame, 1, &output, &output_len,
                         &pcr_list);
 
-        MSG(DEBUG, "ts_write_frames: %d B\n", output_len);
+        MSG(DEBUG, "ts_write_frames video: %d B\n", output_len);
         udp_send_packets(s, output, output_len);
-        f->callbacks.dispose(f);
 
-        s->frames += 1;
+        s->video_duration += s->vf_duration;
 }
 
-static bool
-init_audio(struct rxtx_mpegts *s, audio_codec_t ac, double duration)
+static void
+send_video_frame(void *state, struct video_frame *f)
 {
-        assert(ac == AC_OPUS || ac == AC_AAC);
-        ts_stream_t stream   = { 0 };
-        stream.pid           = AUDIO_PID;
-        stream.stream_format = ac == AC_OPUS ? LIBMPEGTS_AUDIO_OPUS
-                                             : LIBMPEGTS_AUDIO_ADTS; // = 2 [1]
-        stream.stream_id     = LIBMPEGTS_STREAM_ID_MPEGAUDIO; // = 0xe0 [1]
-        stream.audio_frame_size = TIMESTAMP_CLOCK * duration;
-
-        ts_program_t prog = { 0 }; // = &main_params.programs[0];
-        prog.program_num  = 1;
-        prog.pmt_pid      = PMT_PID;
-        prog.pcr_pid      = PCR_PID;
-        prog.num_streams  = 1;
-        prog.streams      = &stream;
-
-        ts_main_t main_params  = { 0 };
-        main_params.lowlatency = 1;
-        main_params.ts_id      = 1;
-        main_params.muxrate    = 5000000; // must be a larger number - see
-                                       // libmpegts/libmpegts.c:1795, if set to
-                                       // eg 200 kbps check_pcr returns always 1
-                                       // and no actual audio data get sent
-        // Constant bitrate - if set to 1, it will fill to match bitrate
-        main_params.cbr          = 0;
-        main_params.ts_type      = TS_TYPE_GENERIC;
-        main_params.num_programs = 1;
-        main_params.programs     = &prog;
-
-        int rc = ts_setup_transport_stream(s->writer, &main_params);
-        if (rc != 0) {
-                return false;
-        }
-
-        // Setup Opus stream parameters
-        rc = ac == AC_OPUS
-                 ? ts_setup_opus_stream(s->writer, AUDIO_PID,
-                                        LIBMPEGTS_CHANNEL_CONFIG_MONO)
-                 : ts_setup_mpeg2_aac_stream(
-                       s->writer, AUDIO_PID,           // ADTS -> MPEG2
-                       LIBMPEGTS_MPEG2_AAC_LC_PROFILE, // default by FFmpeg
-                       LIBMPEGTS_MPEG2_AAC_1_CHANNEL);
-        return rc == 0;
+        struct rxtx_mpegts *s = state;
+        CHK_PTHR(pthread_mutex_lock(&s->lock));
+        send_video_frame_impl(s, f);
+        CHK_PTHR(pthread_mutex_unlock(&s->lock));
+        f->callbacks.dispose(f);
 }
 
 enum {
@@ -294,16 +336,28 @@ add_adts_header(const uint8_t *data, int *len)
 }
 
 static void
-send_audio_frame(void *state, const struct audio_frame2 *f)
+send_audio_frame_impl(struct rxtx_mpegts *s, const struct audio_frame2 *f)
 {
-        struct rxtx_mpegts *s = state;
-
         double duration = audio_frame2_get_duration(f);
         if (!s->init) {
-                if (!init_audio(s, audio_frame2_get_codec(f), duration)) {
-                        abort();
+                s->af_duration = duration;
+                s->ac          = audio_frame2_get_codec(f);
+                if (!init_libmpegts(s)) {
+                        return;
                 }
                 s->init = true;
+        } else {
+                if (s->ac != audio_frame2_get_codec(f)) {
+                        MSG(ERROR, "audio codec changed, reconf not implemented!\n");
+                        return;
+                }
+                if (fabs(s->af_duration - duration) > .001) {
+                        MSG(ERROR,
+                            "audio frame duration changed from %f to %f, "
+                            "reconf not implemented!\n",
+                            s->af_duration, duration);
+                        return;
+                }
         }
 
         const uint8_t *ad = (const uint8_t *) audio_frame2_get_data(f, 0);
@@ -324,8 +378,9 @@ send_audio_frame(void *state, const struct audio_frame2 *f)
         // fclose(s->dump_f); abort();
 
         // 90kHz clock ticks [1]
-        ts_frame.dts = ts_frame.pts =
-            (int64_t) ((s->audio_duration + duration) * TIMESTAMP_CLOCK);
+        double ts = s->audio_duration + duration;
+        ts_frame.dts = ts_frame.pts = (int64_t) (ts * TIMESTAMP_CLOCK);
+        MSG(DEBUG, "audio TS: %f\n", ts);
 
         // ts_frame.cpb_initial_arrival_time = s->audio_duration * TS_CLOCK;
         // ts_frame.cpb_final_arrival_time =
@@ -351,6 +406,17 @@ send_audio_frame(void *state, const struct audio_frame2 *f)
         }
 
         s->audio_duration += duration;
+}
+
+static void
+send_audio_frame(void *state, const struct audio_frame2 *f)
+{
+        struct rxtx_mpegts *s = state;
+        CHK_PTHR(pthread_mutex_lock(&s->lock));
+        {
+                send_audio_frame_impl(s, f);
+        }
+        CHK_PTHR(pthread_mutex_unlock(&s->lock));
 }
 
 static void
