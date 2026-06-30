@@ -30,8 +30,11 @@
 #include "dxt_display.h"
 
 #include <getopt.h>
+#include <stdio.h>
 #include <string.h>
 #include <strings.h>
+
+#include "dxt_util.h"
 
 #define RUN_MAX 100
 
@@ -76,9 +79,9 @@ perform_encode(const char* filename_in, const char* filename_out, enum dxt_type 
         return -1;
     }
     
-    unsigned char* image_compressed = NULL;
-    int image_compressed_size = 0;   
-    if ( dxt_encoder_buffer_allocate(encoder, &image_compressed, &image_compressed_size) != 0 ) {
+    size_t image_compressed_size = dxt_get_size(width, height, type);
+    unsigned char* image_compressed = malloc(image_compressed_size);
+    if (!image_compressed) {
         fprintf(stderr, "DXT encoder allocation failed!\n");
         return -1;
     }
