@@ -37,22 +37,24 @@
 
 #include "audio/capture/sdi.h"
 
-#include <chrono>                 // for milliseconds
-#include <condition_variable>     // for condition_variable
-#include <cstdio>                 // for printf, snprintf, NULL
-#include <cstdlib>                // for free, calloc, malloc
-#include <cstring>                // for memcpy, strcmp, strncpy
-#include <mutex>                  // for mutex, unique_lock
-#include <ostream>                // for basic_ostream, operator<<, basic_ios
-#include <string>                 // for basic_string, char_traits, hash
-#include <unordered_map>          // for unordered_map, operator!=
+#include <assert.h>  // for assert
+#include <pthread.h> // for pthread_mutex_unlock, pthread_mutex...
+#include <stdio.h>   // for printf, NULL
+#include <stdlib.h>  // for free, calloc, atoi, malloc
+#include <string.h>  // for memcpy, strcmp
 
-#include "audio/audio_capture.h"  // for AUDIO_CAPTURE_ABI_VERSION, audio_ca...
-#include "audio/types.h"          // for audio_frame
-#include "debug.h"                // for LOG, LOG_LEVEL_WARNING, UNUSED
-#include "host.h"                 // for get_commandline_param, INIT_NOERR
-#include "lib_common.h"           // for REGISTER_MODULE, library_class
-#include "types.h"                // for device_info, frame_flags_common
+#include "audio/audio_capture.h" // for AUDIO_CAPTURE_ABI_VERSION, audio_ca...
+#include "audio/types.h"         // for audio_frame
+#include "compat/c23.h"          // IWYU pragma: keep
+#include "debug.h"               // for LOG_LEVEL_ERROR, LOG_LEVEL_WARNING
+#include "host.h"                // for INIT_NOERR, get_commandline_param
+#include "lib_common.h"          // for REGISTER_MODULE, library_class
+#include "tv.h"                  // for MS_TO_NS, time_ns_t
+#include "types.h"               // for device_info, frame_flags_common
+#include "utils/macros.h"        // for strcpy_ch
+#include "utils/pthread.h"       // for CHK_PTHR, ug_pthread_cond_reltimedwait
+
+struct module;
 
 #define DEFAULT_BUF_SIZE_MS 100L
 
@@ -60,17 +62,11 @@
 #define FRAME_CAPTURE 1
 #define MOD_NAME "[acap.] "
 
-using std::condition_variable;
-using std::chrono::milliseconds;
-using std::mutex;
-using std::stol;
-using std::unique_lock;
-
 struct state_sdi_capture {
-        long buf_size_ms{DEFAULT_BUF_SIZE_MS};
-        struct audio_frame audio_frame[2]{};
-        mutex lock;
-        condition_variable audio_frame_ready_cv;
+        long               buf_size_ms;
+        struct audio_frame audio_frame[2];
+        pthread_mutex_t    lock;
+        pthread_cond_t     audio_frame_ready_cv;
 };
 
 static void audio_cap_sdi_help(const char *driver_name);
@@ -79,9 +75,9 @@ static void audio_cap_sdi_probe_common(struct device_info **available_devices, i
                 const char *dev, const char *name)
 {
         *available_devices = (struct device_info *) calloc(1, sizeof(struct device_info));
-        strncpy((*available_devices)[0].dev, dev, sizeof (*available_devices)[0].dev - 1);
-        strncpy((*available_devices)[0].name, name, sizeof (*available_devices)[0].name - 1);
-        snprintf((*available_devices)[0].extra, sizeof (*available_devices)[0].extra, "\"isEmbeddedAudio\":\"t\"");
+        strcpy_ch((*available_devices)[0].dev, dev);
+        strcpy_ch((*available_devices)[0].name, name);
+        strcpy_ch((*available_devices)[0].extra, "\"isEmbeddedAudio\":\"t\"");
         *count = 1;
 }
 
@@ -116,11 +112,22 @@ static void * audio_cap_sdi_init(struct module *parent, const char *cfg)
                 return INIT_NOERR;
         }
 
-        auto *s = new state_sdi_capture();
+        struct state_sdi_capture *s = calloc(1, sizeof *s);
+        s->buf_size_ms =  DEFAULT_BUF_SIZE_MS;
+        ug_pthread_mutex_init(&s->lock);
+        pthread_cond_init(&s->audio_frame_ready_cv, nullptr);
 
+        // the audio-buffer-len is used mainly for playback buffers so this
+        // place for the param is not much related... but it is just a
+        // param so not intended for users....
         const char *buf_len = get_commandline_param("audio-buffer-len");
         if (buf_len != nullptr) {
-                s->buf_size_ms = stol(buf_len);
+                s->buf_size_ms = atoi(buf_len);
+                assert(s->buf_size_ms > 0);
+                if (s->buf_size_ms > 1000) {
+                        MSG(WARNING, "Suspicions buffer length used: %ld ms\n",
+                            s->buf_size_ms);
+                }
         }
 
         return s;
@@ -129,34 +136,49 @@ static void * audio_cap_sdi_init(struct module *parent, const char *cfg)
 static const struct audio_frame *
 audio_cap_sdi_read(void *state)
 {
-        struct state_sdi_capture *s = (struct state_sdi_capture *) state;
+        struct state_sdi_capture *s = state;
 
-        unique_lock<mutex> lk(s->lock);
-        bool rc = s->audio_frame_ready_cv.wait_for(lk, milliseconds(100), [s]{return s->audio_frame[FRAME_CAPTURE].data_len > 0;});
+        CHK_PTHR(pthread_mutex_lock(&s->lock));
+        {
+                time_ns_t timeout = MS_TO_NS(100);
+                int rc = 0;
+                while (s->audio_frame[FRAME_CAPTURE].data_len == 0 &&
+                       rc == 0) {
+                        rc = ug_pthread_cond_reltimedwait(
+                            &s->audio_frame_ready_cv, &s->lock, &timeout);
+                }
 
-        if (rc == false) {
-                return NULL;
+                if (s->audio_frame[FRAME_CAPTURE].data_len == 0) {
+                        CHK_PTHR(pthread_mutex_unlock(&s->lock));
+                        return nullptr;
+                }
+
+                // FRAME_NETWORK has been "consumed"
+                s->audio_frame[FRAME_NETWORK].data_len = 0;
+                // swap
+                struct audio_frame tmp;
+                memcpy(&tmp, &s->audio_frame[FRAME_CAPTURE],
+                       sizeof(struct audio_frame));
+                memcpy(&s->audio_frame[FRAME_CAPTURE],
+                       &s->audio_frame[FRAME_NETWORK],
+                       sizeof(struct audio_frame));
+                memcpy(&s->audio_frame[FRAME_NETWORK], &tmp,
+                       sizeof(struct audio_frame));
         }
-
-        // FRAME_NETWORK has been "consumed"
-        s->audio_frame[FRAME_NETWORK].data_len = 0;
-        // swap
-        struct audio_frame tmp;
-        memcpy(&tmp, &s->audio_frame[FRAME_CAPTURE], sizeof(struct audio_frame));
-        memcpy(&s->audio_frame[FRAME_CAPTURE], &s->audio_frame[FRAME_NETWORK], sizeof(struct audio_frame));
-        memcpy(&s->audio_frame[FRAME_NETWORK], &tmp, sizeof(struct audio_frame));
+        CHK_PTHR(pthread_mutex_unlock(&s->lock));
 
         return &s->audio_frame[FRAME_NETWORK];
 }
 
 static void audio_cap_sdi_done(void *state)
 {
-        struct state_sdi_capture *s;
-
-        s = (struct state_sdi_capture *) state;
+        struct state_sdi_capture *s = state;
         for(int i = 0; i < 2; ++i) {
                 free(s->audio_frame[i].data);
         }
+        CHK_PTHR(pthread_mutex_destroy(&s->lock));
+        CHK_PTHR(pthread_cond_destroy(&s->audio_frame_ready_cv));
+        free(s);
 }
 
 static void audio_cap_sdi_help(const char *driver_name)
@@ -170,14 +192,9 @@ static void audio_cap_sdi_help(const char *driver_name)
         }
 }
 
-void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame)
+static void
+process_incoming_frame(struct state_sdi_capture *s, struct audio_frame *frame)
 {
-        struct state_sdi_capture *s;
-        
-        s = (struct state_sdi_capture *) state;
-
-        unique_lock<mutex> lk(s->lock);
-
         if (s->audio_frame[FRAME_CAPTURE].bps != frame->bps ||
                         s->audio_frame[FRAME_CAPTURE].ch_count != frame->ch_count ||
                         s->audio_frame[FRAME_CAPTURE].sample_rate != frame->sample_rate) {
@@ -186,13 +203,17 @@ void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame)
                 s->audio_frame[FRAME_CAPTURE].sample_rate = frame->sample_rate;
                 s->audio_frame[FRAME_CAPTURE].data_len = 0;
                 s->audio_frame[FRAME_CAPTURE].max_size = frame->bps * frame->ch_count * frame->sample_rate / 1000L * s->buf_size_ms;
-                s->audio_frame[FRAME_CAPTURE].data = static_cast<char *>(malloc(s->audio_frame[FRAME_CAPTURE].max_size));
+                s->audio_frame[FRAME_CAPTURE].data = malloc(s->audio_frame[FRAME_CAPTURE].max_size);
         }
 
         int len = frame->data_len;
         if (len + s->audio_frame[FRAME_CAPTURE].data_len > s->audio_frame[FRAME_CAPTURE].max_size) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Maximal audio buffer length " << s->buf_size_ms << " ms exceeded! Dropping "
-                        << len - (s->audio_frame[FRAME_CAPTURE].max_size - s->audio_frame[FRAME_CAPTURE].data_len) << " samples.\n";
+                MSG(WARNING,
+                    "Maximal audio buffer length %ld ms exceeded! Dropping %d "
+                    "samples.\n",
+                    s->buf_size_ms,
+                    len - (s->audio_frame[FRAME_CAPTURE].max_size -
+                           s->audio_frame[FRAME_CAPTURE].data_len));
                 len = s->audio_frame[FRAME_CAPTURE].max_size - s->audio_frame[FRAME_CAPTURE].data_len;
         }
         memcpy(s->audio_frame[FRAME_CAPTURE].data + s->audio_frame[FRAME_CAPTURE].data_len,
@@ -202,9 +223,19 @@ void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame)
                 s->audio_frame[FRAME_CAPTURE].flags |= TIMESTAMP_VALID;
         }
         s->audio_frame[FRAME_CAPTURE].data_len += len;
+}
 
-        lk.unlock();
-        s->audio_frame_ready_cv.notify_one();
+void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame)
+{
+        struct state_sdi_capture *s = state;
+
+        CHK_PTHR(pthread_mutex_lock(&s->lock));
+        {
+                process_incoming_frame(s, frame);
+        }
+        CHK_PTHR(pthread_mutex_unlock(&s->lock));
+
+        CHK_PTHR(pthread_cond_signal(&s->audio_frame_ready_cv));
 }
 
 static const struct audio_capture_info acap_sdi_info_embedded = {
