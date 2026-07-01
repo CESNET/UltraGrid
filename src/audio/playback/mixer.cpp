@@ -232,17 +232,11 @@ private:
                                    0) {
                                 string algo = item + strlen("algo=");
                                 if (algo == "linear") {
-                                        mixing_algorithm =
-                                            decltype(mixing_algorithm)(
-                                                new linear_mix_algo<
-                                                    sample_type_source,
-                                                    sample_type_mixed>());
+                                        mixing_algorithm = std::make_unique<linear_mix_algo<sample_type_source,
+                                                                sample_type_mixed>>();
                                 } else if (algo == "logarithmic") {
-                                        mixing_algorithm =
-                                            decltype(mixing_algorithm)(
-                                                new logarithmic_mix_algo<
-                                                    sample_type_source,
-                                                    sample_type_mixed>());
+                                        mixing_algorithm = std::make_unique<logarithmic_mix_algo<sample_type_source,
+                                                                sample_type_mixed>>();
                                 } else {
                                         LOG(LOG_LEVEL_ERROR)
                                             << "Unknown mixing algorithm: "
