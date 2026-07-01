@@ -148,7 +148,6 @@ install_cached() (
         sudo cmake --install SVT-HEVC/Build/linux/Release
         sudo cmake --install SVT-VP9/Build
         sudo cmake --build oneVPL/build --config Release --target install
-        sudo cmake --install openapv/build
         install_rav1e
 
         sudo make install
