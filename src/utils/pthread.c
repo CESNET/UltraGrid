@@ -46,6 +46,16 @@ ug_pthread_mutex_init(pthread_mutex_t *mutex)
         pthread_mutexattr_destroy(&attr);
 }
 
+// glibc<2.30 compat; assuming that not present on non-Linux systems now, either
+// (pthread_cond_clockwait() was introduced by POSIX v8 in 2024)
+#if !defined __APPLE__ && !defined _WIN32 &&                                   \
+    (!defined __GLIBC__ || (__GLIBC__ == 2 && __GLIBC_MINOR__ < 30))
+#define pthread_cond_clockwait(cv, lock, clock, tmout)                         \
+        pthread_cond_timedwait(cv, lock, tmout)
+#undef CLOCK_MONOTONIC
+#define CLOCK_MONOTONIC CLOCK_REALTIME
+#endif
+
 /**
  * wait for condition variable with timeout given by *timeout_ns
  *
@@ -61,7 +71,7 @@ ug_pthread_mutex_init(pthread_mutex_t *mutex)
  */
 int
 ug_pthread_cond_reltimedwait(pthread_cond_t *cv, pthread_mutex_t *lock,
-                          time_ns_t *timeout_reltime_ns)
+                             time_ns_t *timeout_reltime_ns)
 {
         struct timespec tmout = { 0, 0 };
         struct timespec t0;
@@ -91,4 +101,3 @@ ug_pthread_cond_reltimedwait(pthread_cond_t *cv, pthread_mutex_t *lock,
         }
         return ret;
 }
-
