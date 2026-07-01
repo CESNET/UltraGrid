@@ -332,8 +332,7 @@ state_audio_mixer::check_messages()
                         if (ss.ss_family != AF_UNSPEC) {
                                 MSG(INFO, "restricting mixer to: %s\n", val);
                                 only_sender = ss;
-                                if (participants.find(only_sender) ==
-                                    participants.end()) {
+                                if (!participants.contains(only_sender)) {
                                         MSG(WARNING,
                                             "The requested participant %s is "
                                             "not yet present...\n", val);
@@ -492,7 +491,7 @@ static void audio_play_mixer_put_frame(void *state, const struct audio_frame *fr
 
         auto ss = *(struct sockaddr_storage *) frame->network_source;
 
-        if (s->participants.find(ss) == s->participants.end()) {
+        if (!s->participants.contains(ss)) {
                 char buf[ADDR_STR_BUF_LEN];
                 MSG(NOTICE, "added participant: %s\n",
                     get_sockaddr_str((struct sockaddr *) &ss,
