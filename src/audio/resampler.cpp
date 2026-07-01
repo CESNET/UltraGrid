@@ -377,21 +377,21 @@ audio_frame2_resampler::audio_frame2_resampler()
         switch (resampler_type) {
                 case RESAMPLER_DEFAULT:
 #ifdef HAVE_SPEEXDSP
-                        m_impl = unique_ptr<audio_frame2_resampler::impl>(new speex_resampler(quality));
+                        m_impl = std::make_unique<speex_resampler>(quality);
 #elif defined HAVE_SOXR
-                        m_impl = unique_ptr<audio_frame2_resampler::impl>(new soxr_resampler());
+                        m_impl = std::make_unique<soxr_resampler>();
 #endif
                         break;
                 case RESAMPLER_SPEEX:
 #ifdef HAVE_SPEEXDSP
-                        m_impl = unique_ptr<audio_frame2_resampler::impl>(new speex_resampler(quality));
+                        m_impl = std::make_unique<speex_resampler>(quality);
 #else
                         throw ug_runtime_error("SpeexDSP not compiled in!");
 #endif
                         break;
                 case RESAMPLER_SOXR:
 #if defined HAVE_SOXR
-                        m_impl = unique_ptr<audio_frame2_resampler::impl>(new soxr_resampler());
+                        m_impl = std::make_unique<soxr_resampler>();
                         break;
 #else
                         throw ug_runtime_error("Soxr not compiled in!");
