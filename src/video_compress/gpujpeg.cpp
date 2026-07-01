@@ -688,7 +688,7 @@ void state_video_compress_gpujpeg::push(std::shared_ptr<video_frame> in_frame)
 std::shared_ptr<video_frame> state_video_compress_gpujpeg::pop()
 {
 start:
-        if (m_out_frames.find(m_out_seq) != m_out_frames.end()) {
+        if (m_out_frames.contains(m_out_seq)) {
                 auto frame = m_out_frames[m_out_seq];
                 m_out_frames.erase(m_out_seq);
                 m_out_seq += 1;
