@@ -799,7 +799,7 @@ static void draw_frame(Drm_framebuffer *dst, video_frame *src, bool center = tru
 }
 
 static bool drm_format_supported(drm_display_state *s, uint32_t fmt){
-        return s->drm.supported_drm_formats.find(fmt) != s->drm.supported_drm_formats.end();
+        return s->drm.supported_drm_formats.contains(fmt);
 }
 
 static Drm_framebuffer get_splash_fb(drm_display_state *s, int width, int height){
@@ -997,7 +997,7 @@ static bool get_codecs(drm_display_state *s, void *val, size_t *len){
         if(s->drm.prime_support)
                 out.push_back(DRM_PRIME);
 
-        if(s->drm.supported_drm_formats.find(DRM_FORMAT_UYVY) != s->drm.supported_drm_formats.end())
+        if(s->drm.supported_drm_formats.contains(DRM_FORMAT_UYVY))
                 out.push_back(UYVY);
 
         out.push_back(RGBA);
