@@ -6,20 +6,25 @@
 #include <unistd.h>
 #endif
 
+#include <errno.h>          // for ETIMEDOUT
 #include <limits.h>
+#include <pthread.h>        // for pthread_cond_t, pthread_mutex_t
 #include <stdio.h>          // for snprintf
 #include <stdlib.h>         // for abs
 #include <string.h>         // for strcmp
 
-#include "compat/c23.h"     // IWYU pragma: keep for countof
 #include "color_space.h"
-#include "compat/net.h"    // for sockaddr_storage, AF_UNSPEC
+#include "compat/c23.h" // IWYU pragma: keep for countof
+#include "compat/net.h" // for sockaddr_storage, AF_UNSPEC
+#include "debug.h"      // for LOG_LEVEL_ERROR
 #include "tv.h"
 #include "types.h"
 #include "unit_common.h"
-#include "utils/fs.h"      // for NULL_FILE
+#include "utils/fs.h"     // for NULL_FILE
+#include "utils/macros.h" // for snprintf_ch
 #include "utils/misc.h"
 #include "utils/net.h"
+#include "utils/pthread.h"
 #include "utils/string.h"
 #include "video.h"
 #include "video_frame.h"
@@ -30,6 +35,7 @@ extern int misc_test_color_coeff_range();
 extern int misc_test_net_getsockaddr();
 extern int misc_test_net_sockaddr_compare_v4_mapped();
 extern int misc_test_replace_all();
+extern int misc_test_ug_timedwait();
 extern int misc_test_unit_evaluate();
 extern int misc_test_video_desc_io_op_symmetry();
 
@@ -144,6 +150,100 @@ int misc_test_replace_all()
         }
         return 0;
 }
+
+
+static int
+misc_test_ug_timedwait_timeout()
+{
+        pthread_mutex_t lock;
+        pthread_cond_t  cv;
+        ug_pthread_mutex_init(&lock);
+        ug_pthread_cond_init(&cv);
+        enum { TIMEOUT_20MS = 20 * 1000 * 1000, };
+
+        time_ns_t timeout = TIMEOUT_20MS;
+        int       rc      = ETIMEDOUT;
+        time_ns_t t0 = get_time_in_ns();
+
+        CHK_PTHR(pthread_mutex_lock(&lock));
+        while (rc == ETIMEDOUT) {
+                rc = ug_pthread_cond_timedwait(&cv, &lock, &timeout);
+                time_ns_t t1 = get_time_in_ns();
+                if (t1 - t0 > TIMEOUT_20MS) {
+                        break;
+                }
+        }
+        time_ns_t t1 = get_time_in_ns();
+
+        CHK_PTHR(pthread_mutex_unlock(&lock));
+        CHK_PTHR(pthread_mutex_destroy(&lock));
+        CHK_PTHR(pthread_cond_destroy(&cv));
+
+        ASSERT_EQUAL(ETIMEDOUT, rc);
+        ASSERT_OP(t1 - t0, >, TIMEOUT_20MS);
+
+        return 0;
+}
+static void *
+cv_trigger_worker(void *arg)
+{
+        struct {
+                pthread_mutex_t lock;
+                pthread_cond_t  cv;
+                bool            flag;
+        } *s = arg;
+
+        CHK_PTHR(pthread_mutex_lock(&s->lock));
+        s->flag = true;
+        CHK_PTHR(pthread_mutex_unlock(&s->lock));
+        CHK_PTHR(pthread_cond_signal(&s->cv));
+
+        return nullptr;
+}
+static int
+misc_test_ug_timedwait_notimeout()
+{
+        struct {
+                pthread_mutex_t lock;
+                pthread_cond_t cv;
+                bool flag;
+        } thr_data;
+        thr_data.flag = false;
+        ug_pthread_mutex_init(&thr_data.lock);
+        ug_pthread_cond_init(&thr_data.cv);
+        enum { TIMEOUT_200MS = 200 * 1000 * 1000, };
+
+        time_ns_t timeout = TIMEOUT_200MS;
+        int       rc      = ETIMEDOUT;
+
+        pthread_t thr;
+        pthread_create(&thr, nullptr, cv_trigger_worker, &thr_data);
+
+        CHK_PTHR(pthread_mutex_lock(&thr_data.lock));
+        while (!thr_data.flag) {
+                rc = ug_pthread_cond_timedwait(&thr_data.cv, &thr_data.lock, &timeout);
+                if (rc != 0) {
+                        break;
+                }
+        }
+        CHK_PTHR(pthread_mutex_unlock(&thr_data.lock));
+        CHK_PTHR(pthread_join(thr, nullptr));
+        CHK_PTHR(pthread_mutex_destroy(&thr_data.lock));
+        CHK_PTHR(pthread_cond_destroy(&thr_data.cv));
+
+        ASSERT_EQUAL(0, rc);
+        ASSERT(thr_data.flag);
+        ASSERT_OP(timeout, >, 0);
+
+        return 0;
+}
+int
+misc_test_ug_timedwait() {
+        int rc1 = misc_test_ug_timedwait_timeout();
+        int rc2 = misc_test_ug_timedwait_notimeout();
+        return MIN(rc1, rc2);
+}
+
 
 int misc_test_unit_evaluate()
 {
