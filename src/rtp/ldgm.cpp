@@ -232,7 +232,7 @@ void ldgm::init(unsigned int k, unsigned int m, unsigned int c, unsigned int see
 
                 }
         } else {
-                m_coding_session = unique_ptr<LDGM_session>(new LDGM_session_cpu());
+                m_coding_session = std::make_unique<LDGM_session_cpu>();
         }
 
         set_params(k, m, c, seed);
