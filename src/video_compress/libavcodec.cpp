@@ -1364,16 +1364,16 @@ static void check_duration(struct state_video_compress_libav *s, time_ns_t dur_p
         string hint;
         string quality_hurt = "latency";
         if (regex_match(s->codec_ctx->codec->name, regex(".*nvenc.*"))) {
-                if (s->req_lavc_opts.find("delay") == s->req_lavc_opts.end()) {
+                if (!s->req_lavc_opts.contains("delay")) {
                         hint = "\"delay=<frames>\" option to NVENC compression (2 suggested)";
                 }
         } else if (strcmp(s->codec_ctx->codec->name, "libaom-av1") == 0) {
-                if (s->req_lavc_opts.find("cpu-used") == s->req_lavc_opts.end()) {
+                if (!s->req_lavc_opts.contains("cpu-used")) {
                         hint = "\"cpu-used=8\" option for quality/speed trade-off to AOM AV1 compression (values 0-8 allowed)";
                         quality_hurt = "quality";
                 }
         } else if (strcmp(s->codec_ctx->codec->name, "libsvt_hevc") == 0) {
-                if (s->req_lavc_opts.find("preset") == s->req_lavc_opts.end()) {
+                if (!s->req_lavc_opts.contains("preset")) {
                         hint =
                             "\"preset=12\" option for quality/speed trade-off "
                             "to libsvt_hevc compression (values 0-12 allowed)";
@@ -1860,7 +1860,7 @@ setparam_jxs(AVCodecContext * /* codec_ctx */, struct setparam_param *param)
         }
 
         unsigned decomp_v = 0;
-        if (param->lavc_opts.find("decomp_v") == param->lavc_opts.end()) {
+        if (!param->lavc_opts.contains("decomp_v")) {
                 unsigned height = param->desc.height;
                 while (height % 2 == 0 && decomp_v < 2) {
                         decomp_v += 1;
@@ -1878,7 +1878,7 @@ setparam_jxs(AVCodecContext * /* codec_ctx */, struct setparam_param *param)
                 param->slices = param->desc.height / slice_height;
         }
 
-        if (param->lavc_opts.find("decomp_h") == param->lavc_opts.end()) {
+        if (!param->lavc_opts.contains("decomp_h")) {
                 unsigned decomp_h = 0;
                 unsigned width    = param->desc.width;
                 while (width % 2 == 0 && decomp_h < 5) {
@@ -2096,7 +2096,7 @@ static void
 configure_videotoolbox_hevc(AVCodecContext * /*codec_ctx*/,
                             struct setparam_param *param)
 {
-        if (param->lavc_opts.find("profile") == param->lavc_opts.end()) {
+        if (!param->lavc_opts.contains("profile")) {
                 // enforce AV_PROFILE_HEVC_REXT, otherwise we will get Main10
                 // profile (10-bit 4:2:0) - even for UYVY
                 const char *profile = "rext";
