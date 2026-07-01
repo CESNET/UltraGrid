@@ -52,6 +52,7 @@
 #include <string>             // for basic_string, string
 #include <utility>            // for pair
 
+#include "compat/strings.h" // for strlcpy
 #include "debug.h"
 #include "rtp/rtp_types.h" // FPS_MAX
 #include "utils/color_out.h"  // for color_printf, TBOLD
@@ -247,11 +248,21 @@ video_desc::operator string() const
         return oss.str();
 }
 
-const char *video_desc_to_string(struct video_desc d)
+const char *
+video_desc_to_string(struct video_desc d, unsigned buflen, char *buf)
 {
-        thread_local string desc_str;
-        desc_str = d;
-        return desc_str.c_str();
+        string desc_str = d;
+        strlcpy(buf, desc_str.c_str(), buflen);
+        return buf;
+}
+
+struct video_desc
+get_video_desc_from_string(const char *str)
+{
+        struct video_desc ret = {};
+        istringstream iss(str);
+        iss >> ret;
+        return ret;
 }
 
 /**
@@ -300,7 +311,8 @@ parse_fps(const char *string, interlacing_t *interlacing)
  * @returns video description according to the configuration string, allowing
  * BMD-like FourCC (pal, ntsc, Hi59 etc.)
  */
-struct video_desc get_video_desc_from_string(const char *string)
+struct video_desc
+get_video_desc_from_mode(const char *string)
 {
         const struct {
                 const char *name;
@@ -340,9 +352,12 @@ struct video_desc get_video_desc_from_string(const char *string)
                 printf("Recognized video formats: %s", full ? "\n" : "");
                 for (unsigned i = 0; i < sizeof map / sizeof map[0]; ++i) {
                         if (full) {
-                                color_printf("- " TBOLD("%s") ": %s\n",
+                                char buf[1024];
+                                color_printf("- " TBOLD("%s")
+                                             ": %s\n",
                                              map[i].name,
-                                             video_desc_to_string(map[i].desc));
+                                             video_desc_to_string(
+                                                 map[i].desc, sizeof buf, buf));
                         } else {
                                 color_printf(TBOLD("%s") ", ", map[i].name);
                         }

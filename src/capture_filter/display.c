@@ -122,13 +122,18 @@ static void *worker(void *arg) {
 
                 struct video_desc new_desc = video_desc_from_frame(f);
                 if (!video_desc_eq(configured_desc, new_desc)) {
+                        char buf[1024];
                         struct video_desc display_desc = new_desc;
                         display_desc.color_spec = select_display_codec(display_codecs, new_desc.color_spec);
                         if (!display_desc.color_spec || !display_reconfigure(s->d, display_desc, VIDEO_NORMAL)) {
-                                log_msg(LOG_LEVEL_ERROR, "Unable to reconfigure to %s!\n", video_desc_to_string(display_desc));
+                                MSG(ERROR, "Unable to reconfigure to %s!\n",
+                                    video_desc_to_string(display_desc,
+                                                         sizeof buf, buf));
                                 continue;
                         }
-                        log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Reconfigured display to %s\n", video_desc_to_string(display_desc));
+                        MSG(NOTICE, "Reconfigured display to %s\n",
+                            video_desc_to_string(display_desc, sizeof buf,
+                                                 buf));
                         dec = get_decoder_from_to(new_desc.color_spec, display_desc.color_spec);
                         src_linesize = vc_get_linesize(f->tiles[0].width, f->color_spec);
                         dst_linesize = vc_get_linesize(f->tiles[0].width, display_desc.color_spec);

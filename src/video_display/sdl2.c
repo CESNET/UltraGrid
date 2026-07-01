@@ -76,7 +76,7 @@
 #include "utils/list.h"         // for simple_linked_list_append, simple_lin...
 #include "utils/macros.h"       // for STR_LEN
 #include "utils/pthread.h"      // for CHK_PTHR
-#include "video.h"              // for get_video_desc_from_string
+#include "video.h"              // for get_video_desc_from_mode
 #include "video_codec.h"        // for get_codec_name, codec_is_planar, vc_d...
 #include "video_display.h"      // for display_property, get_splashscreen
 #include "video_frame.h"        // for vf_free, vf_alloc_desc, video_desc_fr...
@@ -621,7 +621,7 @@ static bool set_size(struct state_sdl2 *s, const char *tok)
         }
         tok = strchr(tok, '=') + 1;
         if (strpbrk(tok, "x+-") == NULL) {
-                struct video_desc desc = get_video_desc_from_string(tok);
+                struct video_desc desc = get_video_desc_from_mode(tok);
                 if (desc.width != 0) {
                         s->fixed_size = true;
                         s->fixed_w = desc.width;

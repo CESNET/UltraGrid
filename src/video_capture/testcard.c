@@ -492,7 +492,9 @@ static void show_help(bool full) {
         color_printf(TBOLD("\t%s -t testcard:s=1920x1080:f=59.94i\n"), uv_argv[0]);
         color_printf(TBOLD("\t%s -t testcard:size=FHD:fps=25\n"), uv_argv[0]);
         color_printf("\n");
-        color_printf("Default mode: %s\n", video_desc_to_string(DEFAULT_FORMAT));
+        char buf[1024];
+        color_printf("Default mode: %s\n",
+                     video_desc_to_string(DEFAULT_FORMAT, sizeof buf, buf));
         color_printf("\n");
         color_printf_wrapped(
             TBOLD("Note:")
@@ -542,7 +544,7 @@ parse_size(struct video_desc *desc, const char *val)
         }
 
         // assuming eg. s=VGA -> set just size 640x480 (differs from mode=)
-        struct video_desc size_dsc = get_video_desc_from_string(val);
+        struct video_desc size_dsc = get_video_desc_from_mode(val);
         desc->width                = size_dsc.width;
         desc->height               = size_dsc.height;
         if (size_dsc.width * size_dsc.height == 0) {
@@ -611,7 +613,7 @@ static int vidcap_testcard_init(const struct vidcap_params *params, void **state
                         }
                 } else if (IS_KEY_PREFIX(tmp, "mode")) {
                         codec_t saved_codec = desc.color_spec;
-                        desc = get_video_desc_from_string(val);
+                        desc = get_video_desc_from_mode(val);
                         desc.color_spec = saved_codec;
                 } else if (IS_KEY_PREFIX(tmp, "size")) {
                         if (!parse_size(&desc, val)) {
@@ -672,8 +674,11 @@ static int vidcap_testcard_init(const struct vidcap_params *params, void **state
 
         s->last_frame_time = get_time_in_ns();
 
-        log_msg(LOG_LEVEL_INFO, MOD_NAME "capture set to %s, bpc %d, pattern: %s, audio %s\n", video_desc_to_string(desc),
-                get_bits_per_component(s->frame->color_spec), s->pattern, (s->grab_audio ? "on" : "off"));
+        char buf[1024];
+        MSG(INFO, "capture set to %s, bpc %d, pattern: %s, audio %s\n",
+            video_desc_to_string(desc, sizeof buf, buf),
+            get_bits_per_component(s->frame->color_spec), s->pattern,
+            (s->grab_audio ? "on" : "off"));
 
         if (strip_fmt != NULL) {
                 MSG(ERROR, "Multi-tile testcard (strip=) is currently "

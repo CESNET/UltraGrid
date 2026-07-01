@@ -505,13 +505,11 @@ bool display_reconfigure(struct display *d, struct video_desc desc, enum video_m
         } else {
 		rc = d->funcs->reconfigure_video(d->state, desc);
         }
-        if (rc) {
-                log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Successfully reconfigured display to %s\n",
-                                video_desc_to_string(display_desc));
-        } else {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unable to reconfigure display to %s\n",
-                                video_desc_to_string(display_desc));
-        }
+        char buf[1024];
+        log_msg(rc ? LOG_LEVEL_NOTICE : LOG_LEVEL_ERROR,
+                MOD_NAME "%s display to %s\n",
+                rc ? "Successfully reconfigured" : "Unable to reconfigure",
+                video_desc_to_string(display_desc, sizeof buf, buf));
 
         return rc;
 }

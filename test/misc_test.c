@@ -1,39 +1,37 @@
-#include <climits>
-#include <cmath>           // for abs
-#include <cstring>         // for strcmp
-#include <list>
-#include <sstream>
-#include <string>          // for allocator, basic_string, operator+, string
-
 #include <fcntl.h>
 #include <sys/stat.h>
 #ifdef _WIN32
-#include <cstdlib>
 #include <io.h>
 #else
 #include <unistd.h>
 #endif
 
+#include <limits.h>
+#include <stdio.h>          // for snprintf
+#include <stdlib.h>         // for abs
+#include <string.h>         // for strcmp
+
+#include "compat/c23.h"     // IWYU pragma: keep for countof
 #include "color_space.h"
+#include "compat/net.h"    // for sockaddr_storage, AF_UNSPEC
+#include "tv.h"
 #include "types.h"
+#include "unit_common.h"
 #include "utils/fs.h"      // for NULL_FILE
 #include "utils/misc.h"
 #include "utils/net.h"
 #include "utils/string.h"
-#include "unit_common.h"
 #include "video.h"
 #include "video_frame.h"
 
-extern "C" {
-int misc_test_color_coeff_range();
-int misc_test_net_getsockaddr();
-int misc_test_net_sockaddr_compare_v4_mapped();
-int misc_test_replace_all();
-int misc_test_video_desc_io_op_symmetry();
-int misc_test_unit_evaluate();
-}
+#define MOD_NAME "[misc_test] "
 
-using namespace std;
+extern int misc_test_color_coeff_range();
+extern int misc_test_net_getsockaddr();
+extern int misc_test_net_sockaddr_compare_v4_mapped();
+extern int misc_test_replace_all();
+extern int misc_test_unit_evaluate();
+extern int misc_test_video_desc_io_op_symmetry();
 
 /**
  * check that scaled coefficient for minimal values match approximately minimal
@@ -187,23 +185,21 @@ int misc_test_unit_evaluate()
 
 int misc_test_video_desc_io_op_symmetry()
 {
-        const std::list<video_desc> test_desc = {
-                {1920, 1080, DXT5, 60, PROGRESSIVE, 4},
-                {640, 480, H264, 15, PROGRESSIVE, 1}};
-        for (const auto & i : test_desc) {
-                video_desc tmp;
-
-                ostringstream oss;
-                oss << i;
-                istringstream iss(oss.str());
-                iss >> tmp;
-
+        struct video_desc test_desc[] = {
+                (struct video_desc){ 1920, 1080, DXT5, 60, PROGRESSIVE, 4 },
+                (struct video_desc){ 640,  480,  H264, 15, PROGRESSIVE, 1 }
+        };
+        for (unsigned i = 0; i < countof(test_desc); i++) {
+                char desc[1024];
+                video_desc_to_string(test_desc[i], sizeof desc, desc);
                 // Check
-                ostringstream oss2;
-                oss2 << tmp;
-                string err_elem = oss.str() + " vs " +  oss2.str();
-                ASSERT_MESSAGE(err_elem, video_desc_eq(tmp, i));
-                ASSERT_EQUAL_MESSAGE(err_elem, tmp, i);
+                struct video_desc tmp = get_video_desc_from_string(desc);
+                char err_elem[1024];
+                char buf[1024];
+                snprintf_ch(err_elem, "%s vs %s", desc,
+                            video_desc_to_string(tmp, sizeof buf, buf));
+                ASSERT_MESSAGE(err_elem, video_desc_eq(tmp, test_desc[i]));
+                // ASSERT_EQUAL_MESSAGE(err_elem, tmp, test_desc[i]);
         }
         return 0;
 }

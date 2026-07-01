@@ -617,8 +617,9 @@ fromConnection:(AVCaptureConnection *)connection
 	desc.interlacing = PROGRESSIVE;
 
         if (!video_desc_eq(m_saved_desc, desc)) {
+                char buf[1024];
                 MSG(NOTICE, "capturing video format: %s\n",
-                        video_desc_to_string(desc));
+                        video_desc_to_string(desc, sizeof buf, buf));
                 m_saved_desc = desc;
         }
 

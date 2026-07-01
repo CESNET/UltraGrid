@@ -91,7 +91,7 @@ DECLARE_TEST(misc_test_replace_all);
 DECLARE_TEST(misc_test_unit_evaluate);
 DECLARE_TEST(misc_test_video_desc_io_op_symmetry);
 
-struct {
+static const struct {
         const char *name;
         int (*test)(void);
         bool quiet;

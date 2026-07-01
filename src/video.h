@@ -5,7 +5,7 @@
  * @brief  This is an umbrella header for video functions.
  */
 /*
- * Copyright (c) 2013 CESNET z.s.p.o.
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -81,8 +81,11 @@ const char *get_video_mode_description(enum video_mode mode);
  */
 enum video_mode guess_video_mode(int num_substreams);
 
-const char *video_desc_to_string(struct video_desc d);
+const char *video_desc_to_string(struct video_desc d, unsigned buflen,
+                                 char *buf);
 struct video_desc get_video_desc_from_string(const char *);
+
+struct video_desc get_video_desc_from_mode(const char *);
 
 #ifdef __cplusplus
 }

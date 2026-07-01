@@ -85,7 +85,7 @@
 #include "utils/random.h"               // for ug_rand
 #include "utils/text.h"                 // for get_font_candidates
 #include "utils/thread.h"               // for set_thread_name
-#include "video.h"                      // for get_video_desc_from_string
+#include "video.h"                      // for get_video_desc_from_mode
 #include "video_capture.h"              // for VIDCAP_INIT_FAIL, VIDCAP_INIT...
 #include "video_capture_params.h"       // for vidcap_params_get_fmt, vidcap...
 #include "video_codec.h"                // for vc_get_linesize, vc_get_datalen
@@ -226,7 +226,7 @@ parse_fmt(struct testcard_state2 *s, char *fmt)
                 } else if (IS_KEY_PREFIX(tmp, "mode")) {
                         codec_t saved_codec = s->desc.color_spec;
                         s->desc =
-                            get_video_desc_from_string(strchr(tmp, '=') + 1);
+                            get_video_desc_from_mode(strchr(tmp, '=') + 1);
                         s->desc.color_spec = saved_codec;
                 } else if (IS_KEY_PREFIX(tmp, "size")) {
                         tmp = strchr(tmp, '=') + 1;
@@ -235,7 +235,7 @@ parse_fmt(struct testcard_state2 *s, char *fmt)
                                 s->desc.height = atoi(strchr(tmp, 'x') + 1);
                         } else {
                                 struct video_desc size_dsc =
-                                    get_video_desc_from_string(tmp);
+                                    get_video_desc_from_mode(tmp);
                                 s->desc.width  = size_dsc.width;
                                 s->desc.height = size_dsc.height;
                         }

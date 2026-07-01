@@ -14,7 +14,7 @@
 
 #define ASSERT(expr) \
         if (!(expr)) { \
-                fprintf(stderr, "Assertion " #expr " failed!\n"); \
+                (void) fprintf(stderr, "Assertion " #expr " failed!\n"); \
                 return -1; \
         }
 
@@ -28,7 +28,7 @@
 #else
 #define ASSERT_MESSAGE(msg, expr) \
         if (!(expr)) { \
-                fprintf(stderr, "Assertion " #expr " failed: %s\n", (msg)); \
+                (void) fprintf(stderr, "Assertion " #expr " failed: %s\n", (msg)); \
                 return -1; \
         }
 #endif
@@ -53,7 +53,7 @@
                 fprintf(stderr, \
                         "Assertion failed - expected %" PRIdMAX \
                         ", actual %" PRIdMAX "\n", \
-                        (intmax_t) (expected), (intmax_t) (actulal)); \
+                        (intmax_t) (expected), (intmax_t) (actual)); \
                 return -1; \
         }
 /// compares cstr value
@@ -62,7 +62,7 @@
                 fprintf(stderr, \
                         "Assertion failed - expected \"%s\"" \
                         ", actual \"%s\"\n", \
-                        (expected), (actulal)); \
+                        (expected), (actual)); \
                 return -1; \
         }
 #endif

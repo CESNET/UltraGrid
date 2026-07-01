@@ -877,8 +877,9 @@ static int vidcap_file_init(const struct vidcap_params *params, void **state) {
         log_msg(LOG_LEVEL_INFO, MOD_NAME "Audio format: %s\n",
                 s->audio_stream_idx >= 0 ? audio_desc_to_cstring(s->audio_desc)
                                          : "(no audio)");
+        char buf[1024];
         log_msg(LOG_LEVEL_INFO, MOD_NAME "Video format: %s\n",
-                video_desc_to_string(s->video_desc));
+                video_desc_to_string(s->video_desc, sizeof buf, buf));
         log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Capturing audio idx %d, video idx %d\n", s->audio_stream_idx, s->video_stream_idx);
 
         s->last_vid_pts = s->fmt_ctx->streams[s->video_stream_idx]->start_time;

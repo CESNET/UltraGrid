@@ -716,7 +716,7 @@ static bool set_size(struct state_gl *s, const char *val)
         if (strchr(val, '%') != NULL) {
                 s->window_size_factor = atof(val) / 100.0;
         } else if (strpbrk(val, "x+-") == NULL) {
-                struct video_desc desc = get_video_desc_from_string(val);
+                struct video_desc desc = get_video_desc_from_mode(val);
                 if (desc.width != 0) {
                         s->fixed_size = true;
                         s->fixed_w = desc.width;
