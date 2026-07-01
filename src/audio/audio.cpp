@@ -710,7 +710,7 @@ static void *audio_sender_thread(void *arg)
         struct state_audio *s = (struct state_audio *) arg;
         unique_ptr<audio_frame2_resampler> resampler_state;
         try {
-                resampler_state = unique_ptr<audio_frame2_resampler>(new audio_frame2_resampler);
+                resampler_state = std::make_unique<audio_frame2_resampler>();
         } catch (ug_runtime_error &e) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "%s\n", e.what());
                 exit_uv(1);
