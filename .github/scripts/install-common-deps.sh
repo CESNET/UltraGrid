@@ -110,7 +110,12 @@ download_build_live555() (
                 pacman -Rs --noconfirm binutils
         elif [ "$(uname -s)" = Linux ]; then
                 ./genMakefiles linux-with-shared-libraries
-                make -j "$(nproc)" CPLUSPLUS_COMPILER="c++ -DNO_STD_LIB"
+                # prefer clang++ if present - usually newer in distros and eg in
+                # Alma 8, GCC 8 requires c++2a but mkfile has c++20, Clang 21 OK
+                if command -v clang++ >/dev/null; then
+                         set -- CXX=clang++
+                fi
+                make -j "$(nproc)" "$@"
         else
                 ./genMakefiles macosx-no-openssl
                 live555_rm_tests
