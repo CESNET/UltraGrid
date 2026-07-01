@@ -53,26 +53,25 @@
 #include <stdbool.h>               // for bool, false, true
 #include <stdint.h>                // for uint16_t, uintmax_t
 #include <stdlib.h>                // for NULL, free, abort, calloc, malloc
-#include <sys/time.h>              // for gettimeofday
 
 #ifndef _WIN32
 #include <ifaddrs.h>
 #endif
 
-#include "debug.h"
-#include "host.h"
-#include "memory.h"
+#include "compat/net.h"
 #include "compat/platform_pipe.h"
 #include "compat/strings.h"       // for strerror_s
 #include "compat/vsnprintf.h"
-#include "compat/net.h"
+#include "debug.h"
+#include "host.h"
 #include "net_udp.h"
 #include "rtp.h"
+#include "tv.h" // for SEC_TO_NS, US_TO_NS, time_ns_t
 #include "utils/list.h"
 #include "utils/macros.h"
 #include "utils/misc.h"
 #include "utils/net.h"
-#include "utils/pthread.h"        // for CHK_PTHR
+#include "utils/pthread.h" // for CHK_PTHR, ug_pthread_cond_init
 #include "utils/thread.h"
 #include "utils/windows.h"
 
@@ -1038,7 +1037,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         s->local->rx_fd =
                 s->local->tx_fd = INVALID_SOCKET;
         pthread_mutex_init(&s->local->lock, NULL);
-        pthread_cond_init(&s->local->boss_cv, NULL);
+        ug_pthread_cond_init(&s->local->boss_cv);
         pthread_cond_init(&s->local->reader_cv, NULL);
 
         s->local->mode = adjust_ip_version(force_ip_version, addr, iface);
@@ -1432,18 +1431,12 @@ bool udp_not_empty(socket_udp * s, struct timeval *timeout)
 
         pthread_mutex_lock(&s->local->lock);
         if (timeout) {
-                struct timeval tv;
-                gettimeofday(&tv, NULL);
-                tv.tv_sec += timeout->tv_sec;
-                tv.tv_usec += timeout->tv_usec;
-                if (tv.tv_usec >= 1000000) {
-                        tv.tv_sec += 1;
-                        tv.tv_usec -= 1000000;
-                }
-                struct timespec tmout_ts = { tv.tv_sec, tv.tv_usec * 1000 };
-                int rc = 0;
+                time_ns_t tmout =
+                    SEC_TO_NS(timeout->tv_sec) + US_TO_NS(timeout->tv_usec);
+                                int rc = 0;
                 while (rc != ETIMEDOUT && simple_linked_list_size(s->local->packets) == 0) {
-                        rc = pthread_cond_timedwait(&s->local->boss_cv, &s->local->lock, &tmout_ts);
+                        rc = ug_pthread_cond_timedwait(&s->local->boss_cv,
+                                                       &s->local->lock, &tmout);
                 }
         } else {
                 while (simple_linked_list_size(s->local->packets) == 0) {
