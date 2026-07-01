@@ -16,7 +16,13 @@
 #include <stdlib.h>  // for abort
 #include <time.h>    // for timespec, CLOCK_MONOTONIC, clock_gettime
 
-#include "tv.h"      // for NS_IN_SEC
+#ifdef HAVE_CONFIG_H
+#include "config.h"     // for DEBUG
+#endif
+#include "tv.h"         // for NS_IN_SEC
+#include "utils/misc.h" // for ug_strerror
+
+#define MOD_NAME "[utils/pthread] "
 
 /**
  * as pthread_mutex_init(). If DEBUG set, adds PTHREAD_MUTEX_ERRORCHECK attr
@@ -42,12 +48,18 @@ ug_pthread_mutex_init(pthread_mutex_t *mutex)
 void
 ug_pthread_cond_init(pthread_cond_t *cv)
 {
+        int ret = 0;
         pthread_condattr_t attr;
         pthread_condattr_init(&attr);
-#ifndef __APPLE__
-        pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
+#if !defined __APPLE__ && !defined _WIN32
+        ret = pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
+        if (ret != 0) {
+                (void) fprintf(stderr, "pthread_condattr_setclock: %s\n",
+                               ug_strerror(ret));
+                abort();
+        }
 #endif
-        int ret = pthread_cond_init(cv, &attr);
+        ret = pthread_cond_init(cv, &attr);
         if (ret != 0) {
                 perror(__func__);
                 abort();
@@ -78,14 +90,14 @@ ug_pthread_cond_timedwait(pthread_cond_t *cv, pthread_mutex_t *lock,
         struct timespec tmout = { 0, 0 };
         struct timespec t0;
         clock_gettime(CLOCK_MONOTONIC, &t0);
-#ifndef __APPLE__
+#if !defined __APPLE__ && !defined _WIN32
         // timeout in absolute time if not Mac
         clock_gettime(CLOCK_MONOTONIC, &tmout);
 #endif
         long long nsec = tmout.tv_nsec + *timeout_ns;
         tmout.tv_sec += nsec / NS_IN_SEC;
         tmout.tv_nsec = nsec % NS_IN_SEC;
-#ifdef __APPLE__
+#if defined __APPLE__ || defined _WIN32
         int ret = pthread_cond_timedwait_relative_np(cv, lock, &tmout);
 #else
         int ret = pthread_cond_timedwait(cv, lock, &tmout);
