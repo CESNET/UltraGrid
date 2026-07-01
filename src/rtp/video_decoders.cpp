@@ -1035,7 +1035,7 @@ static vector<pair<struct pixfmt_desc, codec_t>> video_decoder_order_output_code
         }
         // then codecs matching exactly internal codec
         for (auto codec : display_codecs) {
-                if (used.find(codec) != used.end()) {
+                if (used.contains(codec)) {
                         continue;
                 };
                 if (pixdesc_equals(get_pixfmt_desc(codec), comp_int_prop)) {
@@ -1049,7 +1049,7 @@ static vector<pair<struct pixfmt_desc, codec_t>> video_decoder_order_output_code
         // then add also all other codecs
         vector<codec_t> remaining;
         for (auto codec : display_codecs) {
-                if (used.find(codec) != used.end()) {
+                if (used.contains(codec)) {
                         continue;
                 };
                 remaining.emplace_back(codec);
