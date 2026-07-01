@@ -30,9 +30,8 @@ extern "C" {
 
 void ug_pthread_mutex_init(pthread_mutex_t *mutex);
 
-void ug_pthread_cond_init(pthread_cond_t *cv);
-int  ug_pthread_cond_timedwait(pthread_cond_t *cv, pthread_mutex_t *lock,
-                               time_ns_t *timeout_ns);
+int ug_pthread_cond_reltimedwait(pthread_cond_t *cv, pthread_mutex_t *lock,
+                                 time_ns_t *timeout_reltime_ns);
 
 #ifdef __cplusplus
 }

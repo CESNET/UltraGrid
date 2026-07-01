@@ -71,7 +71,7 @@
 #include "utils/macros.h"
 #include "utils/misc.h"
 #include "utils/net.h"
-#include "utils/pthread.h" // for CHK_PTHR, ug_pthread_cond_init
+#include "utils/pthread.h" // for CHK_PTHR, ug_pthread_cond_reltimedwait
 #include "utils/thread.h"
 #include "utils/windows.h"
 
@@ -1037,7 +1037,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         s->local->rx_fd =
                 s->local->tx_fd = INVALID_SOCKET;
         pthread_mutex_init(&s->local->lock, NULL);
-        ug_pthread_cond_init(&s->local->boss_cv);
+        pthread_cond_init(&s->local->boss_cv, NULL);
         pthread_cond_init(&s->local->reader_cv, NULL);
 
         s->local->mode = adjust_ip_version(force_ip_version, addr, iface);
@@ -1435,8 +1435,8 @@ bool udp_not_empty(socket_udp * s, struct timeval *timeout)
                     SEC_TO_NS(timeout->tv_sec) + US_TO_NS(timeout->tv_usec);
                                 int rc = 0;
                 while (rc != ETIMEDOUT && simple_linked_list_size(s->local->packets) == 0) {
-                        rc = ug_pthread_cond_timedwait(&s->local->boss_cv,
-                                                       &s->local->lock, &tmout);
+                        rc = ug_pthread_cond_reltimedwait(
+                            &s->local->boss_cv, &s->local->lock, &tmout);
                 }
         } else {
                 while (simple_linked_list_size(s->local->packets) == 0) {

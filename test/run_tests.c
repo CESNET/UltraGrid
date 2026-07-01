@@ -88,7 +88,7 @@ DECLARE_TEST(misc_test_color_coeff_range);
 DECLARE_TEST(misc_test_net_getsockaddr);
 DECLARE_TEST(misc_test_net_sockaddr_compare_v4_mapped);
 DECLARE_TEST(misc_test_replace_all);
-DECLARE_TEST(misc_test_ug_timedwait);
+DECLARE_TEST(misc_test_ug_reltimedwait);
 DECLARE_TEST(misc_test_unit_evaluate);
 DECLARE_TEST(misc_test_video_desc_io_op_symmetry);
 
@@ -125,7 +125,7 @@ static const struct {
         DEFINE_TEST(misc_test_net_getsockaddr),
         DEFINE_TEST(misc_test_net_sockaddr_compare_v4_mapped),
         DEFINE_TEST(misc_test_replace_all),
-        DEFINE_TEST(misc_test_ug_timedwait),
+        DEFINE_TEST(misc_test_ug_reltimedwait),
         DEFINE_TEST(misc_test_unit_evaluate),
         DEFINE_TEST(misc_test_video_desc_io_op_symmetry),
         DEFINE_TEST(test_sdp_parser),

@@ -968,8 +968,8 @@ display_gl_init(struct module *parent, const char *fmt,
         dictionary_insert(s->window_hints, TOSTRING(GLFW_AUTO_ICONIFY),
                           TOSTRING(GLFW_FALSE));
         ug_pthread_mutex_init(&s->lock);
-        ug_pthread_cond_init(&s->new_frame_ready_cv);
-        ug_pthread_cond_init(&s->frame_consumed_cv);
+        pthread_cond_init(&s->new_frame_ready_cv, nullptr);
+        pthread_cond_init(&s->frame_consumed_cv, nullptr);
         s->frame_queue      = simple_linked_list_init();
         s->free_frame_queue = simple_linked_list_init();
 
@@ -1411,7 +1411,7 @@ gl_process_frames(struct state_gl *s)
                 time_ns_t timeout_ns =
                     MIN(2.0 / s->current_display_desc.fps, 0.1) * NS_IN_SEC;
                 while (simple_linked_list_size(s->frame_queue) == 0) {
-                        int rc = ug_pthread_cond_timedwait(&s->new_frame_ready_cv,
+                        int rc = ug_pthread_cond_reltimedwait(&s->new_frame_ready_cv,
                                                         &s->lock, &timeout_ns);
                         if (rc != 0) {
                                 goto unlock;
@@ -2423,7 +2423,7 @@ static bool display_gl_putf(void *state, struct video_frame *frame, long long ti
                 default: {
                         while (simple_linked_list_size(s->frame_queue) >=
                                MAX_BUFFER_SIZE) {
-                                int rc = ug_pthread_cond_timedwait(
+                                int rc = ug_pthread_cond_reltimedwait(
                                     &s->frame_consumed_cv, &s->lock, &timeout_ns);
                                 if (rc != 0) {
                                         break;

@@ -35,7 +35,7 @@ extern int misc_test_color_coeff_range();
 extern int misc_test_net_getsockaddr();
 extern int misc_test_net_sockaddr_compare_v4_mapped();
 extern int misc_test_replace_all();
-extern int misc_test_ug_timedwait();
+extern int misc_test_ug_reltimedwait();
 extern int misc_test_unit_evaluate();
 extern int misc_test_video_desc_io_op_symmetry();
 
@@ -153,12 +153,12 @@ int misc_test_replace_all()
 
 
 static int
-misc_test_ug_timedwait_timeout()
+misc_test_ug_reltimedwait_timeout()
 {
         pthread_mutex_t lock;
         pthread_cond_t  cv;
         ug_pthread_mutex_init(&lock);
-        ug_pthread_cond_init(&cv);
+        pthread_cond_init(&cv, nullptr);
         enum { TIMEOUT_20MS = 20 * 1000 * 1000, };
 
         time_ns_t timeout = TIMEOUT_20MS;
@@ -167,7 +167,7 @@ misc_test_ug_timedwait_timeout()
 
         CHK_PTHR(pthread_mutex_lock(&lock));
         while (rc == ETIMEDOUT) {
-                rc = ug_pthread_cond_timedwait(&cv, &lock, &timeout);
+                rc = ug_pthread_cond_reltimedwait(&cv, &lock, &timeout);
                 time_ns_t t1 = get_time_in_ns();
                 if (t1 - t0 > TIMEOUT_20MS) {
                         break;
@@ -201,7 +201,7 @@ cv_trigger_worker(void *arg)
         return nullptr;
 }
 static int
-misc_test_ug_timedwait_notimeout()
+misc_test_ug_reltimedwait_notimeout()
 {
         struct {
                 pthread_mutex_t lock;
@@ -210,7 +210,7 @@ misc_test_ug_timedwait_notimeout()
         } thr_data;
         thr_data.flag = false;
         ug_pthread_mutex_init(&thr_data.lock);
-        ug_pthread_cond_init(&thr_data.cv);
+        pthread_cond_init(&thr_data.cv, nullptr);
         enum { TIMEOUT_200MS = 200 * 1000 * 1000, };
 
         time_ns_t timeout = TIMEOUT_200MS;
@@ -221,7 +221,8 @@ misc_test_ug_timedwait_notimeout()
 
         CHK_PTHR(pthread_mutex_lock(&thr_data.lock));
         while (!thr_data.flag) {
-                rc = ug_pthread_cond_timedwait(&thr_data.cv, &thr_data.lock, &timeout);
+                rc = ug_pthread_cond_reltimedwait(&thr_data.cv, &thr_data.lock,
+                                                  &timeout);
                 if (rc != 0) {
                         break;
                 }
@@ -238,9 +239,9 @@ misc_test_ug_timedwait_notimeout()
         return 0;
 }
 int
-misc_test_ug_timedwait() {
-        int rc1 = misc_test_ug_timedwait_timeout();
-        int rc2 = misc_test_ug_timedwait_notimeout();
+misc_test_ug_reltimedwait() {
+        int rc1 = misc_test_ug_reltimedwait_timeout();
+        int rc2 = misc_test_ug_reltimedwait_notimeout();
         return MIN(rc1, rc2);
 }
 
