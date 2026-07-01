@@ -1299,7 +1299,6 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
                         INIT_ERR();
                 }
         }
-        const BMDVideoInputConversionMode supported_conversion_mode = s->device_options.find(bmdDeckLinkConfigVideoInputConversionMode) != s->device_options.end() ? (BMDVideoInputConversionMode) s->device_options.at(bmdDeckLinkConfigVideoInputConversionMode).get_int() : (BMDVideoInputConversionMode) bmdNoVideoInputConversion;
         if (s->stereo) {
                 CALL_AND_CHECK(deckLinkConfiguration->SetFlag(bmdDeckLinkConfigSDIInput3DPayloadOverride, true), "Unable to set 3D payload override");
         }
@@ -1336,6 +1335,11 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
         }
         if (s->detect_format) { // format already detected manually
                 mode_idx = MODE_SPEC_DETECTED;
+        }
+
+        BMDVideoInputConversionMode supported_conversion_mode = (BMDVideoInputConversionMode) bmdNoVideoInputConversion;
+        if(auto it = s->device_options.find(bmdDeckLinkConfigVideoInputConversionMode); it != s->device_options.end()){
+                supported_conversion_mode = (BMDVideoInputConversionMode) it->second.get_int();
         }
 
         while (displayModeIterator->Next(&displayMode) == S_OK) {
