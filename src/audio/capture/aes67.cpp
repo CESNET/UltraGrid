@@ -376,7 +376,7 @@ static void parse_sap(state_aes67_cap *s, std::string_view sap){
                 return;
         }
 
-        if(s->sap_hash_to_sess_id_map.find(pkt.hash) != s->sap_hash_to_sess_id_map.end()){
+        if(s->sap_hash_to_sess_id_map.contains(pkt.hash)){
                 if(pkt.isDeletion()){
                         uint64_t sess_id = s->sap_hash_to_sess_id_map[pkt.hash];
                         auto& sess = s->sap_sessions[sess_id];
