@@ -59,7 +59,7 @@ const uint32_t rect_colors[] = {
 
 void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, uint32_t color)
 {
-        uint32_t *data = s->data;
+        uint32_t *data = (uint32_t *) s->data;
 
         for (int cur_x = r->x; cur_x < r->x + r->w; ++cur_x) {
                 for (int cur_y = r->y; cur_y < r->y + r->h; ++cur_y) {

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2020-2022 CESNET
+ * Copyright (c) 2020-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -59,7 +59,7 @@ struct testcard_rect {
 };
 struct testcard_pixmap {
         int w, h;
-        void *data;
+        unsigned char *data;
 };
 
 void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, uint32_t color);

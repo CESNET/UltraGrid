@@ -117,6 +117,7 @@ struct testcard_state2 {
 #endif
         int count;
         unsigned char *bg; ///< bars converted to dest color_spec
+        unsigned char *bg_inv; ///< used if grab_audio == true
         unsigned noise; ///< add noise if >0; the magnitude is distance
         struct timeval t0;
         struct video_desc desc;
@@ -126,9 +127,9 @@ struct testcard_state2 {
         struct audio_frame audio;
         struct timeval start_time;
         int play_audio_frame;
-        
-        double audio_remained,
-                seconds_tone_played;
+
+        double audio_remained;
+        volatile float seconds_tone_played;
         struct timeval last_audio_time;
         char *audio_tone, *audio_silence;
         bool grab_audio;
@@ -313,6 +314,48 @@ get_sdl_render_font()
 }
 #endif
 
+static void
+fill_bg_buffer(struct testcard_state2 *s)
+{
+        unsigned int rect_size = (s->desc.width + COL_NUM - 1) / COL_NUM;
+        int          col_num   = 0;
+        struct testcard_pixmap surface;
+        surface.data =
+            malloc(vc_get_datalen(s->desc.width, s->desc.height, RGBA));
+        surface.w = s->desc.width;
+        surface.h = s->desc.height;
+        for (unsigned i = 0; i < s->desc.width; i += rect_size) {
+                struct testcard_rect r;
+                r.w = MIN(rect_size, s->desc.width - i);
+                r.h = s->desc.height;
+                r.x = i;
+                r.y = 0;
+                MSG(VERBOSE, "Fill rect at %d,%d\n", r.x, r.y);
+                testcard_fillRect(&surface, &r, rect_colors[col_num]);
+                col_num = (col_num + 1) % COL_NUM;
+        }
+        s->bg = malloc(
+            vc_get_datalen(s->desc.width, s->desc.height, s->desc.color_spec));
+        testcard_convert_buffer(RGBA, s->desc.color_spec, s->bg, surface.data,
+                                s->desc.width, s->desc.height);
+
+        if (s->grab_audio) { // if using audio, rotate RGB to GBR when tone
+                for (size_t i = 0; i < s->desc.width * s->desc.height; ++i) {
+                        unsigned char r = surface.data[4 * i + 0];
+                        surface.data[4 * i + 0] = surface.data[4 * i + 1];
+                        surface.data[4 * i + 1] = surface.data[4 * i + 2];
+                        surface.data[4 * i + 2] = r;
+                }
+                s->bg_inv = malloc(vc_get_datalen(s->desc.width, s->desc.height,
+                                                  s->desc.color_spec));
+                testcard_convert_buffer(RGBA, s->desc.color_spec, s->bg_inv,
+                                        surface.data, s->desc.width,
+                                        s->desc.height);
+        }
+
+        free(surface.data);
+}
+
 static int vidcap_testcard2_init(const struct vidcap_params *params, void **state)
 {
         if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
@@ -362,34 +405,13 @@ static int vidcap_testcard2_init(const struct vidcap_params *params, void **stat
 #endif
         }
 
-        {
-                unsigned int rect_size = (s->desc.width + COL_NUM - 1) / COL_NUM;
-                int col_num = 0;
-                struct testcard_pixmap surface;
-                surface.data = malloc(vc_get_datalen(s->desc.width, s->desc.height, RGBA));
-                surface.w = s->desc.width;
-                surface.h = s->desc.height;
-                for (unsigned i = 0; i < s->desc.width; i += rect_size) {
-                        struct testcard_rect r;
-                        r.w = MIN(rect_size, s->desc.width - i);
-                        r.h = s->desc.height;
-                        r.x = i;
-                        r.y = 0;
-                        log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "Fill rect at %d,%d\n", r.x, r.y);
-                        testcard_fillRect(&surface, &r,
-                                        rect_colors[col_num]);
-                        col_num = (col_num + 1) % COL_NUM;
-                }
-                s->bg = malloc(vc_get_datalen(s->desc.width, s->desc.height, s->desc.color_spec));
-                testcard_convert_buffer(RGBA, s->desc.color_spec, s->bg, surface.data, s->desc.width, s->desc.height);
-                free(surface.data);
-        }
-
         s->grab_audio =
             vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED;
         if (s->grab_audio) {
                 configure_audio(s);
         }
+
+        fill_bg_buffer(s);
 
         s->count = 0;
         s->audio_remained = 0.0;
@@ -428,6 +450,7 @@ static void vidcap_testcard2_done(void *state)
         free(s->audio_tone);
         free(s->audio_silence);
         free(s->bg);
+        free(s->bg_inv);
         free(s->data);
 #ifdef HAVE_LIBSDL_TTF
         if (s->sdl_font != NULL) {
@@ -533,7 +556,11 @@ void * vidcap_testcard2_thread(void *arg)
         {
                 size_t data_len = vc_get_datalen(s->desc.width, s->desc.height, s->desc.color_spec);
                 unsigned char *tmp = malloc(data_len);
-                memcpy(tmp, s->bg, data_len);
+                if (!s->grab_audio || s->seconds_tone_played > 1.0) {
+                        memcpy(tmp, s->bg, data_len);
+                } else {
+                        memcpy(tmp, s->bg_inv, data_len);
+                }
 
                 struct testcard_rect r;
                 r.w = 300;
