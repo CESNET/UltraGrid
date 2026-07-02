@@ -67,15 +67,6 @@ using AVHWFramesConstraints_uniq = std::unique_ptr<AVHWFramesConstraints, delete
 
 constexpr int DEFAULT_SURFACES = 20;
 
-struct vaapi_ctx {
-        AVBufferRef          *device_ref;
-        AVHWDeviceContext    *device_ctx;
-        AVVAAPIDeviceContext *device_vaapi_ctx;
-
-        AVBufferRef       *hw_frames_ctx;
-        AVHWFramesContext *frame_ctx;
-};
-
 /**
  * Returns first SW format from valid_sw_formats. This is usually
  * AV_PIX_FMT_YUV420P or AV_PIX_FMT_NV12.
@@ -131,20 +122,12 @@ AVPixelFormat get_sw_format(AVBufferRef *device_ref){
 
 }
 
-void vaapi_uninit(hw_accel_state *s){
-        auto ctx = static_cast<vaapi_ctx *>(s->ctx);
-        delete ctx;
-}
-
 int vaapi_init(AVCodecContext *s, hw_accel_state *state, codec_t /*out_codec*/){
         AVBufferRef_uniq device_ref;
         int ret = create_hw_device_ctx(AV_HWDEVICE_TYPE_VAAPI, out_ptr(device_ref));
         if(ret < 0){
                 return -1;
         }
-
-        auto device_ctx = (AVHWDeviceContext*)(void *)device_ref->data;
-        auto device_vaapi_ctx = static_cast<AVVAAPIDeviceContext *>(device_ctx->hwctx);
 
         int decode_surfaces = DEFAULT_SURFACES;
 
@@ -178,20 +161,13 @@ int vaapi_init(AVCodecContext *s, hw_accel_state *state, codec_t /*out_codec*/){
                 return -1;
         }
 
-        auto ctx = std::make_unique<vaapi_ctx>();
-        ctx->device_ref = device_ref.get();
-        ctx->device_ctx = device_ctx;
-        ctx->device_vaapi_ctx = device_vaapi_ctx;
-        ctx->hw_frames_ctx = hw_frames_ctx.get();
-        ctx->frame_ctx = (AVHWFramesContext *)(void *) (ctx->hw_frames_ctx->data);
-
         s->hw_frames_ctx = hw_frames_ctx.release();
 
         state->type = HWACCEL_VAAPI;
         state->copy = true;
-        state->ctx = ctx.release();
+        state->ctx = nullptr;
         state->tmp_frame = tmp_frame.release();
-        state->uninit = vaapi_uninit;
+        state->uninit = nullptr;
 
         return 0;
 }
