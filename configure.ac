@@ -70,14 +70,6 @@ else
         WORD_LEN=32
 fi
 
-AC_DEFUN([HM_VERSION_WARNING], [
-          AC_MSG_WARN([If you still want to try with unsupported version of dependency,
-                       you may want to try --disable-depends-version-check option.
-                       If you find out that some unsupported version is working,
-                       please let us know at ultragrid-dev@cesnet.cz.
-                               ])
-          ])
-
 WARNINGS=
 # variant of AC_MSG_WARN that in addition stores the message for repost at the end
 m4_defun([UG_MSG_WARN], [
@@ -196,11 +188,11 @@ if test $system = Windows; then
 fi
 
 # replace C++ standard for older Clang ver that need gnu++2b
-clang_ver_major=$($CC --version | sed -n \
- '/clang version/ s/.*version \(@<:@0-9@:>@*\).*/\1/p')
+[clang_ver_major=$($CC --version | sed -n \
+ '/clang version/ s/.*version \([0-9]*\).*/\1/p')
 if test "${clang_ver_major:-16}" -lt 16; then
         CXXFLAGS=$(echo "$CXXFLAGS" | sed 's/-std=gnu++23/-std=gnu++2b/')
-fi
+fi]
 
 LINKER=$CXX
 
@@ -208,12 +200,6 @@ AC_SUBST(LINKER)
 AC_SUBST(LDFLAGS)
 AC_SUBST(UV_LDFLAGS)
 AC_SUBST(CXXFLAGS)
-
-AC_ARG_ENABLE(depends-version-check,
-        AS_HELP_STRING([--disable-depends-version-check], [Disable libraries version check]),
-	[version_check=$enableval],
-        [version_check=yes]
-        )
 
 build_default=auto
 AC_ARG_ENABLE(all,
@@ -604,10 +590,12 @@ then
                 FOUND_CUDA=yes
         fi
 	AC_MSG_CHECKING([CUDA Toolkit version - major])
-        nvcc_major=`"$NVCC" --version |grep release|sed  's/^.*release \(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
+        [nvcc_major=$("$NVCC" --version | grep release| sed]dnl
+           ['s/^.*release \([0-9][0-9]*\).*$/\1/')]
 	AC_MSG_RESULT($nvcc_major)
 	AC_MSG_CHECKING([CUDA Toolkit version - minor])
-        nvcc_minor=`"$NVCC" --version |grep release|sed  's/^.*release @<:@0-9@:>@@<:@0-9@:>@*\.\(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
+        [nvcc_minor=$("$NVCC" --version | grep release | sed]dnl
+           ['s/^.*release [0-9][0-9]*\.\([0-9][0-9]*\).*$/\1/')]
 	AC_MSG_RESULT($nvcc_minor)
 
         if test "${ac_cv_sizeof_int_p?}" -eq 8 && test "${system?}" = Linux
@@ -1362,8 +1350,9 @@ sdl_version=
 sdl_version_str=
 sdl_ver_suffix=
 AC_ARG_ENABLE(sdl,
-              AS_HELP_STRING([--enable-sdl@<:@=1|2|3@:>@], [enable SDL (optionally with version(s); default is auto), ]
-              [requires: sdl >= 1.2.14 | sdl2 | sdl3 >= 3.2.0]),
+              [AS_HELP_STRING([[--enable-sdl[=1|2|3]]],
+              [enable SDL (optionally with version(s); default is auto),]
+              [requires: sdl >= 1.2.14 | sdl2 | sdl3 >= 3.2.0])],
               [sdl_req=$enableval],
               [sdl_req=$build_default]
               )
@@ -1810,9 +1799,10 @@ ENSURE_FEATURE_PRESENT([$blank_req], [$blank], [Blank dep not found (libswscale)
 # Testcard stuff
 # -------------------------------------------------------------------------------------------------
 AC_ARG_ENABLE(testcard2,
-      AS_HELP_STRING([--enable-testcard2@<:@=@<:@no@:>@ttf@:>@], [enable testcard2 (default is auto)]
+      [AS_HELP_STRING([[--enable-testcard2[=[no]ttf]]],
+      [enable testcard2 (default is auto)]
       [This includes testcard2 (optionally with TTF).]
-      [Requires: SDL_ttf (optional)]),
+      [Requires: SDL_ttf (optional)])],
     [testcard2_req=$enableval],
     [testcard2_req=$build_default]
     )
@@ -2287,11 +2277,13 @@ screen_modules=
 sc_details=
 
 AC_ARG_ENABLE(screen,
-[  --disable-screen        disable screen capture (default is auto)]
-AS_HELP_STRING([--enable-screen@<:@=x11,pipewire,cg@:>@],
-[choose implementation (Linux: can be both x11 and pipewire; macOS: cg]
-[ - use Core Graphics implementation instead of AV Foundation).]
-[Requires: macOS<15 (cg), AVF (macOS otherwise); X11 or PipeWire (Linux); DShow (Win)]),
+        [AS_HELP_STRING([[--disable-screen[=x11,pipewire,cg]]],
+                [disable screen capture (default is auto).]
+                [Choose implementation (Linux: can be both x11 and pipewire;]
+                [- requires corresponding libs;]
+                [macOS: cg  - use Core Graphics implementation instead of]
+                [AV Foundation) - requires: macOS<15 (cg), AVF (macOS otherwise);]
+                [DShow (Win)])],
     [screen_cap_req=$enableval],
     [screen_cap_req=$build_default]
     )
@@ -2852,7 +2844,8 @@ if test $cross_compile = no && test "$zfec_req" != no; then
                 ZFEC_PREFIX=$(ls -d /usr/lib/python* 2>/dev/null |
                         tail -n 1)/dist-packages/zfec
                 if test ! -d "$ZFEC_PREFIX"; then
-                        ZFEC_PREFIX=$(echo /usr/lib/python* | sed 's/.* \(@<:@^ @:>@*\)/\1/')/site-packages/zfec
+                        [ZFEC_PREFIX=$(echo /usr/lib/python* | ]dnl
+                        [sed 's/.* \([^ ]*\)/\1/')/site-packages/zfec]
                 fi
                 if test ! -d "$ZFEC_PREFIX"; then
                         ZFEC_PREFIX=/usr/local/src/zfec
@@ -3218,8 +3211,9 @@ fi
 crypto=no
 crypto_impl=
 AC_ARG_ENABLE(openssl,
-              AS_HELP_STRING([--enable-openssl@<:@=auto|openssl|wolfssl@:>@], [enable encryption support (default is auto)]
-              [Requires: crypto | wolfssl]),
+              [AS_HELP_STRING([[--enable-openssl[=auto|openssl|wolfssl]]],
+              [enable encryption support (default is auto)]
+              [Requires: crypto | wolfssl])],
               [crypto_req=$enableval],
               [crypto_req=$build_default]
 )
@@ -3473,18 +3467,19 @@ ENSURE_FEATURE_PRESENT([$cmpto_j2k_req], [$cmpto_j2k], [Comprimato J2K not found
 # ------------------------------------------------------------------------------
 ndi=no
 AC_ARG_ENABLE(ndi,
-      AS_HELP_STRING([--enable-ndi@<:@=ver@:>@], [enables NDI support (default is auto).]
-[Set ver to 5 if using NDI 5.]),
+      [AS_HELP_STRING([[--enable-ndi[=ver]]],
+                [enables NDI support (default is auto).]
+                [Set ver to 5 if using NDI 5.])],
     [ndi_req=$enableval],
     [ndi_req=$build_default]
     )
 
 
 NDI_VER=
-if expr "x$ndi_req" : 'x@<:@0-9@:>@' >/dev/null; then
+[if expr "x$ndi_req" : 'x[0-9]' >/dev/null; then
         NDI_VER=$ndi_req
         ndi_req=yes
-fi
+fi]
 
 if test $ndi_req != no; then
         S_CPATH=$CPATH
