@@ -46,7 +46,7 @@ jobs:
         path: ${{ env.SDK_NONFREE_PATH }}
         key: cache-nonfree-sdks-${{ runner.os }}-${{ steps.etags.outputs.nonfree }}
     - name: Download Non-Free SDKs
-      if: steps.cache-macos-nonfree-sdks.outputs.cache-hit != '' && env.SDK_URL != null
+      if: steps.cache-macos-nonfree-sdks.outputs.cache-hit == '' && env.SDK_URL != null
       run: |
         rm -rf ${{ env.SDK_NONFREE_PATH }}
         mkdir -p ${{ env.SDK_NONFREE_PATH }}
@@ -59,7 +59,7 @@ jobs:
         path: /var/tmp/XIMEA_OSX_SP.dmg
         key: cache-ximea-${{ matrix.os }}-${{ steps.etags.outputs.ximea }}
     - name: Download XIMEA
-      if: steps.cache-macos-ximea.outputs.cache-hit != ''
+      if: steps.cache-macos-ximea.outputs.cache-hit == ''
       run: curl -LSf "$XIMEA_DOWNLOAD_URL" -o /private/var/tmp/XIMEA_OSX_SP.dmg
     - name: Run actions/cache for NDI
       id: cache-ndi
@@ -68,7 +68,7 @@ jobs:
         path: /private/var/tmp/Install_NDI_SDK_Apple.pkg
         key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
     - name: Download NDI
-      if: steps.cache-ndi.outputs.cache-hit != ''
+      if: steps.cache-ndi.outputs.cache-hit == ''
       run: "curl -Lf https://downloads.ndi.tv/SDK/NDI_SDK_Mac/Install_\
        NDI_SDK_v6_Apple.pkg -o /private/var/tmp/Install_NDI_SDK_Apple.pkg"
     - name: bootstrap

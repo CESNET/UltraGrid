@@ -44,7 +44,7 @@ jobs:
         path: 'C:\ndi.exe'
         key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
     - name: Download NDI
-      if: steps.cache-ndi.outputs.cache-hit != ''
+      if: steps.cache-ndi.outputs.cache-hit == ''
       run: curl -f 'https://downloads.ndi.tv/SDK/NDI_SDK/NDI%206%20SDK.exe'
        -o 'C:\ndi.exe'
     - name: Cache XIMEA
@@ -54,7 +54,7 @@ jobs:
         path: 'C:\XIMEA_API_Installer.exe'
         key: cache-ximea-${{ runner.os }}-${{ steps.etags.outputs.ximea }}
     - name: Download XIMEA
-      if: steps.cache-macos-ximea.outputs.cache-hit != ''
+      if: steps.cache-macos-ximea.outputs.cache-hit == ''
       run: curl -f "$XIMEA_DOWNLOAD_URL" -o 'C:\XIMEA_API_Installer.exe'
 
     - name: Run actions/cache for libajantv2 build
@@ -80,7 +80,7 @@ jobs:
         path: 'C:\Program Files\JACK2'
         key: cache-jack-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/install_jack.ps1') }}
     - name: Install JACK
-      if: steps.cache-jack.outputs.cache-hit != ''
+      if: steps.cache-jack.outputs.cache-hit == ''
       run: .github/scripts/Windows/install_jack.ps1
       shell: pwsh -command ". '{0}'"
     - name: bootsrap MSYS2
@@ -93,7 +93,7 @@ jobs:
         path: 'C:\Spout2'
         key: cache-spout-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/install_spout.sh') }}
     - name: Build Spout
-      if: steps.cache-spout.outputs.cache-hit != ''
+      if: steps.cache-spout.outputs.cache-hit == ''
       run: $GITHUB_WORKSPACE/.github/scripts/Windows/install_spout.sh build
     - name: Install Spout
       run: $GITHUB_WORKSPACE/.github/scripts/Windows/install_spout.sh install
@@ -105,7 +105,7 @@ jobs:
         path: 'C:\cineform-sdk'
         key: cache-cineform-${{ runner.os }}-${{ hashFiles('.github/scripts/Windows/install_cineform.sh') }}
     - name: Build CineForm
-      if: steps.cache-cineform.outputs.cache-hit != ''
+      if: steps.cache-cineform.outputs.cache-hit == ''
       run: $GITHUB_WORKSPACE/.github/scripts/Windows/install_cineform.sh build
     - name: Install CineForm
       run: $GITHUB_WORKSPACE/.github/scripts/Windows/install_cineform.sh install

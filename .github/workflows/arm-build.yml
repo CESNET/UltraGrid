@@ -49,7 +49,7 @@ jobs:
         path: /var/tmp/Install_NDI_SDK_Linux.tar.gz
         key: cache-ndi-${{ runner.os }}-${{ steps.etags.outputs.ndi }}
     - name: Download NDI
-      if: steps.cache-ndi.outputs.cache-hit != ''
+      if: steps.cache-ndi.outputs.cache-hit == ''
       run: "curl -Lf https://downloads.ndi.tv/SDK/NDI_SDK_Linux/\
        Install_NDI_SDK_v6_Linux.tar.gz -o /var/tmp/Install_NDI_SDK_Linux.tar.gz"
 
