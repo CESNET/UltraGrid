@@ -101,6 +101,8 @@ uint32_t parse_uint32(const char *value_str) noexcept(false);
 
 template<auto delete_fcn>
 struct deleter_from_fcn{ template<typename T> void operator()(T handle) const { delete_fcn(handle); }};
+template<auto delete_fcn>
+struct deleter_from_fcn_double_ptr{ template<typename T> void operator()(T handle) const { delete_fcn(&handle); }};
 
 #if ! defined __cpp_lib_out_ptr
 /* Like std::out_ptr from C++23 */
