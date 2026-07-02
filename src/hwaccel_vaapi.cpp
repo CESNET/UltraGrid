@@ -5,7 +5,7 @@
  * @brief This file contains functions related to hw acceleration
  */
 /*
- * Copyright (c) 2018-2023 CESNET z.s.p.o.
+ * Copyright (c) 2018-2026 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -41,10 +41,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif // defined HAVE_CONFIG_H
 
 extern "C" {
 #include <libavcodec/version.h>
