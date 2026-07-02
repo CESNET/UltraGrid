@@ -55,7 +55,6 @@ extern "C" {
 
 struct AVCodecContext;
 struct hw_accel_state;
-struct vaapi_ctx;
 
 void vaapi_uninit(struct hw_accel_state *s);
 int vaapi_init(struct AVCodecContext *s,
