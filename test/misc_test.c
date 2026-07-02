@@ -161,26 +161,30 @@ misc_test_ug_reltimedwait_timeout()
         pthread_cond_init(&cv, nullptr);
         enum { TIMEOUT_20MS = 20 * 1000 * 1000, };
 
-        time_ns_t timeout = TIMEOUT_20MS;
-        int       rc      = ETIMEDOUT;
-        time_ns_t t0 = get_time_in_ns();
+        time_ns_t timeouts[] = { 0, TIMEOUT_20MS };
 
-        CHK_PTHR(pthread_mutex_lock(&lock));
-        while (rc == ETIMEDOUT) {
-                rc = ug_pthread_cond_reltimedwait(&cv, &lock, &timeout);
-                time_ns_t t1 = get_time_in_ns();
-                if (t1 - t0 > TIMEOUT_20MS) {
-                        break;
+        for (unsigned i = 0; i < countof(timeouts); ++i) {
+                time_ns_t timeout = timeouts[i];
+                int       rc      = ETIMEDOUT;
+                time_ns_t t0      = get_time_in_ns();
+
+                CHK_PTHR(pthread_mutex_lock(&lock));
+                while (rc == ETIMEDOUT) {
+                        rc = ug_pthread_cond_reltimedwait(&cv, &lock, &timeout);
+                        time_ns_t t1 = get_time_in_ns();
+                        if (t1 - t0 > timeouts[i]) {
+                                break;
+                        }
                 }
+                CHK_PTHR(pthread_mutex_unlock(&lock));
+                time_ns_t t1 = get_time_in_ns();
+                ASSERT_EQUAL(ETIMEDOUT, rc);
+                ASSERT_EQUAL(0, timeout);
+                ASSERT_OP(t1 - t0, >, timeouts[i]);
         }
-        time_ns_t t1 = get_time_in_ns();
 
-        CHK_PTHR(pthread_mutex_unlock(&lock));
         CHK_PTHR(pthread_mutex_destroy(&lock));
         CHK_PTHR(pthread_cond_destroy(&cv));
-
-        ASSERT_EQUAL(ETIMEDOUT, rc);
-        ASSERT_OP(t1 - t0, >, TIMEOUT_20MS);
 
         return 0;
 }
