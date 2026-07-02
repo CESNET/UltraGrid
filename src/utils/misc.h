@@ -42,6 +42,7 @@
 #ifdef __cplusplus
 #include <cstddef>
 #include <cstdint>
+#include <version>
 #else
 #include <stdbool.h>
 #include <stddef.h>
