@@ -245,8 +245,7 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
                                             << get_str_from_bmd_api_str(
                                                    timecode_str)
                                             << " output at "
-                                            << (double) get_time_in_ns() /
-                                                   NS_IN_SEC_DBL
+                                            << NS_TO_SEC_DBL(get_time_in_ns())
                                             << '\n';
                                         release_bmd_api_str(timecode_str);
 				}

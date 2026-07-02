@@ -77,27 +77,20 @@ uint32_t get_std_video_local_mediatime(void);
 
 typedef long long time_ns_t;
 time_ns_t get_time_in_ns();
-/// @todo
-/// The naming is inconsistent - whereas US_IN_NS is the 1 us represented in ns,
-/// MS_IN_SEC is count of milliseconds in a second. Unify the use.
-#define MS_IN_NS      1000000
-#define MS_IN_NS_DBL 1000000.0
-#define MS_IN_SEC 1000
-#define MS_IN_SEC_DBL 1000.0
+
 #define US_IN_SEC 1000000LL
-#define US_IN_NS 1000LL
-#define US_IN_SEC_DBL ((double) US_IN_SEC)
 #define NS_IN_SEC 1000000000LL
-#define NS_IN_SEC_DBL ((double) NS_IN_SEC)
-#define NS_IN_US (NS_IN_SEC/US_IN_SEC)
-#define NS_IN_US_DBL ((double) NS_IN_US)
-#define US_TO_MS(val_us) ((val_us) / 1000)
-#define US_TO_NS(val_us) ((val_us) * 1000)
-#define MS_TO_US(val_ms) ((val_ms) * 1000)
-#define NS_TO_MS(val_ns) ((val_ns) / 1000 / 1000)
-#define NS_TO_SEC_DBL(val_ns) ((double) (val_ns) / 1000 / 1000 / 1000)
+
 #define NS_TO_US(val_ns) ((val_ns) / 1000)
+#define NS_TO_MS(val_ns) ((val_ns) / 1000 / 1000)
+#define NS_TO_MS_DBL(val_ns) ((double) (val_ns) / 1000 / 1000)
+#define NS_TO_SEC_DBL(val_ns) ((double) (val_ns) / 1000 / 1000 / 1000)
+#define US_TO_NS(val_us) ((val_us) * 1000)
+#define US_TO_MS(val_us) ((val_us) / 1000)
 #define MS_TO_NS(val_ms) ((time_ns_t) (val_ms) * 1000 * 1000)
+#define MS_TO_US(val_ms) ((val_ms) * 1000)
+#define MS_TO_SEC(val_ms) ((val_ms) / 1000)
+#define SEC_TO_MS(val_sec) ((val_sec) * 1000LL)
 #define SEC_TO_NS(val_sec) ((val_sec) * 1000LL * 1000 * 1000)
 
 #ifdef __cplusplus

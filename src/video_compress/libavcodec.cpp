@@ -1348,7 +1348,7 @@ static void check_duration(struct state_video_compress_libav *s, time_ns_t dur_p
 {
         enum { REPEAT_INT_SEC = 30 };
         constexpr int mov_window = 100;
-        double duration = dur_total_ns / NS_IN_SEC_DBL;
+        double duration = NS_TO_SEC_DBL(dur_total_ns);
         s->mov_avg_comp_duration = (s->mov_avg_comp_duration * (mov_window - 1) + duration) / mov_window;
         s->mov_avg_frames += 1;
         if (s->mov_avg_frames < 2 * mov_window || s->mov_avg_comp_duration < 1 / s->compressed_desc.fps) {
@@ -1390,7 +1390,7 @@ static void check_duration(struct state_video_compress_libav *s, time_ns_t dur_p
 
         bool src_rgb = codec_is_a_rgb(s->saved_desc.color_spec);
         bool dst_rgb = av_pix_fmt_desc_get(s->codec_ctx->pix_fmt)->flags & AV_PIX_FMT_FLAG_RGB;
-        if (src_rgb != dst_rgb && dur_pixfmt_change_ns / NS_IN_SEC_DBL > s->mov_avg_comp_duration / 4) {
+        if (src_rgb != dst_rgb && NS_TO_SEC_DBL(dur_pixfmt_change_ns) > s->mov_avg_comp_duration / 4) {
                 LOG(LOG_LEVEL_WARNING)
                     << MOD_NAME "Also pixfmt change of last frame took "
                     << NS_TO_MS((double) dur_pixfmt_change_ns)
@@ -1620,7 +1620,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(void *state, shared_ptr<
         shared_ptr<video_frame> out = receive_packet(s);
         time_ns_t t3 = get_time_in_ns();
         LOG(LOG_LEVEL_DEBUG2) << MOD_NAME << "duration pixfmt change: "
-                << (t1 - t0) / NS_IN_SEC_DBL <<
+                << NS_TO_SEC_DBL(t1 - t0) <<
                 " s, dump+swscale " << (t2 - t1) / (double) NS_IN_SEC <<
                 " s, compression " << (t3 - t2) / (double) NS_IN_SEC << " s\n";
         check_duration(s, t1 - t0, t3 - t0);

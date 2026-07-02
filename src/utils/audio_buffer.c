@@ -109,7 +109,7 @@ void audio_buffer_destroy(struct audio_buffer *buf)
                 time_ns_t t = get_time_in_ns();
                 MSG(INFO, "dropped %s bytes in %.2f seconds\n",
                     fmt_number_with_delim(buf->drop_cumul),
-                    NS_TO_MS(t - buf->t0) / MS_IN_SEC_DBL);
+                    NS_TO_SEC_DBL(t - buf->t0));
         }
         ring_buffer_destroy(buf->ring);
         free(buf);

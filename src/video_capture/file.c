@@ -423,7 +423,7 @@ static struct video_frame *process_video_pkt(struct vidcap_state_lavf_decoder *s
                 MOD_NAME "Video decompressing %c frame (pts %" PRId64 ") "
                          "duration: %f s\n",
                 av_get_picture_type_char(frame->pict_type), frame->pts,
-                (get_time_in_ns() - t0) / NS_IN_SEC_DBL);
+                NS_TO_SEC_DBL(get_time_in_ns() - t0));
 
         if (ret < 0) {
                 print_decoder_error(MOD_NAME "recv - ", ret);

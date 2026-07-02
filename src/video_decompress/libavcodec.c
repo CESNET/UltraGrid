@@ -947,7 +947,7 @@ static void check_duration(struct state_libavcodec_decompress *s, double duratio
         MSG(WARNING,
             "Avg decompress time of last %d frames is %.2f ms which exceeds %.2f "
             "ms (%d%% of TPF)!\n",
-            MOV_WIN_FRM, s->mov_avg_comp_duration * MS_IN_SEC, tpf * MS_IN_SEC,
+            MOV_WIN_FRM, SEC_TO_MS(s->mov_avg_comp_duration), SEC_TO_MS(tpf),
             TIME_SLOT_PERC_MAX);
         const char *hint = NULL;
         if ((s->codec_ctx->thread_type & FF_THREAD_FRAME) == 0 &&
@@ -1118,7 +1118,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
             "pixfmt change %f ms.\n",
             av_get_picture_type_char(s->frame->pict_type), s->frame->flags,
             NS_TO_MS((double) (t1 - t0)), NS_TO_MS((double) (t2 - t1)));
-        check_duration(s, (t2 - t0) / NS_IN_SEC_DBL, (t2 - t1) / NS_IN_SEC_DBL);
+        check_duration(s, NS_TO_SEC_DBL(t2 - t0), NS_TO_SEC_DBL(t2 - t1));
 
         if (s->out_codec == VIDEO_CODEC_NONE) {
                 log_msg(LOG_LEVEL_VERBOSE,

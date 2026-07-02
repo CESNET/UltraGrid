@@ -72,7 +72,7 @@
 #define MOD_NAME             "[File disp.] "
 
 enum {
-        DEFAULT_MAX_AV_DIFF_NS = 84 * MS_IN_NS, // 2 24p frames
+        DEFAULT_MAX_AV_DIFF_NS = MS_TO_NS(84), // 2 24p frames
 };
 
 struct output_stream {
@@ -150,7 +150,7 @@ usage(bool full)
                 color_printf(
                     "\t" TBOLD("max_av_diff") " - allowed A/V descync length "
                                               "(in seconds; default %.3f)\n",
-                    DEFAULT_MAX_AV_DIFF_NS / NS_IN_SEC_DBL);
+                    NS_TO_SEC_DBL(DEFAULT_MAX_AV_DIFF_NS));
         }
         color_printf("\n");
         char codec_note[] = TBOLD(
@@ -173,8 +173,7 @@ parse_fmt(struct state_file *s, char *fmt)
                 if (IS_KEY_PREFIX(item, "file") || IS_KEY_PREFIX(item, "name")) {
                         snprintf(s->filename, sizeof s->filename, "%s", val);
                 } else if (IS_KEY_PREFIX(item, "max_av_diff")) {
-                        s->max_av_diff_ns =
-                            (time_ns_t) (strtod(val, NULL) * NS_IN_SEC_DBL);
+                        s->max_av_diff_ns = SEC_TO_NS(strtod(val, NULL));
                         assert(s->max_av_diff_ns >= 0.0);
                 } else {
                         log_msg(LOG_LEVEL_ERROR,
@@ -779,8 +778,7 @@ write_video_frame(struct state_file *s, struct video_frame *vid_frm,
                         log_msg(
                             LOG_LEVEL_WARNING,
                             MOD_NAME "A-V desync %f sec, video frame %s...\n",
-                            (double) (audio_start - video_start) /
-                                NS_IN_SEC_DBL,
+                            NS_TO_SEC_DBL(audio_start - video_start),
                             video_start < audio_start ? "dropped" : "dupped");
                         if (video_start < audio_start) {
                                 return; // drop frame

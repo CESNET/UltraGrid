@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2023 CESNET z.s.p.o.
+ * Copyright (c) 2012-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -426,16 +426,17 @@ static bool reinitialize_encoder(struct libavcodec_codec_state *s, struct audio_
 
         if (s->direction == AUDIO_CODER && (get_commandline_param("low-latency-audio") != NULL
                                 || get_commandline_param("audioenc-frame-duration") != NULL)) {
-                double frame_duration = get_commandline_param("audioenc-frame-duration") == NULL ?
+                double frame_duration_ms = get_commandline_param("audioenc-frame-duration") == NULL ?
                         LOW_LATENCY_AUDIOENC_FRAME_DURATION : atof(get_commandline_param("audioenc-frame-duration"));
                 if (s->codec->id == AV_CODEC_ID_OPUS) {
-                        int ret = av_opt_set_double(s->codec_ctx->priv_data, "frame_duration", frame_duration, 0);
+                        int ret = av_opt_set_double(s->codec_ctx->priv_data, "frame_duration", frame_duration_ms, 0);
                         if (ret != 0) {
                                 print_libav_audio_error(LOG_LEVEL_ERROR, "Could not set Opus frame duration", ret);
                         }
                 }
                 if (s->codec->id == AV_CODEC_ID_FLAC) {
-                        s->codec_ctx->frame_size = desc.sample_rate * frame_duration / MS_IN_SEC;
+                        // nr of samples in frame_duration_ms
+                        s->codec_ctx->frame_size = MS_TO_SEC(desc.sample_rate * frame_duration_ms);
                 }
         }
 

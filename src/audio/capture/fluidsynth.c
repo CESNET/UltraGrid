@@ -292,7 +292,7 @@ audio_cap_fluidsynth_init(struct module */* parent */, const char *cfg)
         s->left       = malloc(s->audio.data_len / s->audio.ch_count);
         s->right      = malloc(s->audio.data_len / s->audio.ch_count);
 
-        s->frame_interval  = CHUNK_SIZE * NS_IN_SEC_DBL / s->audio.sample_rate;
+        s->frame_interval  = SEC_TO_NS(CHUNK_SIZE) / s->audio.sample_rate;
         s->next_frame_time = get_time_in_ns() + s->frame_interval;
 
         MSG(VERBOSE, "Initialized fluidsynth\n");

@@ -616,7 +616,7 @@ shared_ptr<video_frame> compress_pop(struct compress_state *proxy)
                 MSG(DEBUG, "Compressed frame size: %s B; duration: %7.3f ms\n",
                     format_number_with_delim(vf_get_data_len(f.get()), sz_str,
                                              sizeof sz_str),
-                    (f->compress_end - f->compress_start) / MS_IN_NS_DBL);
+                    NS_TO_MS_DBL(f->compress_end - f->compress_start));
         }
         return f;
 }

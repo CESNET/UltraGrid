@@ -113,7 +113,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         frame->callbacks.dispose = dispose_frame;
         frame->callbacks.dispose_udata = in;
 
-        s->next_frame_time += NS_IN_SEC_DBL / s->fps;
+        s->next_frame_time += (time_ns_t) SEC_TO_NS(1.0 / s->fps);
 
         return frame;
 }

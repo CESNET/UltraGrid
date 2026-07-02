@@ -504,7 +504,7 @@ static bool common_postprocess(void *state, struct video_frame *in, struct video
                         time_ns_t t = 0;
                         do {
                                 t = get_time_in_ns();
-                        } while ((t - s->frame_received) / NS_IN_SEC_DBL <= 0.5 / out->fps);
+                        } while (NS_TO_SEC_DBL(t - s->frame_received) <= 0.5 / out->fps);
                 }
         }
 
