@@ -209,6 +209,7 @@ struct init_data {
         list <void *> opened_libs;
 };
 
+static void linux_print_rss_mem();
 static void print_backtrace();
 static void print_param_doc(void);
 static bool validate_param(const char *param);
@@ -229,6 +230,7 @@ void common_cleanup(struct init_data *init)
 #ifdef __gnu_linux__
         muntrace();
 #endif
+        linux_print_rss_mem();
 
 #ifdef _WIN32
         WSACleanup();
@@ -1468,6 +1470,33 @@ check_obsolete_uv()
                         "upgrade and report the problem if it perisists...\n\n")),
                     PACKAGE_NAME, ACCEPTED_MONTHS);
         write_all(STDERR_FILENO, strlen(buf), buf);
+}
+
+static void
+linux_print_rss_mem()
+{
+#ifdef __linux__
+        if (log_level < LOG_LEVEL_VERBOSE) {
+                return;
+        }
+        FILE *status = fopen("/proc/self/status", "r");
+        if (status == nullptr) {
+                return;
+        }
+        char line[128];
+        while (fgets(line, sizeof line, status) != nullptr) {
+                if (strncmp(line, "VmRSS:", 6) != 0) {
+                        continue;
+                }
+                unsigned long count = 0;
+                if (sscanf(line + 6, " %lu", &count) != 1) {
+                        break;
+                }
+                (void) fprintf(stderr, "RSS mem: %lu kB\n", count);
+                break;
+        }
+        (void) fclose(status);
+#endif
 }
 
 void crash_signal_handler(int sig)
