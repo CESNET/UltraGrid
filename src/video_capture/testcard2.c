@@ -96,6 +96,7 @@ enum {
         AUDIO_BPS            = 2,
         AUDIO_FREQUENCY      = 200,
         AUDIO_SAMPLE_RATE    = 48000,
+        AUDIO_VOLUME_DBFS    = -18,
         BANNER_HEIGHT        = 150,
         BANNER_MARGIN_BOTTOM = 75,
         BUFFER_SEC           = 1,
@@ -147,6 +148,7 @@ configure_audio(struct testcard_state2 *s)
         s->audio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
         s->audio.sample_rate = AUDIO_SAMPLE_RATE;
 
+        double scale = pow(10.0, AUDIO_VOLUME_DBFS / 20.0) * sqrt(2.0);
         const size_t audio_buffer_size = (size_t) AUDIO_SAMPLE_RATE *
                                          AUDIO_BPS * s->audio.ch_count *
                                          BUFFER_SEC;
@@ -157,7 +159,7 @@ configure_audio(struct testcard_state2 *s)
                 data[i] = data[i + 1] =
                     (float) sin(((double) i / (double) AUDIO_FREQUENCY) * M_PI *
                                 2.) *
-                    SHRT_MAX;
+                    scale * SHRT_MAX;
         }
 
         printf("[testcard2] playing audio\n");
