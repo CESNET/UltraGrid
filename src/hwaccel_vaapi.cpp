@@ -63,6 +63,15 @@ using AVHWFramesConstraints_uniq = std::unique_ptr<AVHWFramesConstraints, delete
 
 constexpr int DEFAULT_SURFACES = 20;
 
+AVPixelFormat get_nv12_or_first(const AVPixelFormat *fmts){
+        for(int i = 0; fmts[i] != AV_PIX_FMT_NONE; i++){
+                if(fmts[i] == AV_PIX_FMT_NV12){
+                        return AV_PIX_FMT_NV12;
+                }
+        }
+        return fmts[0];
+}
+
 /**
  * Returns first SW format from valid_sw_formats. This is usually
  * AV_PIX_FMT_YUV420P or AV_PIX_FMT_NV12.
@@ -72,12 +81,10 @@ constexpr int DEFAULT_SURFACES = 20;
  * namely from function try_format_config().
  */
 AVPixelFormat get_sw_format(AVBufferRef *device_ref){
-        AVPixelFormat ret = AV_PIX_FMT_NONE;
-
         AVHWFramesConstraints_uniq fc(av_hwdevice_get_hwframe_constraints(device_ref, nullptr));
         if (!fc) {
                 MSG(ERROR, "failed to retrieve libavutil frame constraints\n");
-                return ret;
+                return AV_PIX_FMT_NONE;
         }
 
         /*
@@ -89,31 +96,28 @@ AVPixelFormat get_sw_format(AVBufferRef *device_ref){
         AVBufferRef_uniq fref(av_hwframe_ctx_alloc(device_ref));
         if (!fref) {
                 MSG(ERROR, "failed to alloc libavutil frame context\n");
-                return ret;
+                return AV_PIX_FMT_NONE;
         }
         auto fctx = reinterpret_cast<AVHWFramesContext *>(fref->data);
         constexpr int dummy_size = 128; ///< just some valid size
         fctx->format    = AV_PIX_FMT_VAAPI;
-        fctx->sw_format = fc->valid_sw_formats[0];
+        fctx->sw_format = get_nv12_or_first(fc->valid_sw_formats);
         fctx->width     = dummy_size;
         fctx->height    = dummy_size;
         if (av_hwframe_ctx_init(fref.get()) < 0) {
                 MSG(ERROR, "failed to init libavutil frame context\n");
-                return ret;
+                return AV_PIX_FMT_NONE;
         }
 
-        AVPixelFormat *fmts = nullptr;
+        std::unique_ptr<AVPixelFormat, deleter_from_fcn<av_free>> fmts;
         int rc = av_hwframe_transfer_get_formats(
-                fref.get(), AV_HWFRAME_TRANSFER_DIRECTION_FROM, &fmts, 0);
+                fref.get(), AV_HWFRAME_TRANSFER_DIRECTION_FROM, out_ptr(fmts), 0);
         if(rc){
                 MSG(ERROR, "failed to get libavutil frame context supported formats\n");
-                return ret;
+                return AV_PIX_FMT_NONE;
         }
-        MSG(DEBUG, "Available HW layouts: %s\n", get_avpixfmts_names(fmts));
-        ret = fmts[0];
-        av_free(fmts);
-
-        return ret;
+        MSG(DEBUG, "Available HW layouts: %s\n", get_avpixfmts_names(fmts.get()));
+        return get_nv12_or_first(fmts.get());
 }
 
 }
