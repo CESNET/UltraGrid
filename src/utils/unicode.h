@@ -16,6 +16,7 @@
 extern "C" {
 #endif
 
+// defined symbols below in this order represent: ® ° ¹ 🔴
 #define W_REGISTERED_SIGN  L"\u00AE"
 #define W_DEGREE_SIGN      L"\u00B0"
 #define W_SUPERSCRIPT_ONE  L"\u00B9"
