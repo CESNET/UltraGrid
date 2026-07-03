@@ -18,6 +18,7 @@
 #include "lib_common.h"    // for REGISTER_MODULE, library_class
 #include "rtp/net_udp.h"   // for socket_udp, udp_init, udp_send
 #include "rxtx.h"          // for rxtx_params, RXTX_ABI_VERSION, rxtx...
+#include "utils/list.h"
 #include "utils/macros.h"  // for CONST_CAST
 #include "utils/pthread.h" // for ug_pthread_mutex_init
 
@@ -37,6 +38,8 @@ struct rxtx_mpegts {
 
         FILE *dump_f;
 
+        struct simple_linked_list *audio_frames;
+
         bool use_audio;
         bool use_video;
 
@@ -51,6 +54,9 @@ struct rxtx_mpegts {
         double video_duration;
         double audio_duration;
 };
+
+static void send_audio_frame_impl(struct rxtx_mpegts        *s,
+                                  const struct audio_frame2 *f);
 
 enum {
         PCR_PID   = 0x100,
@@ -77,6 +83,8 @@ init(const struct rxtx_params *params)
         if (strcmp(params->protocol_opts, "dump") == 0) {
                 s->dump_f = fopen("out.ts", "wb");
         }
+
+        s->audio_frames = simple_linked_list_init();
 
         return s;
 }
@@ -186,6 +194,25 @@ udp_send_packets(struct rxtx_mpegts *s, uint8_t *output, int output_len)
         }
 }
 
+/**
+ * processes audio frames ending prior to given video TS
+ * @todo
+ * handle underflows/excessive frames
+ */
+static void
+handle_audio_frames(struct rxtx_mpegts *s, double video_ts)
+{
+        while (s->audio_duration + s->af_duration < video_ts) {
+                struct audio_frame2 *af =
+                    simple_linked_list_pop(s->audio_frames);
+                if (af == nullptr) {
+                        break;
+                }
+                send_audio_frame_impl(s, af);
+                audio_frame2_delete(af);
+        }
+}
+
 static void
 send_video_frame_impl(struct rxtx_mpegts *s, struct video_frame *f)
 {
@@ -222,13 +249,16 @@ send_video_frame_impl(struct rxtx_mpegts *s, struct video_frame *f)
 
         // 90kHz clock ticks [1]
         double ts = s->video_duration + s->vf_duration;
+
+        handle_audio_frames(s, ts);
+
         ts_frame.dts = ts_frame.pts = (int64_t) (ts * TIMESTAMP_CLOCK);
         MSG(DEBUG, "video TS %f s\n", ts);
 
         ts_frame.cpb_initial_arrival_time =
             (int64_t) (s->video_duration * TS_CLOCK);
         ts_frame.cpb_final_arrival_time =
-            (s->video_duration + s->vf_duration) * TS_CLOCK;
+            ts_frame.cpb_initial_arrival_time;
 
         uint8_t *output     = nullptr;
         int      output_len = 0;
@@ -338,26 +368,11 @@ add_adts_header(const uint8_t *data, int *len)
 static void
 send_audio_frame_impl(struct rxtx_mpegts *s, const struct audio_frame2 *f)
 {
-        double duration = audio_frame2_get_duration(f);
         if (!s->init) {
-                s->af_duration = duration;
-                s->ac          = audio_frame2_get_codec(f);
                 if (!init_libmpegts(s)) {
                         return;
                 }
                 s->init = true;
-        } else {
-                if (s->ac != audio_frame2_get_codec(f)) {
-                        MSG(ERROR, "audio codec changed, reconf not implemented!\n");
-                        return;
-                }
-                if (fabs(s->af_duration - duration) > .001) {
-                        MSG(ERROR,
-                            "audio frame duration changed from %f to %f, "
-                            "reconf not implemented!\n",
-                            s->af_duration, duration);
-                        return;
-                }
         }
 
         const uint8_t *ad = (const uint8_t *) audio_frame2_get_data(f, 0);
@@ -378,7 +393,7 @@ send_audio_frame_impl(struct rxtx_mpegts *s, const struct audio_frame2 *f)
         // fclose(s->dump_f); abort();
 
         // 90kHz clock ticks [1]
-        double ts = s->audio_duration + duration;
+        double ts = s->audio_duration;
         ts_frame.dts = ts_frame.pts = (int64_t) (ts * TIMESTAMP_CLOCK);
         MSG(DEBUG, "audio TS: %f\n", ts);
 
@@ -405,17 +420,38 @@ send_audio_frame_impl(struct rxtx_mpegts *s, const struct audio_frame2 *f)
                 free(ts_frame.data);
         }
 
-        s->audio_duration += duration;
+        s->audio_duration += s->af_duration;
 }
 
 static void
 send_audio_frame(void *state, const struct audio_frame2 *f)
 {
         struct rxtx_mpegts *s = state;
+        double duration = audio_frame2_get_duration(f);
         CHK_PTHR(pthread_mutex_lock(&s->lock));
         {
-                send_audio_frame_impl(s, f);
+                if (s->af_duration != 0 && fabs(s->af_duration - duration) > .001) {
+                        MSG(ERROR,
+                            "audio frame duration changed from %f to %f, "
+                            "reconf not implemented!\n",
+                            s->af_duration, duration);
+                        goto unlock;
+                }
+                if (s->ac != AC_NONE && s->ac != audio_frame2_get_codec(f)) {
+                        MSG(ERROR, "audio codec changed, reconf not implemented!\n");
+                        goto unlock;
+                }
+                s->af_duration = duration;
+                s->ac          = audio_frame2_get_codec(f);
+
+                if (!s->use_video) {
+                        send_audio_frame_impl(s, f);
+                        goto unlock;
+                }
+                struct audio_frame2 *copy = audio_frame2_copy(f);
+                simple_linked_list_append(s->audio_frames, copy);
         }
+unlock:
         CHK_PTHR(pthread_mutex_unlock(&s->lock));
 }
 
@@ -426,6 +462,7 @@ done(void *state)
         if (s->dump_f) {
                 fclose(s->dump_f);
         }
+        simple_linked_list_destroy(s->audio_frames);
         free(s);
 }
 
