@@ -9,7 +9,7 @@ fi
 install_ximea() (
         filename=XIMEA.tgz
         if [ ! -f "$filename" ]; then
-                curl -L "$XIMEA_DOWNLOAD_URL" -o $filename
+                curl -L "${XIMEA_DOWNLOAD_URL:?}" -o $filename
         fi
         tar xzf $filename
         cd package

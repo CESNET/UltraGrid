@@ -153,6 +153,7 @@ set_ximea_url() {
         else
                 ximea_pattern=XIMEA_Windows_SP_Stable.exe
         fi
+        set +e
         # ignore GUID 35adfeed-8e15-4b4d-8364-bd5a65cba5c4 because it is
         # ARM (LTS) with pattern Linux_SP.tgz and since it listed first,
         # it will be downloaded for x86, ARM beta is OK
@@ -160,7 +161,12 @@ set_ximea_url() {
                 grep -v 35adfeed-8e15-4b4d-8364-bd5a65cba5c4 |
                 sed -n "/$ximea_pattern/"\
 ' { s-^.*\(/getattachment[^"]*\).*$-\1-; p; }' | head -n 1)
-        XIMEA_DOWNLOAD_URL=https://www.ximea.com$ximea_path
+        set -e
+        if [ "${ximea_path-}" ]; then
+                XIMEA_DOWNLOAD_URL=https://www.ximea.com$ximea_path
+        else
+                XIMEA_DOWNLOAD_URL=
+        fi
         export XIMEA_DOWNLOAD_URL
         printf "XIMEA_DOWNLOAD_URL=%s\n" "$XIMEA_DOWNLOAD_URL" >> "$GITHUB_ENV"
 }
