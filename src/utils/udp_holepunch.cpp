@@ -256,18 +256,9 @@ static void discover_and_xchg_candidates(juice_agent_t *agent, fd_t coord_sock) 
         }
 }
 
-static bool initialize_punch(struct Punch_ctx *ctx,
-                const struct Holepunch_config *c,
-                const char *room_suffix)
-{
-        char room_name[512] = "";
-        size_t room_len = strlen(c->room_name);
-        if(room_len + strlen(room_suffix) + 1 > sizeof(room_name)){
-                error_msg(MOD_NAME "Room name too long\n");
-                return false;
-        }
-        strncat(room_name, c->room_name, sizeof(room_name) - 1);
-        strncat(room_name, room_suffix, sizeof(room_name) - room_len - 1);
+static bool initialize_punch(Punch_ctx *ctx, const Holepunch_config *c, std::string_view room_suffix){
+        std::string room_name = c->room_name;
+        room_name += room_suffix;
 
         if(!connect_to_coordinator(c->coord_srv_addr, c->coord_srv_port, &ctx->coord_sock)){
                 return false;
