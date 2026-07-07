@@ -561,6 +561,11 @@ void VulkanContext::create_swap_chain(vk::SwapchainKHR&& old_swapchain) {
                         swapchain = device.createSwapchainKHR(swapchain_info);
                         device.destroy(old_swapchain);
                         old_swapchain = nullptr;
+                        if(auto img_count = device.getSwapchainImagesKHR(swapchain).size(); img_count > swapchain_render_done_semaphores.size()){
+                                for(size_t i = swapchain_render_done_semaphores.size(); i < img_count; i++){
+                                        swapchain_render_done_semaphores.push_back(device.createSemaphore({}));
+                                }
+                        }
                         return;
                 }
                 catch(std::exception& err){
@@ -671,6 +676,10 @@ void VulkanContext::destroy() {
                 destroy_framebuffers();
                 destroy_swapchain_views();
                 device.destroy(swapchain);
+                for(const auto& sem : swapchain_render_done_semaphores){
+                        device.destroy(sem);
+                }
+                swapchain_render_done_semaphores.clear();
                 device.destroy();
         }
         if (instance) {

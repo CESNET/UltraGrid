@@ -60,7 +60,6 @@ constexpr size_t filled_image_queue_size = 1;
 struct PerFrameResources{
         vk::CommandBuffer command_buffer;
         vk::Semaphore image_acquired_semaphore;
-        vk::Semaphore image_rendered_semaphore;
         vk::DescriptorSet render_descriptor_set;
 
         Image2D converted_image;

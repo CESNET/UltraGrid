@@ -268,7 +268,6 @@ void VulkanDisplay::init(VulkanInstance&& instance, vk::SurfaceKHR surface, uint
         for (size_t i = 0; i < frame_resources.size(); i++){
                 auto& resources = frame_resources[i];
                 resources.image_acquired_semaphore = create_semaphore(device);
-                resources.image_rendered_semaphore = create_semaphore(device);
                 resources.command_buffer = command_buffers[i];
         }
 
@@ -299,7 +298,6 @@ void VulkanDisplay::destroy() {
                         device.destroy(command_pool);
                         for (auto& resources : frame_resources) {
                                 device.destroy(resources.image_acquired_semaphore);
-                                device.destroy(resources.image_rendered_semaphore);
                         }
                         destroy_format_dependent_resources();
                         render_pipeline.destroy(device);
@@ -606,7 +604,7 @@ bool VulkanDisplay::display_queued_image() {
                 .setWaitSemaphoreCount(1)
                 .setPWaitSemaphores(&resources.image_acquired_semaphore)
                 .setSignalSemaphoreCount(1)
-                .setPSignalSemaphores(&resources.image_rendered_semaphore);
+                .setPSignalSemaphores(context.get_render_done_semaphore(swapchain_image_id));
 
         context.get_queue().submit(submit_info, transfer_image.is_available_fence);
 
@@ -620,7 +618,7 @@ bool VulkanDisplay::display_queued_image() {
                 .setSwapchainCount(1)
                 .setPSwapchains(&swapchain)
                 .setWaitSemaphoreCount(1)
-                .setPWaitSemaphores(&resources.image_rendered_semaphore);
+                .setPWaitSemaphores(context.get_render_done_semaphore(swapchain_image_id));
 
         auto present_result = context.get_queue().presentKHR(&present_info);
 

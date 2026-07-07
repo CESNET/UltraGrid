@@ -142,6 +142,7 @@ public:
         uint32_t get_queue_family_index() { return queue_family_index; }
         vk::Queue get_queue() { return queue; }
         vk::SwapchainKHR get_swapchain() { return swapchain; }
+        vk::Semaphore *get_render_done_semaphore(uint32_t swapchain_img_idx) { return &swapchain_render_done_semaphores[swapchain_img_idx]; }
         vk::Format get_swapchain_image_format() { return swapchain_attributes.format.format; };
         size_t get_swapchain_image_count() { return swapchain_images.size(); }
         vk::Extent2D get_render_area_size() { return swapchain_attributes.image_size; }
@@ -183,6 +184,7 @@ private:
 
         vk::SurfaceKHR surface;
         vk::SwapchainKHR swapchain;
+        std::vector<vk::Semaphore> swapchain_render_done_semaphores;
         struct {
                 vk::SurfaceCapabilitiesKHR capabilities;
                 vk::SurfaceFormatKHR format;
