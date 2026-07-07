@@ -55,6 +55,7 @@
 #include "audio/utils.h"
 #include "audio/wav_reader.h"
 #include "compat/c23.h"           // IWYU pragma: keep
+#include "compat/strings.h"       // for strlcpy
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -267,49 +268,48 @@ parse_fmt(struct state_audio_capture_testcard *s, char *fmt,
         char *save_ptr = NULL;
         errno = 0;
         while ((item = strtok_r(fmt, ":", &save_ptr))) {
-                if (strncasecmp(item, "vol=", strlen("vol=")) == 0 ||
-                    strncasecmp(item, "volume=", strlen("volume=")) == 0) {
-                        *volume = strtod(strchr(item, '=') + 1, NULL);
+                char *val = strchr(item, '=');
+                if (val != nullptr) {
+                        val += 1;
+                }
+                if (IS_KEY_PREFIX(item, "volume")) {
+                        *volume = strtod(val, nullptr);
                         assert(*volume > 0.0);
-                } else if (strncasecmp(item, "file=", strlen("file=")) == 0) {
-                        wav_file[0] = '\0';
-                        strncat(wav_file, strchr(item, '=') + 1, MAX_PATH_SIZE - 1);
+                } else if (IS_KEY_PREFIX(item, "file")) {
+                        strlcpy(wav_file, val, MAX_PATH_SIZE);
                         *pattern  = WAV;
-                } else if (strncasecmp(item, "frames=", strlen("frames=")) ==
-                           0) {
-                        s->chunk_size = strtoll(item + strlen("frames="), NULL, 10);
-                } else if (strncasecmp(
-                               item, "frequency=", strlen("frequency=")) == 0) {
-                        long val = strtol(item + strlen("frequency="), NULL, 10);
-                        assert(val > 0 && val <= INT_MAX);
-                        *frequency = (int) val;
-                } else if (strstr(item, "crescendo") == item) {
+                } else if (IS_KEY_PREFIX(item, "frames")) {
+                        s->chunk_size = strtoll(val, nullptr, 10);
+                } else if (IS_KEY_PREFIX(item, "frequency")) {
+                        long freq = strtol(val, nullptr, 10);
+                        assert(freq > 0 && freq <= INT_MAX);
+                        *frequency = (int) freq;
+                } else if (IS_PREFIX(item, "crescendo")) {
                         *pattern   = CRESCENDO;
-                        char *val = strchr(item, '=');
                         if (val) {
-                                val += 1;
                                 if (strcmp(val, "help") == 0) {
-                                        printf("-s "
-                                               "testcard:crescendo=<val>\n\t<"
-                                               "val> - crescendo duration "
-                                               "multiplier (default 1)\n");
+                                        color_printf(
+                                            "Usage:\n\t" TBOLD(TRED(
+                                                "-s "
+                                                "testcard:crescendo") "[=<val>"
+                                                                      "]")
+                                            "\n\t\t<val> - crescendo duration "
+                                            "multiplier (default 1.0)\n");
                                         return false;
-                                        break;
                                 }
                                 s->crescendo_speed = (int) strtol(val, NULL, 0);
                                 assert(s->crescendo_speed > 0);
                         }
-                } else if (strcasecmp(item, "ebu") == 0) {
+                } else if (IS_PREFIX(item, "ebu")) {
                         *pattern = EBU;
-                } else if (strcasecmp(item, "noise") == 0) {
+                } else if (IS_PREFIX(item, "noise")) {
                         *pattern = NOISE;
-                } else if (strcasecmp(item, "silence") == 0) {
+                } else if (IS_PREFIX(item, "silence")) {
                         *pattern = SILENCE;
                 } else {
                         log_msg(LOG_LEVEL_ERROR,
                                 MOD_NAME "Unknown option: %s\n", item);
                         return false;
-                        break;
                 }
 
                 fmt = NULL;
