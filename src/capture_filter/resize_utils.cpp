@@ -6,7 +6,7 @@
  */
 /*
  * Copyright (c) 2014      Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2015-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2015-2026 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -45,23 +45,16 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include "capture_filter/resize_utils.h"
 
 #include <cstdlib>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-align"
 #pragma GCC diagnostic ignored "-Wcast-qual"
-#ifdef HAVE_OPENCV2_OPENCV_HPP
-#include <opencv2/opencv.hpp>
-#else
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgproc/types_c.h>
-#endif
 #pragma GCC diagnostic pop
 
-#include "capture_filter/resize_utils.h"
 #include "debug.h"
 #include "utils/color_out.h"
 #include "utils/debug.h"                 // for DEBUG_TIMER_*
