@@ -301,13 +301,13 @@ bool contains(const std::vector<T>& vec, const T& key){
 vk::SurfaceFormatKHR get_surface_format(vk::PhysicalDevice gpu, vk::SurfaceKHR surface) {
         std::vector<vk::SurfaceFormatKHR> available_formats = gpu.getSurfaceFormatsKHR(surface);
 
-        std::array<vk::SurfaceFormatKHR, 5> preferred_formats {{
+        constexpr auto preferred_formats = std::to_array<vk::SurfaceFormatKHR>({
                 {vk::Format::eA2B10G10R10UnormPack32, vk::ColorSpaceKHR::eSrgbNonlinear},
                 {vk::Format::eB8G8R8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear},
                 {vk::Format::eR8G8B8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear},
-        }};
+        });
 
-        for(auto& format: preferred_formats){
+        for(const auto& format: preferred_formats){
                 if (contains(available_formats, format)) {
                         return format;
                 }
