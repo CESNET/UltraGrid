@@ -282,9 +282,9 @@ void module_check_undelivered_messages(struct module *node)
 {
         pthread_mutex_guard guard(node->module_priv->lock);
 
-        for (void *it = simple_linked_list_it_init(
+        for (list_it it = simple_linked_list_it_init(
                  node->module_priv->msg_queue_children);
-             it != NULL;) {
+             it != LIST_IT_END;) {
                 struct pair_msg_path *msg = (struct pair_msg_path *) simple_linked_list_it_next(&it);
                 struct module *receiver = get_matching_child(node, msg->path);
                 if (receiver) {

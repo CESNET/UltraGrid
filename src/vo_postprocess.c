@@ -169,11 +169,11 @@ vo_postprocess_reconfigure(struct vo_postprocess_state *s,
 
         bool filter_complex = false;
 
-        for(void *it = simple_linked_list_it_init(s->postprocessors); it != NULL; ) {
+        for (list_it it = simple_linked_list_it_init(s->postprocessors);
+             it != LIST_IT_END;) {
                 struct vo_postprocess_state_single *state = simple_linked_list_it_next(&it);
                 const bool ret = state->funcs->reconfigure(state->state, desc);
                 if (!ret) {
-                        simple_linked_list_it_destroy(it);
                         return false;
                 }
                 // get desc for next iteration
@@ -203,11 +203,11 @@ struct video_frame * vo_postprocess_getf(struct vo_postprocess_state *s)
 
         struct video_frame *out = NULL;
 
-        for(void *it = simple_linked_list_it_init(s->postprocessors); it != NULL; ) {
+        for (list_it it = simple_linked_list_it_init(s->postprocessors);
+             it != LIST_IT_END;) {
                 struct vo_postprocess_state_single *state = simple_linked_list_it_next(&it);
                 state->f = state->funcs->getf(state->state);
                 if (state->f == NULL) {
-                        simple_linked_list_it_destroy(it);
                         return NULL;
                 }
                 if (out == NULL) {
@@ -230,11 +230,13 @@ bool vo_postprocess(struct vo_postprocess_state *s, struct video_frame *in,
         }
         assert(in == ((struct vo_postprocess_state_single *) simple_linked_list_first(s->postprocessors))->f || in == NULL);
 
-        for(void *it = simple_linked_list_it_init(s->postprocessors); it != NULL; ) {
+        for (list_it it = simple_linked_list_it_init(s->postprocessors);
+             it != LIST_IT_END;) {
                 struct vo_postprocess_state_single *state = simple_linked_list_it_next(&it);
                 struct video_frame *next = out;
                 if (it != NULL) {
-                        struct vo_postprocess_state_single *state_next = simple_linked_list_it_peek_next(it);
+                        struct vo_postprocess_state_single *state_next =
+                            simple_linked_list_it_peek_next(&it);
                         next = state_next->f;
                 }
 
@@ -257,7 +259,8 @@ void vo_postprocess_done(struct vo_postprocess_state *s)
         if (s == NULL) {
                 return;
         }
-        for(void *it = simple_linked_list_it_init(s->postprocessors); it != NULL; ) {
+        for (list_it it = simple_linked_list_it_init(s->postprocessors);
+             it != LIST_IT_END;) {
                 struct vo_postprocess_state_single *state = simple_linked_list_it_next(&it);
                 state->funcs->done(state->state);
                 free(state);

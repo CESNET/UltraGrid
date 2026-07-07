@@ -296,19 +296,17 @@ struct module *get_parent_module(struct module *node)
 static struct module *find_child(struct module *node, const char *node_name, int id_num,
                 const char *id_name)
 {
-        for (void *it = simple_linked_list_it_init(node->module_priv->children);
-             it != NULL;) {
+        for (list_it it = simple_linked_list_it_init(node->module_priv->children);
+             it != LIST_IT_END;) {
                 struct module_priv_state *child = simple_linked_list_it_next(&it);
                 const char *child_name = module_class_name(child->wrapper.cls);
                 assert(child_name != NULL);
                 if(strcasecmp(child_name, node_name) == 0) {
                         if (id_name != NULL) {
                                 if (strcmp(child->wrapper.name, id_name) == 0) {
-                                        simple_linked_list_it_destroy(it);
                                         return &child->wrapper;
                                 }
                         } else if (id_num-- == 0) {
-                                simple_linked_list_it_destroy(it);
                                 return &child->wrapper;
                         }
                 }
@@ -413,9 +411,9 @@ void dump_tree(struct module *root_node, int indent) {
                root_node->module_priv->ref);
 
         module_mutex_lock(&root_node->module_priv->lock);
-        for (void *it =
+        for (list_it it =
                  simple_linked_list_it_init(root_node->module_priv->children);
-             it != NULL;) {
+             it != LIST_IT_END; ) {
                 struct module_priv_state *child = simple_linked_list_it_next(&it);
                 dump_tree(&child->wrapper, indent + 2);
         }
@@ -452,8 +450,8 @@ static const char *get_module_identifier(struct module *mod)
         module_mutex_lock(&parent->module_priv->lock);
 
         int our_index = 0;
-        for (void *it = simple_linked_list_it_init(parent->module_priv->children);
-             it != NULL;) {
+        for (list_it it = simple_linked_list_it_init(parent->module_priv->children);
+             it != LIST_IT_END;) {
                 struct module_priv_state *child = simple_linked_list_it_next(&it);
                 if (child->wrapper.cls != mod->cls) {
                         continue;

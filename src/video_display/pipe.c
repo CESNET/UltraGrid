@@ -172,7 +172,8 @@ static struct audio_frame * display_pipe_get_audio(struct state_pipe *s)
                 return nullptr;
         }
         struct audio_desc desc = audio_desc_from_frame(a);
-        for(void *it = simple_linked_list_it_init(s->audio_frames); it != NULL; ) {
+        for (list_it it = simple_linked_list_it_init(s->audio_frames);
+             it != LIST_IT_END;) {
                 a = simple_linked_list_it_next(&it);
                 if (!audio_desc_eq(desc, audio_desc_from_frame(a))) {
                         MSG(WARNING, "Discarding audio - incompatible format!\n");

@@ -38,9 +38,9 @@
 #ifndef SIMPLE_LINKED_LIST_H_
 #define SIMPLE_LINKED_LIST_H_
 
-#ifndef __cplusplus
-#include <stdbool.h>
-#else
+#include "compat/c23.h"   // IWYU pragma: keep
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -59,20 +59,18 @@ void *simple_linked_list_last(struct simple_linked_list *); ///< returns last el
 /** iterator
  *
  * usage:
- * for(void *it = simple_linked_list_it_init(list); it != NULL; ) {
+ * for(list_it it = simple_linked_list_it_init(list); it != LIST_IT_END; ) {
  *          o-type *inst = simple_linked_list_it_next(&it);
  *          process(inst);
- *          if (something_why_to_leave_the_loop) {
- *                  simple_linked_list_it_destroy(it);
- *                  break;
- *          }
  * }
  */
-void *simple_linked_list_it_init(struct simple_linked_list *);
-void *simple_linked_list_it_next(void **it);
-void *simple_linked_list_it_peek_next(const void *it); ///< return next item without actually incrementing iterator, UB if item is last (it == NULL)
-                                                       ///< @returns item
-void simple_linked_list_it_destroy(void *it); ///< Should be used when it != NULL, eg. when leaving the loop before the end
+typedef struct simple_linked_list_item *list_it;
+#define LIST_IT_END nullptr
+list_it simple_linked_list_it_init(struct simple_linked_list *);
+void   *simple_linked_list_it_next(list_it *it);
+/// @returns next item value without actually incrementing iterator, UB if item
+/// is last (it == NULL)
+void *simple_linked_list_it_peek_next(list_it const *it);
 
 /**
  * @retval true if removed

@@ -220,9 +220,8 @@ struct video_frame *capture_filter(struct capture_filter *state, struct video_fr
                 free_message(msg, r);
         }
 
-        for(void *it = simple_linked_list_it_init(s->filters);
-                        it != NULL;
-           ) {
+        for (list_it it = simple_linked_list_it_init(s->filters);
+             it != LIST_IT_END;) {
                 struct capture_filter_instance *inst = (struct capture_filter_instance *) simple_linked_list_it_next(&it);
                 frame = inst->functions->filter(inst->state, frame);
         }
