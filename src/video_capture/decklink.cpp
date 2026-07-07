@@ -822,7 +822,7 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 s->p_not_i = true;
         } else if (strstr(opt, "Use1080PsF") != nullptr) {
                 MSG(WARNING, "Use1080PsF deprecated, use 'cfpr[=no] instead\n");
-                s->device_options[bmdDeckLinkConfigCapture1080pAsPsF].set_flag(strchr(opt, '=') == nullptr || strcasecmp(strchr(opt, '='), "false") != 0);
+                s->device_options[bmdDeckLinkConfigCapture1080pAsPsF].set_flag(strchr(opt, '=') == nullptr || strcasecmp(strchr(opt, '=') + 1, "false") != 0);
         } else if (strncasecmp(opt, "passthrough", 4) == 0 ||
                    strncasecmp(opt, "nopassthrough", 6) == 0) {
                 if (strstr(opt, "keep")) {
