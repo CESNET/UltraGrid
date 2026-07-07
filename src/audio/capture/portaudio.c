@@ -113,13 +113,17 @@ static void audio_cap_portaudio_probe(struct device_info **available_devices, in
         audio_portaudio_probe(available_devices, count, PORTAUDIO_IN);
 }
 
-static _Bool
+static bool
 parse_fmt(const char *cfg, PaTime *latency, int *input_device_idx,
           char device_name[static STR_LEN])
 {
         if (isdigit(cfg[0])) {
                 *input_device_idx = atoi(cfg);
-                cfg = strchr(cfg, ':') ? strchr(cfg, ':') + 1 : cfg + strlen(cfg);
+                cfg = strchr(cfg, ':');
+                if (cfg == nullptr) {
+                        return true;
+                }
+                cfg += 1;
         }
         char *ccfg = strdupa(cfg);
         char *item = NULL;
@@ -136,11 +140,11 @@ parse_fmt(const char *cfg, PaTime *latency, int *input_device_idx,
                         }
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s!\n", item);
-                        return 0;
+                        return false;
                 }
                 ccfg = NULL;
         }
-        return 1;
+        return true;
 }
 
 static void

@@ -733,7 +733,10 @@ int parse_audio_format(const char *str, struct audio_desc *ret) {
         char *tmp = arg;
 
         while (char *item = strtok_r(tmp, ",:", &save_ptr)) {
-                const char *const val    = strchr(item, '=') + 1;
+                const char *val = strchr(item, '=');
+                if (val != nullptr) {
+                        val += 1;
+                }
                 if (IS_KEY_PREFIX(item, "channels")) {
                         ret->ch_count = stoi(val);
                         if (ret->ch_count < 1 ||

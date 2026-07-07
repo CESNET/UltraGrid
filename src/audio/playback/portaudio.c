@@ -59,6 +59,7 @@ struct device_info;
 #include "audio/audio_playback.h"
 #include "audio/portaudio_common.h"
 #include "audio/types.h"
+#include "compat/c23.h" // IWYU pragma: keep
 #include "compat/qsort_s.h"
 #include "compat/strings.h"          // for  strdupa
 #include "debug.h"
@@ -131,13 +132,17 @@ static void portaudio_close(PaStream * stream) // closes and frees all audio res
         Pa_CloseStream(stream);
 }
 
-static _Bool
+static bool
 parse_fmt(const char *cfg, int *input_device_idx,
           char device_name[static STR_LEN])
 {
         if (isdigit(cfg[0])) {
                 *input_device_idx = atoi(cfg);
-                cfg = strchr(cfg, ':') ? strchr(cfg, ':') + 1 : cfg + strlen(cfg);
+                cfg = strchr(cfg, ':');
+                if (cfg == nullptr) {
+                        return true;
+                }
+                cfg += 1;
         }
         char *ccfg = strdupa(cfg);
         char *item = NULL;
@@ -152,11 +157,11 @@ parse_fmt(const char *cfg, int *input_device_idx,
                         }
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unknown option: %s!\n", item);
-                        return 0;
+                        return false;
                 }
                 ccfg = NULL;
         }
-        return 1;
+        return true;
 }
 
 static void

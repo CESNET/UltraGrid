@@ -123,7 +123,10 @@ parse_fmt(char *fmt, uint16_t *port, codec_t *decode_to)
         char *saveptr = nullptr;
         while ((tok = strtok_r(fmt, ":", &saveptr)) != nullptr) {
                 fmt             = nullptr;
-                const char *val = strchr(tok, '=') + 1;
+                const char *val = strchr(tok, '=');
+                if (val != nullptr) {
+                        val += 1;
+                }
                 if (isdigit(tok[0])) {
                         MSG(WARNING, "port specification without the keyword "
                                      "port= is deprecated\n");

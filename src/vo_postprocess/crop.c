@@ -98,6 +98,9 @@ static void * crop_init(const char *config) {
                 if (strstr(item, "size=") == item) {
                         if (strchr(item, 'x') == NULL) {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Missing height!\n");
+                                free(tmp);
+                                free(s);
+                                return nullptr;
                         }
                         s->width = atoi(strchr(item, '=') + 1);
                         s->height = atoi(strchr(item, 'x') + 1);

@@ -51,6 +51,7 @@
 
 #include "audio/types.h"
 #include "audio/utils.h"
+#include "compat/c23.h" // IWYU pragma: keep
 #include "debug.h"
 #include "lib_common.h"
 #include "libavcodec/lavc_common.h"
@@ -169,7 +170,10 @@ parse_fmt(struct state_file *s, char *fmt)
         char *item = NULL;
         while ((item = strtok_r(fmt, ":", &end_ptr))) {
                 fmt = NULL;
-                char *val = strchr(item, '=') + 1;
+                char *val = strchr(item, '=');
+                if (val != nullptr) {
+                        val += 1;
+                };
                 if (IS_KEY_PREFIX(item, "file") || IS_KEY_PREFIX(item, "name")) {
                         snprintf(s->filename, sizeof s->filename, "%s", val);
                 } else if (IS_KEY_PREFIX(item, "max_av_diff")) {

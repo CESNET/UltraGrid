@@ -138,7 +138,10 @@ parse_opts(struct state_fluidsynth_capture *s, char *cfg)
                         usage();
                         return 1;
                 }
-                const char *val = strchr(item, '=') + 1;
+                const char *val = strchr(item, '=');
+                if (val != nullptr) {
+                        val += 1;
+                }
                 if (IS_KEY_PREFIX(item, "file")) {
                         s->req_filename = strdup(val);
                 } else if (IS_KEY_PREFIX(item, "song")) {

@@ -57,6 +57,7 @@
 #include <string.h>                // for strchr, strstr, strcat, strdup
 #include <sys/time.h>              // for gettimeofday, timeval
 
+#include "compat/c23.h" // IWYU pragma: keep
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -297,7 +298,9 @@ static _Bool parse_fmt(struct vidcap_screen_x11_state *s, char *fmt) {
                         s->req_display = realloc(s->req_display, strlen(s->req_display) + 1 + strlen(tok) + 1);
                         strcat(s->req_display, ":");
                         strcat(s->req_display, tok);
-                } else if (strstr(tok, "geometry=") == tok || strstr(tok, "size=") == tok) {
+                } else if ((strstr(tok, "geometry=") == tok ||
+                            strstr(tok, "size=") == tok) &&
+                           strchr(tok, 'x') != nullptr) {
                         char *val = strchr(tok, '=') + 1;
                         s->width = atoi(val);
                         val = strchr(val, 'x') + 1;
