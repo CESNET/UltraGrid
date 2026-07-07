@@ -98,20 +98,18 @@ struct Punch_ctx {
 }
 
 
-static void send_msg(int sock, const char *msg){
-        size_t msg_size = strlen(msg);
-        assert(msg_size < MAX_MSG_LEN);
+static void send_msg(int sock, std::string_view msg){
+        assert(msg.size() < MAX_MSG_LEN);
 
-        char header[MSG_HEADER_LEN];
-        memset(header, ' ', sizeof(header));
-        snprintf(header, sizeof(header), "%zu", msg_size);
+        std::array<char, MSG_HEADER_LEN> header{};
+        std::to_chars(header.begin(), header.end(), msg.size());
 
-        ssize_t ret = send(sock, header, sizeof(header), 0);
+        ssize_t ret = send(sock, header.data(), std::size(header), 0);
 
         if(ret == -1)
                 return;
 
-        ret = send(sock, msg, msg_size, 0);
+        ret = send(sock, msg.data(), msg.size(), 0);
 }
 
 static void on_candidate(juice_agent_t * /*agent*/, const char *sdp, void *user_ptr) {
@@ -126,20 +124,20 @@ static void on_candidate(juice_agent_t * /*agent*/, const char *sdp, void *user_
          * candidate (of type "host").
          */
 
-        const char *c = sdp;
-        //port is located after 5 space characters
+        std::string_view c = sdp;
+        //Skip first 5 tokens to get to the port
         for(int i = 0; i < 5; i++){
-                c = strchr(c, ' ') + 1;
-                assert(c);
+                auto tok = tokenize(c, ' ');
+                assert(!tok.empty());
         }
-        char *end;
-        int port = strtol(c, &end, 10);
-        assert(c != end);
-        assert(*end == ' ');
-        c = end + 1;
+        auto port_tok = tokenize(c, ' ');
+        int port = -1;
+        if(!parse_num(port_tok, port)){
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to parse port\n");
+                return;
+        }
 
-        const char *host_type_str = "typ host";
-        if(strncmp(c, host_type_str, strlen(host_type_str)) == 0){
+        if(sv_trim_whitespace(c) == "typ host"){
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "Local candidate port: %d\n", port);
                 ctx->local_candidate_port = port;
         }
