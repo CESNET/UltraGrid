@@ -1006,19 +1006,12 @@ bmd_opt_help()
 bool
 bmd_option::parse(const char *val)
 {
-        // check flag
-#ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wnull-pointer-arithmetic"
-#endif // defined __clang__
-        if (val == nullptr || val == static_cast<char *>(nullptr) + 1 // allow constructions like parse_bmd_flag(strstr(opt, '=') + 1)
-                        || strlen(val) == 0 || strcasecmp(val, "true") == 0 || strcasecmp(val, "on") == 0  || strcasecmp(val, "yes") == 0) {
+        if (val == nullptr || strlen(val) == 0 ||
+            strcasecmp(val, "true") == 0 || strcasecmp(val, "on") == 0 ||
+            strcasecmp(val, "yes") == 0) {
                 set_flag(true);
                 return true;
         }
-#ifdef __clang__
-#pragma clang diagnostic pop
-#endif // defined __clang
         if (strcasecmp(val, "false") == 0 || strcasecmp(val, "off") == 0  || strcasecmp(val, "no") == 0) {
                 set_flag(false);
                 return true;

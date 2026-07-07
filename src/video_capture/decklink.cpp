@@ -781,23 +781,25 @@ static void parse_devices(struct vidcap_decklink_state *s, const char *devs)
 static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
 {
         bool ret = true;
-        const char *val = strchr(opt, '=') + 1;
+        const char *val = strchr(opt, '=');
+        if (val != nullptr) {
+                val += 1;
+        }
         if(strcasecmp(opt, "3D") == 0) {
                 s->stereo = true;
         } else if(strcasecmp(opt, "timecode") == 0) {
                 s->sync_timecode = true;
         } else if (IS_KEY_PREFIX(opt, "codec")) {
-                const char *codec = strchr(opt, '=') + 1;
-                s->set_codec(get_codec_from_name(codec));
+                s->set_codec(get_codec_from_name(val));
                 if(s->codec == VIDEO_CODEC_NONE) {
-                        log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong config. Unknown color space %s\n", codec);
+                        MSG(ERROR, "Wrong config. Unknown color space %s\n",
+                            val);
                         return false;
                 }
         } else if (IS_KEY_PREFIX(opt, "connection")) {
-                const char *connection = strchr(opt, '=') + 1;
-                auto        bmd_conn   = bmd_get_connection_by_name(connection);
+                auto bmd_conn = bmd_get_connection_by_name(val);
                 if (bmd_conn == bmdVideoConnectionUnspecified) {
-                        MSG(ERROR, "Unrecognized connection %s.\n", connection);
+                        MSG(ERROR, "Unrecognized connection %s.\n", val);
                         return false;
                 }
                 s->device_options[bmdDeckLinkConfigVideoInputConnection] =
@@ -807,13 +809,14 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 s->device_options[bmdDeckLinkConfigAnalogAudioConsumerLevels] =
                     bmd_option(bmd_parse_audio_levels(val));
         } else if (IS_KEY_PREFIX(opt, "conversion")) {
-                s->device_options[bmdDeckLinkConfigVideoInputConversionMode].parse(strchr(opt, '='));
+                s->device_options[bmdDeckLinkConfigVideoInputConversionMode]
+                    .parse(val);
         } else if (IS_KEY_PREFIX(opt, "device")) {
-                parse_devices(s, strchr(opt, '=') + 1);
+                parse_devices(s, val);
         } else if (IS_KEY_PREFIX(opt, "mode")) {
-                s->mode = strchr(opt, '=') + 1;
+                s->mode = val;
         } else if (IS_KEY_PREFIX(opt, "profile")) {
-                s->profile.parse(strchr(opt, '=') + 1);
+                s->profile.parse(val);
         } else if (strcasecmp(opt, "detect-format") == 0) {
                 s->detect_format = true;
         } else if (strcasecmp(opt, "autodetect-once") == 0) {
@@ -822,7 +825,8 @@ static bool parse_option(struct vidcap_decklink_state *s, const char *opt)
                 s->p_not_i = true;
         } else if (strstr(opt, "Use1080PsF") != nullptr) {
                 MSG(WARNING, "Use1080PsF deprecated, use 'cfpr[=no] instead\n");
-                s->device_options[bmdDeckLinkConfigCapture1080pAsPsF].set_flag(strchr(opt, '=') == nullptr || strcasecmp(strchr(opt, '=') + 1, "false") != 0);
+                s->device_options[bmdDeckLinkConfigCapture1080pAsPsF].set_flag(
+                    val == nullptr || strcasecmp(val, "false") != 0);
         } else if (strncasecmp(opt, "passthrough", 4) == 0 ||
                    strncasecmp(opt, "nopassthrough", 6) == 0) {
                 if (strstr(opt, "keep")) {

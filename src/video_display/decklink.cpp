@@ -196,7 +196,7 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
                 frameRateDuration = fd;
                 frameRateScale    = fs;
         }
-        void SetSynchronized(const char *cfg);
+        void SetSynchronizedParams(const char *cfg);
         bool Preroll(struct state_decklink_vdisp *s);
         void Reset();
         void ResetAudio() { m_audio_sync_ts = audio_sync_val::deinit; }
@@ -1173,12 +1173,11 @@ static void display_decklink_probe(struct device_info **available_cards, int *co
 }
 
 void
-PlaybackDelegate::SetSynchronized(const char *cfg)
+PlaybackDelegate::SetSynchronizedParams(const char *cfg)
 {
         if (cfg == nullptr) {
                 return;
         }
-        cfg += 1;
         m_min_sched_frames = stoi(cfg);
         if (strchr(cfg, ',') != nullptr) {
                 m_max_sched_frames = stoi(strchr(cfg, ',') + 1);
@@ -1232,11 +1231,14 @@ static bool settings_init(struct state_decklink_vdisp *s, const char *fmt,
         }
 
         while (ptr != nullptr)  {
-                const char *val = strchr(ptr, '=') + 1;
+                const char *val = strchr(ptr, '=');
+                if (val != nullptr) {
+                        val += 1;
+                }
                 if (IS_KEY_PREFIX(ptr, "device")) {
-                        cardId = strchr(ptr, '=') + 1;
+                        cardId = val;
                 } else if (IS_KEY_PREFIX(ptr, "profile")) {
-                        s->profile_req.parse(strchr(ptr, '=') + 1);
+                        s->profile_req.parse(val);
                 } else if (strcasecmp(ptr, "3D") == 0) {
                         s->stereo = true;
                 } else if (strcasecmp(ptr, "timecode") == 0) {
@@ -1280,11 +1282,13 @@ static bool settings_init(struct state_decklink_vdisp *s, const char *fmt,
                             [bmdDeckLinkConfigAnalogAudioConsumerLevels] =
                             bmd_option(bmd_parse_audio_levels(val));
                 } else if (IS_KEY_PREFIX(ptr, "conversion")) {
-                        s->device_options[bmdDeckLinkConfigVideoOutputConversionMode].parse(strchr(ptr, '=') + 1);
+                        s->device_options
+                            [bmdDeckLinkConfigVideoOutputConversionMode]
+                                .parse(val);
                 } else if (is_prefix_of(ptr, "Use1080pNotPsF") || is_prefix_of(ptr, "Use1080PsF")) {
                         MSG(WARNING, "Use1080pNotPsF/Use1080PsF deprecated, "
                                      "use 'pfpr[=no] instead\n");
-                        s->device_options[bmdDeckLinkConfigOutput1080pAsPsF].parse(strchr(ptr, '=') + 1);
+                        s->device_options[bmdDeckLinkConfigOutput1080pAsPsF].parse(val);
                         if (strncasecmp(ptr, "Use1080pNotPsF", strlen("Use1080pNotPsF")) == 0) { // compat, inverse
                                 s->device_options[bmdDeckLinkConfigOutput1080pAsPsF].set_flag(s->device_options[bmdDeckLinkConfigOutput1080pAsPsF].get_flag());
                         }
@@ -1292,7 +1296,7 @@ static bool settings_init(struct state_decklink_vdisp *s, const char *fmt,
                         set_low_latency(s, strcasecmp(ptr, "low-latency") == 0);
                 } else if (IS_PREFIX(ptr, "synchronized")) {
                         s->low_latency = false;
-                        s->delegate.SetSynchronized(strchr(ptr, '='));
+                        s->delegate.SetSynchronizedParams(val);
                 } else if (strcasecmp(ptr, "quad-square") == 0 || strcasecmp(ptr, "no-quad-square") == 0) {
                         s->quad_square_division_split.set_flag(strcasecmp(ptr, "quad-square") == 0);
                 } else if (strncasecmp(ptr, "hdr", strlen("hdr")) == 0) {
@@ -1308,11 +1312,10 @@ static bool settings_init(struct state_decklink_vdisp *s, const char *fmt,
                                 }
                         }
                 } else if (IS_KEY_PREFIX(ptr, "connection")) {
-                        const char *connection = strchr(ptr, '=') + 1;
-                        auto bmd_conn = bmd_get_connection_by_name(connection);
+                        auto bmd_conn = bmd_get_connection_by_name(val);
                         if (bmd_conn == bmdVideoConnectionUnspecified) {
                                 MSG(ERROR, "Unrecognized connection %s.\n",
-                                    connection);
+                                    val);
                                 return false;
                         }
                         s->device_options
@@ -1323,11 +1326,11 @@ static bool settings_init(struct state_decklink_vdisp *s, const char *fmt,
                 } else if (strstr(ptr, "drift_fix") == ptr) {
                         s->audio_drift_fixer.enable();
                 } else if (strncasecmp(ptr, "maxresample=", strlen("maxresample=")) == 0) {
-                        s->audio_drift_fixer.set_max_hz(parse_uint32(strchr(ptr, '=') + 1));
+                        s->audio_drift_fixer.set_max_hz(parse_uint32(val));
                 } else if (strncasecmp(ptr, "minresample=", strlen("minresample=")) == 0) {
-                        s->audio_drift_fixer.set_min_hz(parse_uint32(strchr(ptr, '=') + 1));
+                        s->audio_drift_fixer.set_min_hz(parse_uint32(val));
                 } else if (strncasecmp(ptr, "targetbuffer=", strlen("targetbuffer=")) == 0) {
-                        s->audio_drift_fixer.set_target_buffer(parse_uint32(strchr(ptr, '=') + 1));
+                        s->audio_drift_fixer.set_target_buffer(parse_uint32(val));
                 } else if ((strchr(ptr, '=') != nullptr && strchr(ptr, '=') - ptr == 4) || strlen(ptr) == 4) {
                         ret &= bmd_parse_fourcc_arg(s->device_options, ptr);
                 } else {
