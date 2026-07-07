@@ -1,5 +1,5 @@
 /**
- * @file   utils/udp_holepunch.c
+ * @file   utils/udp_holepunch.cpp
  * @author Martin Piatka     <piatka@cesnet.cz>
  */
 /*
@@ -36,19 +36,20 @@
  */
 
 #include <juice/juice.h>
-#include <string.h>
-#include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include "utils/udp_holepunch.h"
+#include <cstring>
+#include <cassert>
+#include <cstdio>
+#include <cstdlib>
+#include <memory>
+#include <array>
 
+#include "utils/udp_holepunch.h"
 #include "debug.h"
 #include "lib_common.h"
-
+#include "misc.h"
+#include "string_view_utils.hpp"
 #include "compat/net.h"
 
-#define MAX_MSG_LEN 2048
-#define MSG_HEADER_LEN 5
 #define MOD_NAME "[HOLEPUNCH] "
 
 /* Coordination protocol description
@@ -81,12 +82,21 @@
  *
  */
 
-struct Punch_ctx {
-        juice_agent_t *juice_agent;
+namespace{
+constexpr size_t MAX_MSG_LEN = 2048;
+constexpr size_t MSG_HEADER_LEN = 5;
 
-        fd_t coord_sock;
-        fd_t local_candidate_port;
+using Juice_agent_uniq = std::unique_ptr<juice_agent_t, deleter_from_fcn<juice_destroy>>;
+
+struct Punch_ctx {
+        Juice_agent_uniq juice_agent;
+
+        fd_t coord_sock = INVALID_SOCKET;
+        int local_candidate_port = -1;
 };
+
+}
+
 
 static void send_msg(int sock, const char *msg){
         size_t msg_size = strlen(msg);
@@ -104,10 +114,9 @@ static void send_msg(int sock, const char *msg){
         ret = send(sock, msg, msg_size, 0);
 }
 
-static void on_candidate(juice_agent_t *agent, const char *sdp, void *user_ptr) {
-        UNUSED(agent);
+static void on_candidate(juice_agent_t * /*agent*/, const char *sdp, void *user_ptr) {
         log_msg(LOG_LEVEL_NOTICE, MOD_NAME "Received candidate: %s\n", sdp);
-        struct Punch_ctx *ctx = (struct Punch_ctx *) user_ptr;
+        auto *ctx = static_cast<Punch_ctx *>(user_ptr);
         send_msg(ctx->coord_sock, sdp);
 
         /* sdp is a RFC5245 string which should look like this:
@@ -136,15 +145,11 @@ static void on_candidate(juice_agent_t *agent, const char *sdp, void *user_ptr) 
         }
 }
 
-static juice_agent_t *create_agent(const struct Holepunch_config *c, void *usr_ptr){
-        juice_config_t conf;
-        memset(&conf, 0, sizeof(conf));
+static juice_agent_t *create_agent(const Holepunch_config *c, void *usr_ptr){
+        juice_config_t conf{};
 
         conf.stun_server_host = c->stun_srv_addr;
         conf.stun_server_port = c->stun_srv_port;
-
-        conf.turn_servers = NULL;
-        conf.turn_servers_count = 0;
 
         conf.bind_address = c->bind_addr;
 
@@ -271,9 +276,9 @@ static bool initialize_punch(struct Punch_ctx *ctx,
         send_msg(ctx->coord_sock, c->client_name);
         send_msg(ctx->coord_sock, room_name);
 
-        ctx->juice_agent = create_agent(c, ctx);
+        ctx->juice_agent.reset(create_agent(c, ctx));
 
-        exchange_coord_desc(ctx->juice_agent, ctx->coord_sock);
+        exchange_coord_desc(ctx->juice_agent.get(), ctx->coord_sock);
 
         return true;
 }
@@ -301,15 +306,15 @@ static void juice_log_handler(juice_log_level_t level, const char *message){
 }
 
 static bool run_punch(struct Punch_ctx *ctx, char *local, char *remote){
-        discover_and_xchg_candidates(ctx->juice_agent, ctx->coord_sock);
+        discover_and_xchg_candidates(ctx->juice_agent.get(), ctx->coord_sock);
 
-        enum juice_state state = juice_get_state(ctx->juice_agent);
+        enum juice_state state = juice_get_state(ctx->juice_agent.get());
         if(state != JUICE_STATE_COMPLETED){
                 error_msg(MOD_NAME "Punching finished unsuccessfuly (state %d)\n", state);
                 return false;
         }
 
-        if ((juice_get_selected_addresses(ctx->juice_agent,
+        if ((juice_get_selected_addresses(ctx->juice_agent.get(),
                                         local,
                                         JUICE_MAX_CANDIDATE_SDP_STRING_LEN,
                                         remote,
@@ -326,7 +331,6 @@ static bool run_punch(struct Punch_ctx *ctx, char *local, char *remote){
 }
 
 static void cleanup_punch(struct Punch_ctx *ctx){
-        juice_destroy(ctx->juice_agent);
         send_msg(ctx->coord_sock, "disconnect");
         CLOSESOCKET(ctx->coord_sock);
 
@@ -383,4 +387,4 @@ bool punch_udp(struct Holepunch_config *c){
         return true;
 }
 
-REGISTER_MODULE(udp_holepunch, punch_udp, LIBRARY_CLASS_UNDEFINED, HOLEPUNCH_ABI_VERSION);
+REGISTER_MODULE(udp_holepunch, (void *) punch_udp, LIBRARY_CLASS_UNDEFINED, HOLEPUNCH_ABI_VERSION);
