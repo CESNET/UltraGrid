@@ -12,6 +12,7 @@
 #include "../../ext-deps/libmpegts/common.h" // for TIMESTAMP_CLOCK, TS_CLOCK, TS_PACKE...
 #include "../../ext-deps/libmpegts/libmpegts.h" // for LIBMPEGTS_MPEG2_AAC_1_CHANNEL, LIBM...
 
+#include "audio/codec.h"   // for get_name_to_audio_codec
 #include "audio/types.h"   // for AC_OPUS, AC_AAC, audio_frame2_get_c...
 #include "compat/c23.h"    // for countof
 #include "debug.h"         // for LOG_LEVEL_DEBUG, MSG
@@ -21,10 +22,17 @@
 #include "utils/list.h"
 #include "utils/macros.h"  // for CONST_CAST
 #include "utils/pthread.h" // for ug_pthread_mutex_init
+#include "video_codec.h"   // for get_codec_name
 
 struct audio_frame2;
 
-#define MOD_NAME "[rxtx/mpegts] "
+#define DEFAULT_MPEGTS_COMPRESSION "lavc:c=H.264"
+#define MOD_NAME                   "[rxtx/mpegts] "
+
+enum {
+        DEFAULT_MTU  = 1500,
+        DEFAULT_PORT = 1234,
+};
 
 #include "types.h"
 
@@ -66,10 +74,13 @@ enum {
 };
 
 static void *
-init(const struct rxtx_params *params)
+init(struct rxtx_params *params)
 {
         if (params->mtu == 0) {
-                params->mtu = 1500;
+                params->mtu = DEFAULT_MTU;
+        }
+        if (params->port_base == -1) {
+                params->port_base= DEFAULT_PORT;
         }
         struct rxtx_mpegts *s = calloc(1, sizeof *s);
         ug_pthread_mutex_init(&s->lock);
@@ -86,6 +97,13 @@ init(const struct rxtx_params *params)
 
         s->audio_frames = simple_linked_list_init();
 
+        // set preferred codecs
+        if (strlen(params->video_compression) == 0) {
+                strcpy_ch(params->video_compression,
+                          DEFAULT_MPEGTS_COMPRESSION);
+        }
+        strcpy_ch(params->audio_compression, "Opus");
+
         return s;
 }
 
@@ -101,14 +119,12 @@ init_libmpegts(struct rxtx_mpegts *s)
         ts_stream_t stream[2]   = { 0 };
         int str_cnt = 0;
         if (s->use_video) {
-                assert(s->vc == H264);
                 stream[str_cnt].pid           = VIDEO_PID;
                 stream[str_cnt].stream_format = LIBMPEGTS_VIDEO_AVC;           // = 2 [1]
                 stream[str_cnt].stream_id     = LIBMPEGTS_STREAM_ID_MPEGVIDEO; // = 0xe0 [1]
                 str_cnt += 1;
         }
         if (s->use_audio) {
-                assert(s->ac == AC_OPUS || s->ac == AC_AAC);
                 stream[str_cnt].pid = AUDIO_PID;
                 stream[str_cnt].stream_format =
                     s->ac == AC_OPUS ? LIBMPEGTS_AUDIO_OPUS
@@ -217,6 +233,12 @@ static void
 send_video_frame_impl(struct rxtx_mpegts *s, struct video_frame *f)
 {
         if (!s->init) {
+                if (f->color_spec != H264) {
+                        MSG(ERROR,
+                            "Currently we can send just H.264, have %s\n",
+                            get_codec_name(f->color_spec));
+                        return;
+                }
                 s->vc          = f->color_spec;
                 s->vf_duration = 1. / f->fps;
                 if (!init_libmpegts(s)) {
@@ -325,7 +347,7 @@ write_adts_header(uint8_t *header, size_t raw_frame_size, unsigned sample_rate,
                         break;
                 }
         }
-        assert(channel_count <= 6 || channel_count == 8);
+        assert(channel_count <= 6 || channel_count == 8); // we have always 1
         // for 1-6 equals channel count, 8 ch is 7; vals 8-15 reserved
         int channel_cfg = channel_count < 7 ? channel_count : 7;
         // 2b profile minus 1 (we have already subtracted), 4b sample rate idx,
@@ -437,12 +459,20 @@ send_audio_frame(void *state, const struct audio_frame2 *f)
                             s->af_duration, duration);
                         goto unlock;
                 }
-                if (s->ac != AC_NONE && s->ac != audio_frame2_get_codec(f)) {
+                audio_codec_t ac = audio_frame2_get_codec(f);
+                if (s->ac != AC_NONE && s->ac != ac) {
                         MSG(ERROR, "audio codec changed, reconf not implemented!\n");
                         goto unlock;
                 }
+                if (ac != AC_OPUS && ac != AC_AAC) {
+                        MSG(ERROR,
+                            "Only AAC and Opus are currently supported, have "
+                            "%s!\n",
+                            get_audio_codec_name(ac));
+                        goto unlock;
+                }
                 s->af_duration = duration;
-                s->ac          = audio_frame2_get_codec(f);
+                s->ac          = ac;
 
                 if (!s->use_video) {
                         send_audio_frame_impl(s, f);
