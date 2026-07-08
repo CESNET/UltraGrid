@@ -65,8 +65,9 @@ struct rxtx_medium_params  {
 
 struct rxtx_params {
         struct rxtx_medium_params medium[NUM_TX_MEDIA];
-
-        struct module  *parent;
+        /// alternative to explicit rxtx_medium_params.*_port
+        int              port_base;
+        struct module   *parent;
         struct exporter *video_exporter;
         const char     *receiver;
         char            encryption[STR_LEN];
@@ -100,12 +101,13 @@ struct rxtx_params {
                                              .tx_port   = -1,                  \
                                              .fec       = "none",              \
                                          } },                                  \
+                .port_base           = -1,                                     \
                 .parent              = nullptr,                                \
                 .video_exporter      = nullptr,                                \
                 .receiver            = nullptr,                                \
                 .encryption          = "",                                     \
                 .mcast_if            = "",                                     \
-                .mtu                 = 1500,                                   \
+                .mtu                 = 0,                                      \
                 .ttl                 = -1,                                     \
                 .force_ip_version    = 0,                                      \
                 .start_time          = get_time_in_ns(),                       \

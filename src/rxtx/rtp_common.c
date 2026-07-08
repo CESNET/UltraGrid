@@ -62,9 +62,9 @@
 #include <string.h>            // for strdup, strcmp, strlen, strstr
 #include <sys/time.h>            // for timeval
 
-#include "compat/c23.h"          // IWYU pragma: keep
-#include "compat/net.h"          // for sockaddr_storage
-#include "config.h"              // for PACKAGE_STRING
+#include "compat/c23.h" // IWYU pragma: keep
+#include "compat/net.h" // for sockaddr_storage
+#include "config.h"     // for PACKAGE_STRING
 #include "debug.h"
 #include "host.h"
 #include "messaging.h"
@@ -77,10 +77,11 @@
 #include "rtp/rtp_callback.h"
 #include "rxtx.h"
 #include "transmit.h"
-#include "tv.h"                  // for time_ns_t, get_time_in_ns, NS_IN_SEC
+#include "tv.h" // for time_ns_t, get_time_in_ns, NS_IN_SEC
 #include "types.h"
+#include "utils/net.h"     // for is_host_loopback
 #include "utils/pthread.h" // for CHK_PTHR
-#include "utils/string.h"      // for strprintf
+#include "utils/string.h"  // for strprintf
 
 #define MAGIC to_fourcc('R', 'T', 'r', 't')
 #define MOD_NAME "[rxtx/rtp] "
@@ -353,24 +354,130 @@ init_medium_state(struct rtp_rxtx_common_priv_state *s,
         return true;
 }
 
-struct rtp_rxtx_common *rtp_rxtx_common_init(const struct rxtx_params *params)
+static void
+adjust_ports(struct rxtx_params *rxtx)
 {
+        struct rxtx_medium_params *audio = &rxtx->medium[TX_MEDIA_AUDIO];
+        struct rxtx_medium_params *video = &rxtx->medium[TX_MEDIA_VIDEO];
+
+        // use dyn ports if unset, sending only to ourselves or neither
+        // sending nor receiving
+        if (is_host_loopback(rxtx->receiver)) {
+                const unsigned mode_both = MODE_RECEIVER | MODE_SENDER;
+                const bool     v_send_and_rcv =
+                    (video->rxtx_mode & mode_both) == mode_both;
+                const bool v_no_send_or_recv =
+                    (video->rxtx_mode & mode_both) == 0;
+                const bool v_ports_unset = video->rx_port == -1 &&
+                                           video->tx_port == -1 &&
+                                           rxtx->port_base == -1;
+                if ((v_send_and_rcv || v_no_send_or_recv) && v_ports_unset) {
+                        video->rx_port = video->tx_port = 0;
+                }
+                const bool a_send_and_recv =
+                    (audio->rxtx_mode & mode_both) == mode_both;
+                const bool a_no_send_or_recv =
+                    (audio->rxtx_mode & mode_both) == 0;
+                const bool a_ports_unset = audio->rx_port == -1 &&
+                                           audio->tx_port == -1 &&
+                                           rxtx->port_base == -1;
+                if ((a_send_and_recv || a_no_send_or_recv) && a_ports_unset) {
+                        audio->rx_port = audio->tx_port = 0;
+                }
+        }
+        if (rxtx->port_base == -1) {
+                rxtx->port_base = RTP_PORT_BASE;
+        };
+
+        if (video->rx_port == -1) {
+                if ((video->rxtx_mode & MODE_RECEIVER) == 0U) {
+                        // do not occupy recv port if we are not receiving (note that this disables communication with
+                        // our receiver, because RTCP ports are changed as well)
+                        video->rx_port = 0;
+                } else {
+                        video->rx_port = rxtx->port_base;
+                }
+        }
+
+        if (video->tx_port == -1) {
+                if ((video->rxtx_mode & MODE_SENDER) == 0U) {
+                        video->tx_port = 0; // does not matter, we are receiver
+                } else {
+                        video->tx_port = rxtx->port_base;
+                }
+        }
+
+        if (audio->rx_port == -1) {
+                if ((audio->rxtx_mode & MODE_RECEIVER) == 0U) {
+                        // do not occupy recv port if we are not receiving (note that this disables communication with
+                        // our receiver, because RTCP ports are changed as well)
+                        audio->rx_port = 0;
+                } else {
+                        audio->rx_port = video->rx_port ? video->rx_port + 2
+                                                        : rxtx->port_base + 2;
+                }
+        }
+
+        if (audio->tx_port == -1) {
+                if ((audio->rxtx_mode & MODE_SENDER) == 0U) {
+                        audio->tx_port = 0;
+                } else {
+                        audio->tx_port = video->tx_port ? video->tx_port + 2
+                                                        : rxtx->port_base + 2;
+                }
+        }
+}
+
+static void
+adjust_params(struct rxtx_params *rxtx) {
+        struct rxtx_medium_params *audio = &rxtx->medium[TX_MEDIA_AUDIO];
+        struct rxtx_medium_params *video = &rxtx->medium[TX_MEDIA_VIDEO];
+
+        adjust_ports(rxtx);
+
+        // If we are sure that this UltraGrid is sending to itself we can
+        // optimize some parameters (aka "-m 9000 -l unlimited"). If ports
+        // weren't equal it is possible that we are sending to a reflector, that
+        // is why we require equal ports (we are a receiver as well).
+        if (is_host_loopback(rxtx->receiver) &&
+            (video->rx_port == video->tx_port || video->tx_port == 0) &&
+            (audio->rx_port == audio->tx_port || audio->tx_port == 0)) {
+                rxtx->mtu = rxtx->mtu == 0 ? MIN(RTP_MAX_MTU, 65535)
+                                                   : rxtx->mtu;
+                rxtx->video_bitrate_limit =
+                    rxtx->video_bitrate_limit == RATE_DEFAULT
+                        ? RATE_UNLIMITED
+                        : rxtx->video_bitrate_limit;
+        } else {
+                rxtx->mtu = rxtx->mtu == 0 ? 1500 : rxtx->mtu;
+                rxtx->video_bitrate_limit =
+                    rxtx->video_bitrate_limit == RATE_DEFAULT
+                        ? RATE_DYNAMIC
+                        : rxtx->video_bitrate_limit;
+        }
+}
+
+struct rtp_rxtx_common *rtp_rxtx_common_init(const struct rxtx_params *params_c)
+{
+        struct rxtx_params params = *params_c;
+        adjust_params(&params);
+
         struct rtp_rxtx_common_priv_state *s = calloc(
             1, sizeof(struct rtp_rxtx_common_priv_state));
         struct rtp_rxtx_common *pub = &s->pub;
         pub->magic = RTP_COMMON_MAGIC;
 
         pub->priv = s;
-        pub->encryption       = strdup(params->encryption);
+        pub->encryption       = strdup(params.encryption);
         s->magic              = MAGIC;
-        s->parent             = params->parent;
-        s->force_ip_version   = params->force_ip_version,
-        s->mcast_if           = strdup(params->mcast_if);
-        s->ttl                = params->ttl;
-        s->start_time         = params->start_time;
+        s->parent             = params.parent;
+        s->force_ip_version   = params.force_ip_version,
+        s->mcast_if           = strdup(params.mcast_if);
+        s->ttl                = params.ttl;
+        s->start_time         = params.start_time;
 
         for (unsigned i = 0; i < NUM_TX_MEDIA; ++i) {
-                bool rc = init_medium_state(s, params, i);
+                bool rc = init_medium_state(s, &params, i);
                 if (!rc) {
                         rtp_rxtx_common_done(pub);
                         return nullptr;

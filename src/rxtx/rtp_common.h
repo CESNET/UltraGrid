@@ -63,6 +63,7 @@ extern "C" {
 #define INITIAL_VIDEO_SEND_BUFFER_SIZE  (1024*1024)
 
 #define RTP_COMMON_MAGIC to_fourcc('R', 'T', 'r', 'c')
+#define RTP_PORT_BASE    5004
 
 struct rtp_rxtx_medium {
         struct rtp     *network_device;
