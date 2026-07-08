@@ -262,29 +262,31 @@ void PreviewWidget::paintGL(){
 	render();
 }
 
-static const char *get_temp_dir(void)
-{
+static std::string_view get_temp_dir(){
+	thread_local std::string temp_dir = []() -> std::string{
 #ifdef _WIN32
-        static __thread char temp_dir[MAX_PATH + 1];
-        if (GetTempPathA(sizeof temp_dir, temp_dir) == 0) {
-                return NULL;
-        }
+        char temp_dir[MAX_PATH + 1];
+		if(GetTempPathA(std::size(temp_dir), temp_dir) == 0){
+			return "%temp%";
+		}
+		return temp_dir;
 #else
-        static __thread char temp_dir[PATH_MAX];
-        if (char *req_tmp_dir = getenv("TMPDIR")) {
-                temp_dir[sizeof temp_dir - 1] = '\0';
-                strncpy(temp_dir, req_tmp_dir, sizeof temp_dir - 1);
-        } else {
-                strcpy(temp_dir, P_tmpdir);
-        }
-        strncat(temp_dir, "/", sizeof temp_dir - strlen(temp_dir) - 1);
+		std::string res;
+		if(char *req_tmp_dir = getenv("TMPDIR"); req_tmp_dir != nullptr){
+			res = req_tmp_dir;
+		} else{
+			res = P_tmpdir;
+		}
+		res += '/';
+		return res;
 #endif
+	}();
 
-        return temp_dir;
+	return temp_dir;
 }
 
 void PreviewWidget::setKey(std::string_view key){
-	std::string path = get_temp_dir();
+	std::string path(get_temp_dir());
 	path += key;
 	ipc_frame_reader.reset(ipc_frame_reader_new(path.c_str()));
 }
