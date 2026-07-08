@@ -373,7 +373,14 @@ rxtx::create(string const              &proto,
                 // not set by user or RXTX mod
                 strcpy_ch(params->video_compression, DEFAULT_VIDEO_COMPRESSION);
         }
-        int rc = compress_init(&ret->m_sender_mod, params->video_compression,
+        const char *video_compression = params->video_compression;
+        // "tentatively" is meant to be just print
+        /// @todo it may be possible also to store the compression and dispatch
+        /// the opportunistic init here, not by a message...
+        if (strstr(params->video_compression, "tentatively")) {
+                video_compression = DEFAULT_VIDEO_COMPRESSION;
+        }
+        int rc = compress_init(&ret->m_sender_mod, video_compression,
                                &ret->m_video_compression);
         if (rc != 0) {
                 delete ret;

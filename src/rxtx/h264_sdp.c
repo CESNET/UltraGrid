@@ -134,6 +134,11 @@ create_rxtx_h264_sdp(struct rxtx_params *params)
         }
         s->saved_addr = strdup(params->receiver);
 
+        if (strlen(params->video_compression) == 0) {
+                strcpy_ch(params->video_compression,
+                          DEFAULT_SDP_COMPRESSION " (tentatively)");
+        }
+
         return s;
 }
 

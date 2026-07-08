@@ -179,6 +179,10 @@ init(struct rxtx_params *params)
                 done(s);
                 return INIT_NOERR;
         }
+
+        if (strlen(params->video_compression) == 0) {
+                strcpy_ch(params->video_compression, "none");
+        }
         return s;
 }
 

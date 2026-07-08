@@ -139,6 +139,10 @@ create_rxtx_rtsp(struct rxtx_params *params)
                 done(s);
                 return nullptr;
         }
+        if (strlen(params->video_compression) == 0) {
+                strcpy_ch(params->video_compression,
+                          DEFAULT_RTSP_COMPRESSION " (tentatively)");
+        }
         return s;
 }
 
