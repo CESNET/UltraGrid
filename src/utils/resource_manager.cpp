@@ -49,7 +49,6 @@
 #include <string>
 #include <utility>
 
-#include "utils/lock_guard.h"
 #include "utils/pthread.h" // for CHK_PTHR
 
 #define MOD_NAME "[resource_manager] "
@@ -62,7 +61,6 @@ using std::logic_error;
 using std::map;
 using std::pair;
 using std::string;
-using ultragrid::pthread_mutex_guard;
 
 class options_t {
         public:
@@ -184,37 +182,45 @@ class resource_manager_t {
 
                 resource *acquire(string name, type_t type, options_t const & options) {
                         resource *ret;
-                        pthread_mutex_guard lock(m_access_lock);
-                        string item_name = name + "#" + resource::get_suffix(type);
+                        CHK_PTHR(pthread_mutex_lock(&m_access_lock));
+                        {
+                                string item_name = name + "#" + resource::get_suffix(type);
 
-                        obj_map_t::iterator it = m_objs.find(item_name);
-                        if(it == m_objs.end()) {
-                                // create
-                                ret = resource::create(type, options);
-                                m_objs[item_name] = pair<resource *, int>(ret,
-                                                1);
-                        } else {
-                                it->second.second += 1;
-                                ret = it->second.first;
+                                obj_map_t::iterator it = m_objs.find(item_name);
+                                if(it == m_objs.end()) {
+                                        // create
+                                        ret = resource::create(type, options);
+                                        m_objs[item_name] = pair<resource *, int>(ret,
+                                                        1);
+                                } else {
+                                        it->second.second += 1;
+                                        ret = it->second.first;
+                                }
                         }
+                        CHK_PTHR(pthread_mutex_unlock(&m_access_lock));
                         return ret;
                 }
 
                 void release(string name, type_t type) {
-                        pthread_mutex_guard lock(m_access_lock);
-                        string item_name = name + "#" + resource::get_suffix(type);
+                        CHK_PTHR(pthread_mutex_lock(&m_access_lock));
+                        {
+                                string item_name =
+                                    name + "#" + resource::get_suffix(type);
 
-                        obj_map_t::iterator it = m_objs.find(item_name);
-                        if(it == m_objs.end()) {
-                                // create
-                                throw logic_error("No such object.");
-                        } else {
-                                it->second.second -= 1;
-                                if(it->second.second == 0) { // ref count == 0
-                                        delete it->second.first;
-                                        m_objs.erase(it);
+                                obj_map_t::iterator it = m_objs.find(item_name);
+                                if (it == m_objs.end()) {
+                                        MSG(FATAL, "No such object.");
+                                        abort();
+                                } else {
+                                        it->second.second -= 1;
+                                        if (it->second.second ==
+                                            0) { // ref count == 0
+                                                delete it->second.first;
+                                                m_objs.erase(it);
+                                        }
                                 }
                         }
+                        CHK_PTHR(pthread_mutex_unlock(&m_access_lock));
                 }
 
         private:

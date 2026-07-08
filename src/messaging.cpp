@@ -54,8 +54,8 @@
 #include "debug.h"
 #include "module.h"
 #include "utils/list.h"
-#include "utils/lock_guard.h"
 #include "utils/macros.h"        // for snprintf_ch, to_fourcc
+#include "utils/pthread.h" // for CHK_PTHR
 
 #define MAX_MESSAGES 100
 #define MAX_MESSAGES_FOR_NOT_EXISTING_RECV 10
@@ -64,7 +64,6 @@
 #define RESP_MAGIC to_fourcc('r', 'e', 's', 'p')
 
 using namespace std;
-using namespace ultragrid;
 
 struct response {
         uint32_t magic;
@@ -280,30 +279,40 @@ struct response *send_message_sync(struct module *root, const char *const_path, 
  */
 void module_check_undelivered_messages(struct module *node)
 {
-        pthread_mutex_guard guard(node->module_priv->lock);
-
-        for (list_it it = simple_linked_list_it_init(
-                 node->module_priv->msg_queue_children);
-             it != LIST_IT_END;) {
-                struct pair_msg_path *msg = (struct pair_msg_path *) simple_linked_list_it_next(&it);
-                struct module *receiver = get_matching_child(node, msg->path);
-                if (receiver) {
-                        struct response *resp = send_message_to_receiver(receiver, msg->msg);
-                        free_response(resp);
-                        simple_linked_list_remove(
-                            node->module_priv->msg_queue_children, msg);
-                        free(msg);
-                        // reinit iterator
-                        it = simple_linked_list_it_init(
-                            node->module_priv->msg_queue_children);
+        CHK_PTHR(pthread_mutex_lock(&node->module_priv->lock));
+        {
+                for (list_it it = simple_linked_list_it_init(
+                         node->module_priv->msg_queue_children);
+                     it != LIST_IT_END;) {
+                        struct pair_msg_path *msg =
+                            (struct pair_msg_path *) simple_linked_list_it_next(
+                                &it);
+                        struct module *receiver =
+                            get_matching_child(node, msg->path);
+                        if (receiver) {
+                                struct response *resp =
+                                    send_message_to_receiver(receiver,
+                                                             msg->msg);
+                                free_response(resp);
+                                simple_linked_list_remove(
+                                    node->module_priv->msg_queue_children, msg);
+                                free(msg);
+                                // reinit iterator
+                                it = simple_linked_list_it_init(
+                                    node->module_priv->msg_queue_children);
+                        }
                 }
         }
+        CHK_PTHR(pthread_mutex_unlock(&node->module_priv->lock));
 }
 
 void module_store_message(struct module *node, struct message *m)
 {
-        pthread_mutex_guard guard(node->module_priv->msg_queue_lock);
-        simple_linked_list_append(node->module_priv->msg_queue, m);
+        CHK_PTHR(pthread_mutex_lock(&node->module_priv->lock));
+        {
+                simple_linked_list_append(node->module_priv->msg_queue, m);
+        }
+        CHK_PTHR(pthread_mutex_unlock(&node->module_priv->lock));
 }
 
 struct response *send_message_to_receiver(struct module *receiver, struct message *msg)
@@ -312,10 +321,13 @@ struct response *send_message_to_receiver(struct module *receiver, struct messag
         simple_linked_list_append(receiver->module_priv->msg_queue, msg);
         pthread_mutex_unlock(&receiver->module_priv->msg_queue_lock);
 
-        pthread_mutex_guard guard(receiver->module_priv->lock);
-        if (receiver->new_message) {
-                receiver->new_message(receiver);
+        CHK_PTHR(pthread_mutex_lock(&receiver->module_priv->lock));
+        {
+                if (receiver->new_message) {
+                        receiver->new_message(receiver);
+                }
         }
+        CHK_PTHR(pthread_mutex_unlock(&receiver->module_priv->lock));
 
         return new_response(RESPONSE_ACCEPTED, NULL);
 }
@@ -433,14 +445,18 @@ const char *response_status_to_text(int status)
 
 struct message *check_message(struct module *mod)
 {
-        pthread_mutex_guard guard(mod->module_priv->msg_queue_lock);
+        struct message *ret = nullptr;
 
-        if(simple_linked_list_size(mod->module_priv->msg_queue) > 0) {
-                return (struct message *) simple_linked_list_pop(
-                    mod->module_priv->msg_queue);
-        } else {
-                return NULL;
+        CHK_PTHR(pthread_mutex_lock(&mod->module_priv->msg_queue_lock));
+        {
+                if (simple_linked_list_size(mod->module_priv->msg_queue) > 0) {
+                        ret = (struct message *) simple_linked_list_pop(
+                            mod->module_priv->msg_queue);
+                }
         }
+        CHK_PTHR(pthread_mutex_unlock(&mod->module_priv->msg_queue_lock));
+
+        return ret;
 }
 
 /**
