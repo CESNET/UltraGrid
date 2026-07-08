@@ -39,6 +39,7 @@
 
 #include <array>
 #include <cassert>
+#include <cfloat> // for DBL_MIN
 #include <cinttypes>
 #include <cmath>
 #include <cstdint>
@@ -68,7 +69,6 @@
 #include "rtp/rtpenc_h264.h"
 #include "tv.h"
 #include "types.h"                               // for UYVY, RGBA, v210, RGB
-#include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/debug.h"                  // for debug_file_dump
 #include "utils/macros.h"
@@ -502,13 +502,19 @@ handle_help(bool full, string const &req_encoder, string const &req_codec)
 }
 
 double
-ranged_stod(const char *val, double min, double max) noexcept(false)
+ranged_stod(const char *val, double min, double max, const char *key)
 {
-        const double dbl = std::stod(val);
+        char *endptr = nullptr;
+        const double dbl = strtod(val, &endptr);
+        if (*endptr != '\0') {
+                MSG(ERROR, "Unable to convert %s value %s!\n", key, val);
+                return DBL_MIN;
+        }
         if (dbl < min || dbl > max) {
-                throw ug_runtime_error(
-                    string("Value ") + val + " outside of valid range  [" +
-                    to_string(min) + "," + to_string(max) + "]");
+                MSG(ERROR,
+                    "Value %s outside of valid range [%.2f,%.2f] for %s.\n",
+                    val, min, max, key);
+                return DBL_MIN;
         }
         return dbl;
 }
@@ -590,8 +596,10 @@ parse_fmt(struct state_video_compress_libav *s, char *fmt) noexcept(false)
                                 return -1;
                         }
                 } else if(strncasecmp("crf=", item, strlen("crf=")) == 0) {
-                        char *crf_str = item + strlen("crf=");
-                        s->params.requested_crf = ranged_stod(crf_str, 0, 63);
+                        s->params.requested_crf = ranged_stod(val, 0, 63, "CRF");
+                        if (s->params.requested_crf == DBL_MIN) {
+                                return -1;
+                        }
                 } else if (strstr(item, "cqp=") == item || strstr(item, "q=") == item) {
                         if (strstr(item, "q=") == item) {
                                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Option \"q=\" is deprecated, use \"cqp=\" instead.\n");

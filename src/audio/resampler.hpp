@@ -47,7 +47,7 @@
 
 struct audio_frame2_resampler {
 public:
-        audio_frame2_resampler();
+        audio_frame2_resampler() noexcept(false);
         ~audio_frame2_resampler();
 
         audio_frame2_resampler(audio_frame2_resampler&&);
@@ -65,7 +65,6 @@ private:
 extern "C" {
 #endif // defined __cplusplus
 
-struct audio_frame2_resampler *new_resampler();
 int resampler_align_bps(struct audio_frame2_resampler *resampler, int orig_bps);
 void delete_resampler(struct audio_frame2_resampler *resampler);
 

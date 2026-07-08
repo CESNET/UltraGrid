@@ -49,6 +49,7 @@
 #include <propidl.h>              // for PropVariantClear, PropVariantInit
 #include <propsys.h>              // for IPropertyStore
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <synchapi.h>             // for Sleep
 #include <winerror.h>             // for SUCCEEDED, S_OK, FAILED
@@ -59,7 +60,6 @@
 #include "host.h"                 // for audio_capture_channels, audio_captu...
 #include "lib_common.h"
 #include "types.h"                // for device_info
-#include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/macros.h"         // for snprintf_ch
 #include "utils/windows.h"
@@ -103,8 +103,18 @@ string wasapi_get_default_device_id(EDataFlow dataFlow, IMMDeviceEnumerator *enu
 #define SAFE_RELEASE(u) \
     do { if ((u) != NULL) (u)->Release(); (u) = NULL; } while(0)
 #undef THROW_IF_FAILED
-#define THROW_IF_FAILED(cmd) do { HRESULT hr = cmd; if (!SUCCEEDED(hr)) { ostringstream oss; oss << #cmd << ": " << hresult_to_str(hr); throw ug_runtime_error(oss.str()); } } while(0)
-static void audio_cap_wasapi_probe(struct device_info **available_devices, int *dev_count, void (**deleter)(void *))
+#define THROW_IF_FAILED(cmd)                                                   \
+        do {                                                                   \
+                HRESULT hr = cmd;                                              \
+                if (!SUCCEEDED(hr)) {                                          \
+                        ostringstream oss;                                     \
+                        oss << #cmd << ": " << hresult_to_str(hr);             \
+                        throw std::runtime_error(oss.str());                   \
+                }                                                              \
+        } while (0)
+static void
+audio_cap_wasapi_probe(struct device_info **available_devices, int *dev_count,
+                       void (**deleter)(void *))
 {
         *deleter = free;
         *available_devices = nullptr;
@@ -139,7 +149,7 @@ static void audio_cap_wasapi_probe(struct device_info **available_devices, int *
                                     "WASAPI %s", wasapi_get_name(pDevice).c_str());
 
                                 ++*dev_count;
-                        } catch (ug_runtime_error &e) {
+                        } catch (std::runtime_error &e) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Device " << i << ": " << e.what() << "\n";
                         }
                         SAFE_RELEASE(pDevice);
@@ -233,7 +243,7 @@ static void show_help(bool full) {
                                         color_printf(" (ID: %s)", dev_id.c_str());
                                 }
                                 color_printf("\n");
-                        } catch (ug_runtime_error &e) {
+                        } catch (std::runtime_error &e) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Device " << i << ": " << e.what() << "\n";
                         }
                         SAFE_RELEASE(pDevice);
@@ -331,7 +341,7 @@ static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
                                                 SAFE_RELEASE(pDevice);
                                         }
                                 }
-                        } catch (ug_runtime_error &e) { // just continue with the next
+                        } catch (std::runtime_error &e) { // just continue with the next
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << e.what() << "\n";
                         }
                         SAFE_RELEASE(pEndpoints);
@@ -341,7 +351,7 @@ static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
                             &s->pDevice));
                 }
                 if (!s->pDevice) {
-                        throw ug_runtime_error("Device not found!");
+                        throw std::runtime_error("Device not found!");
                 }
                 THROW_IF_FAILED(s->pDevice->Activate(IID_IAudioClient, CLSCTX_ALL, NULL,
                                 (void **)&s->pAudioClient));
@@ -386,7 +396,7 @@ static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
                                                 pwfx->nBlockAlign = pwfx->nChannels * pwfx->wBitsPerSample / 8;
                                                 pwfx->nAvgBytesPerSec = pwfx->nBlockAlign * pwfx->nSamplesPerSec;
                                         } else {
-                                                throw ug_runtime_error("Don't know how to coerce mix format to int-16");
+                                                throw std::runtime_error("Don't know how to coerce mix format to int-16");
                                         }
                                 }
                                 break;
@@ -394,7 +404,7 @@ static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
                         default:
                                 ostringstream oss;
                                 oss << "Don't know how to coerce WAVEFORMATEX with wFormatTag = 0x" << setw(8) << setfill('0') <<  " to PCM";
-                                throw ug_runtime_error(oss.str());
+                                throw std::runtime_error(oss.str());
                 }
 
                 THROW_IF_FAILED(s->pAudioClient->Initialize(
@@ -416,7 +426,7 @@ static void * audio_cap_wasapi_init(struct module *parent, const char *cfg)
                 THROW_IF_FAILED(s->pAudioClient->GetService(IID_IAudioCaptureClient, (void **) &s->pCaptureClient));
                 THROW_IF_FAILED(s->pAudioClient->Start());
 
-        } catch (ug_runtime_error &e) {
+        } catch (std::runtime_error &e) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << e.what() << "\n";
                 if (audio_capture_channels != 0) {
                         LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Maybe wrong number of channels? Try using default.";

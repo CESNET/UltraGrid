@@ -40,6 +40,7 @@
 #include <algorithm>            // for copy
 #include <cassert>              // for assert
 #include <cstring>              // for memcpy
+#include <exception>
 #include <sstream>              // for basic_ostringstream
 #include <stdexcept>            // for logic_error
 #include <utility>              // for move
@@ -48,6 +49,8 @@
 #include "audio/utils.h"
 #include "debug.h"
 #include "types.h"              // for fec_desc, frame_flags_common
+
+#define MOD_NAME "[audio/types] "
 
 using std::copy;
 using std::logic_error;
@@ -570,7 +573,13 @@ audio_frame2_reserve(struct audio_frame2 *frame, double seconds)
 struct audio_frame2_resampler *
 audio_frame2_resampler_init()
 {
-        return new audio_frame2_resampler();
+        try {
+                return new audio_frame2_resampler();
+        } catch (std::exception &e) {
+                MSG(ERROR, "Cannot create resampler: %s\n", e.what());
+                return nullptr;
+        }
+        return nullptr;
 }
 
 void

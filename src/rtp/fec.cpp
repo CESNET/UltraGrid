@@ -52,7 +52,6 @@
 #include "rtp/rs.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/rtp_types.h"       // for PT_ENCRYPT_VIDEO, PT_ENCRYPT_VIDEO_LDGM
-#include "ug_runtime_error.hpp"
 #include "utils/macros.h"
 
 #define MOD_NAME "[fec] "
@@ -102,7 +101,7 @@ fec *fec::create_from_config(const char *c_str, bool is_audio) noexcept
                 if (strncmp(c_str, "RS cfg ", strlen("RS cfg ")) == 0) {
                         return new rs(c_str + strlen("rs cfg "), is_audio);
                 }
-                throw ug_runtime_error("Unrecognized FEC configuration!");
+                MSG(ERROR, "Unrecognized FEC configuration!\n");
         } catch (string const &s) {
                 LOG(LOG_LEVEL_ERROR) << s << "\n";
         } catch (exception const &e) {

@@ -48,7 +48,7 @@ struct video_frame;
 
 struct rs : public fec {
         rs(unsigned int k, unsigned int n);
-        rs(const char *cfg, bool is_audio);
+        rs(const char *cfg, bool is_audio) noexcept(false);
         virtual ~rs();
 
         struct video_frame *

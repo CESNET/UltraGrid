@@ -138,7 +138,6 @@ COMMON_OBJS     = \
 		src/rxtx/rtp_common.o \
 		src/rxtx/ultragrid_rtp.o \
 		src/to_planar.o \
-		src/ug_runtime_error.o \
 		src/utils/audio_buffer.o \
 		src/utils/color_out.o \
 		src/utils/config_file.o \

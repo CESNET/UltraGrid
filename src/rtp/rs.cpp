@@ -40,13 +40,13 @@
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
+#include <stdexcept>
 
 #include "config.h"
 #include "debug.h"
 #include "rtp/rs.h"
 #include "rtp/rtp_types.h"
 #include "transmit.h"
-#include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/text.h"
 #include "video.h"
@@ -127,7 +127,7 @@ rs::rs(const char *c_cfg, bool is_audio)
         assert(state != NULL);
         MSG(INFO, "Using Reed-Solomon with k=%u n=%u\n", m_k, m_n);
 #else
-        throw ug_runtime_error("zfec support is not compiled in");
+        throw std::runtime_error("zfec support is not compiled in");
 #endif
 }
 

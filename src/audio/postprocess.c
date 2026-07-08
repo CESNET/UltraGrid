@@ -174,6 +174,10 @@ audio_postprocess_init(const char *channel_map, const char *scale,
         double scale_factor = 1.0;
         struct state_audio_postprocess *s = calloc(1, sizeof *s);
         s->resampler = audio_frame2_resampler_init();
+        if (s->resampler == nullptr) {
+                audio_postprocess_done(s);
+                return -1;
+        }
         s->channel_map.max_output = -1;
 
         module_init_default(&s->mod);

@@ -36,16 +36,18 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "audio/resampler.hpp"
+
+#include <stdexcept>
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif // HAVE_CONFIG_H
 
-#include "audio/resampler.hpp"
 #include "audio/types.h"
 #include "audio/utils.h"
 #include "debug.h"
 #include "host.h"
-#include "ug_runtime_error.hpp"
 #include "utils/macros.h"
 #include "utils/string_view_utils.hpp"
 #include "utils/worker.h"
@@ -258,7 +260,9 @@ bool speex_resampler::check_reconfigure(unsigned original_sample_rate, unsigned 
                 return true;
         }
         if (bps != 2 && bps != 4) {
-                throw logic_error("Only 16 or 32 bits per sample are supported for resampling!");
+                MSG(ERROR, "Only 16 or 32 bits per sample are supported for "
+                           "Speex resampling!\n");
+                abort();
         }
 
         if (state) {
@@ -368,10 +372,10 @@ audio_frame2_resampler::audio_frame2_resampler()
                 } else if (tok.compare(0, "quality="sv.length(), "quality=") == 0) {
                         quality = stoi(string(tok.substr("quality="sv.length())));
                         if (quality < 0 || quality > 10) {
-                                throw ug_runtime_error("Quality " + to_string(quality) + " out of range 0-10"s);
+                                throw runtime_error("Quality " + to_string(quality) + " out of range 0-10"s);
                         }
                 } else {
-                        throw ug_runtime_error("Unknown resampler option: "s + string(tok));
+                        throw runtime_error("Unknown resampler option: "s + string(tok));
                 }
         }
         switch (resampler_type) {
@@ -386,7 +390,7 @@ audio_frame2_resampler::audio_frame2_resampler()
 #ifdef HAVE_SPEEXDSP
                         m_impl = std::make_unique<speex_resampler>(quality);
 #else
-                        throw ug_runtime_error("SpeexDSP not compiled in!");
+                        throw runtime_error("SpeexDSP not compiled in!");
 #endif
                         break;
                 case RESAMPLER_SOXR:
@@ -394,7 +398,7 @@ audio_frame2_resampler::audio_frame2_resampler()
                         m_impl = std::make_unique<soxr_resampler>();
                         break;
 #else
-                        throw ug_runtime_error("Soxr not compiled in!");
+                        throw runtime_error("Soxr not compiled in!");
 #endif
         }
 }

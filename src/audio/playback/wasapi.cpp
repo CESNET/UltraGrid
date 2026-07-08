@@ -48,6 +48,7 @@
 #include <propidl.h>               // for PropVariantClear, PropVariantInit
 #include <propsys.h>               // for IPropertyStore
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <winerror.h>              // for SUCCEEDED, S_OK, FAILED, S_FALSE
 
@@ -57,7 +58,6 @@
 #include "host.h"                  // for get_commandline_param, INIT_NOERR
 #include "lib_common.h"
 #include "types.h"                 // for device_info
-#include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/windows.h"
 
@@ -97,7 +97,15 @@ string wasapi_get_name(IMMDevice *pDevice); // defined in audio/playback/wasapi.
 #define SAFE_RELEASE(u) \
     do { if ((u) != NULL) (u)->Release(); (u) = NULL; } while(0)
 #undef THROW_IF_FAILED
-#define THROW_IF_FAILED(cmd) do { HRESULT hr = cmd; if (!SUCCEEDED(hr)) { ostringstream oss; oss << #cmd << ": " << hresult_to_str(hr); throw ug_runtime_error(oss.str()); } } while(0)
+#define THROW_IF_FAILED(cmd)                                                   \
+        do {                                                                   \
+                HRESULT hr = cmd;                                              \
+                if (!SUCCEEDED(hr)) {                                          \
+                        ostringstream oss;                                     \
+                        oss << #cmd << ": " << hresult_to_str(hr);             \
+                        throw std::runtime_error(oss.str());                   \
+                }                                                              \
+        } while (0)
 
 static void audio_play_wasapi_probe(struct device_info **available_devices, int *dev_count, void (**deleter)(void *))
 {
@@ -134,7 +142,7 @@ static void audio_play_wasapi_probe(struct device_info **available_devices, int 
                                     "WASAPI %s",
                                     wasapi_get_name(pDevice).c_str());
                                 ++*dev_count;
-                        } catch (ug_runtime_error &e) {
+                        } catch (std::runtime_error &e) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Device " << i << ": " << e.what() << "\n";
                         }
                         SAFE_RELEASE(pDevice);
@@ -183,7 +191,7 @@ static void audio_play_wasapi_help(bool full) {
                                         col() << " (ID: " << dev_id  << ")";
                                 }
                                 col() << "\n";
-                        } catch (ug_runtime_error &e) {
+                        } catch (std::runtime_error &e) {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Device " << i << ": " << e.what() << "\n";
                         }
                         SAFE_RELEASE(pDevice);
@@ -279,7 +287,7 @@ audio_play_wasapi_init(const struct audio_playback_opts *opts)
                                                 SAFE_RELEASE(pDevice);
                                         }
                                 }
-                        } catch (ug_runtime_error &e) { // just continue with the next
+                        } catch (std::runtime_error &e) { // just continue with the next
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME << e.what() << "\n";
                         }
                         SAFE_RELEASE(pEndpoints);
@@ -287,7 +295,7 @@ audio_play_wasapi_init(const struct audio_playback_opts *opts)
                         THROW_IF_FAILED(enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &s->pDevice));
                 }
                 if (!s->pDevice) {
-                        throw ug_runtime_error("Device not found!");
+                        throw std::runtime_error("Device not found!");
                 }
                 THROW_IF_FAILED(s->pDevice->Activate(IID_IAudioClient, CLSCTX_ALL, NULL,
                                 (void **)&s->pAudioClient));
@@ -297,7 +305,7 @@ audio_play_wasapi_init(const struct audio_playback_opts *opts)
                         LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Using device: "
                                 << friendlyName << "\n";
                 }
-        } catch (ug_runtime_error &e) {
+        } catch (std::runtime_error &e) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << e.what() << "\n";
                 com_uninitialize(&s->com_initialized);
                 delete s;

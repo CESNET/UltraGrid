@@ -78,7 +78,6 @@
 #include "rtp/net_udp.h"
 #include "rxtx.h"
 #include "tv.h"
-#include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/misc.h" // format_in_si_units, unit_evaluate
 #include "utils/net.h"
@@ -650,7 +649,7 @@ struct cmdline_parameters {
 
 /// unit_evaluate() is similar but uses SI prefixes
 static int
-parse_size(const char *sz_str) noexcept(false)
+parse_size(const char *sz_str)
 {
     int ret = 0;
     size_t end = 0;
@@ -658,10 +657,12 @@ parse_size(const char *sz_str) noexcept(false)
     try {
         ret = stoi(sz_str, &end);
     } catch (invalid_argument &e) {
-        throw ug_runtime_error(string("invalid buffer size: ") + sz_str);
+        MSG(ERROR, "invalid buffer size: %s\n",sz_str);
+        return -1;
     }
     if (ret <= 0) {
-        throw ug_runtime_error(string("size must be positive: ") + sz_str);
+        MSG(ERROR, "size must be positive: %s\n",sz_str);
+        return -1;
     }
 
     switch (sz_str[end]) {
@@ -780,16 +781,19 @@ parse_fmt(int argc, char **argv,
     }
 
     parsed->bufsize = parse_size(argv[optind++]);
+    if (parsed->bufsize < 0) {
+            return -1;
+    }
     try {
         parsed->port = stoi(argv[optind]);
     } catch (invalid_argument &) {
-        throw ug_runtime_error(string("invalid port number: ") +
-                               argv[optind]);
+        MSG(ERROR, "invalid port number: %s\n", argv[optind]);
+        return -1;
     }
     if (parsed->port < 0 || parsed->port >= USHRT_MAX) {
-        throw ug_runtime_error(string("port must be in range [0..") +
-                               to_string(USHRT_MAX) +
-                               "], given: " + argv[optind]);
+        MSG(ERROR, "port must be in range [0..%u], given %s\n",
+            (unsigned) USHRT_MAX, argv[optind]);
+        return -1;
     }
     optind++;
     if (parsed->port == 0) {
@@ -1071,8 +1075,6 @@ int main(int argc, char **argv)
         }
         MSG(ERROR, "Non-numeric value passed to option "
                    "expecting a number!\n");
-    } catch (ug_runtime_error &e) {
-        MSG(FATAL, "%s\n", e.what());
     }
     if (ret != 0) {
         EXIT(ret < 0 ? EXIT_FAILURE : EXIT_SUCCESS);

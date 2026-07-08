@@ -68,7 +68,6 @@
 #include "rtp/rtp.h"                 // for RTP_MAX_PACKET_LEN
 #include "rtp/rtp_types.h"           // for BUFNUM_BITS, audio_payload_hdr_t
 #include "types.h"                   // for fec_desc, fec_type
-#include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/debug.h"             // for DEBUG_TIMER_*
 #include "utils/macros.h"
@@ -156,21 +155,10 @@ struct state_audio_decoder {
 void *
 audio_decoder_init(const char *encryption, struct module *parent)
 {
-        struct state_audio_decoder *s = NULL;
-
-        try {
-                s = new struct state_audio_decoder();
-        } catch (ug_runtime_error &e) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "%s\n", e.what());
-                goto error;
-        }
-
+        auto *s = new struct state_audio_decoder();
         s->magic = AUDIO_DECODER_MAGIC;
-
         s->audio_decompress = NULL;
-
         s->packet_counter = packet_counter_init(0);
-
         s->control = get_control_state(parent);
 
         if (strlen(encryption) > 0) {

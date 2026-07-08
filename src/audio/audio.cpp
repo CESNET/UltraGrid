@@ -53,6 +53,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -81,7 +82,6 @@
 #include "transmit.h"
 #include "tv.h"
 #include "types.h"
-#include "ug_runtime_error.hpp"
 #include "utils/color_out.h"
 #include "utils/macros.h"  // for STR_LEN, snprintf_ch
 #include "utils/misc.h"    // for get_stat_color
@@ -711,7 +711,7 @@ static void *audio_sender_thread(void *arg)
         unique_ptr<audio_frame2_resampler> resampler_state;
         try {
                 resampler_state = std::make_unique<audio_frame2_resampler>();
-        } catch (ug_runtime_error &e) {
+        } catch (std::exception &e) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "%s\n", e.what());
                 exit_uv(1);
                 return NULL;

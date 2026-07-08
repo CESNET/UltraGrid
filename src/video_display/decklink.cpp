@@ -81,7 +81,6 @@
 #include "lib_common.h"
 #include "module.h"
 #include "tv.h"
-#include "ug_runtime_error.hpp"
 #include "utils/macros.h"
 #include "utils/math.h"
 #include "utils/misc.h"
@@ -1303,9 +1302,10 @@ static bool settings_init(struct state_decklink_vdisp *s, const char *fmt,
                         s->requested_hdr_mode.EOTF = static_cast<int64_t>(HDR_EOTF::HDR); // default
                         if (strncasecmp(ptr, "hdr=", strlen("hdr=")) == 0) {
                                 try {
-                                        s->requested_hdr_mode.Init(ptr + strlen("hdr="));
-                                } catch (ug_no_error const &e) {
-                                        return false;
+                                        s->requested_hdr_mode.Init(val);
+                                        if (strcmp(val, "help") == 0) {
+                                                return false;
+                                        }
                                 } catch (exception const &e) {
                                         LOG(LOG_LEVEL_ERROR) << MOD_NAME << "HDR mode init: " << e.what() << "\n";
                                         return false;
@@ -2010,7 +2010,7 @@ void HDRMetadata::Init(const string &fmt) {
                 cout << "\t\t\t- minDisplayMasteringLuminance\n";
                 cout << "\t\t\t- maxCLL\n";
                 cout << "\t\t\t- maxFALL\n";
-                throw ug_no_error{};
+                return;
         } else {
                 EOTF = stoi(mode);
                 if (EOTF < 0 || EOTF > 7) {

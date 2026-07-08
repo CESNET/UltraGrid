@@ -57,6 +57,7 @@
 #include <iostream>
 #include <iterator>                         // for size
 #include <memory>
+#include <stdexcept>
 #include <random>
 #include <utility>
 #include <vector>
@@ -64,7 +65,6 @@
 #include "color_space.h"
 #include "debug.h"
 #include "pixfmt_conv.h"
-#include "ug_runtime_error.hpp"
 #include "utils/bitmap_font.h"         // for FONT_H
 #include "utils/color_out.h"
 #include "utils/macros.h"                   // for IS_KEY_PREFIX, MAX, STR_LEN
@@ -537,7 +537,7 @@ struct image_pattern_strips : public image_pattern
                         } else if (IS_KEY_PREFIX(item, "width")) {
                                 fill_w = stoi(strchr(item, '=') + 1);
                         } else {
-                                throw ug_runtime_error(
+                                throw std::runtime_error(
                                     string("Wrong option: ") + config);
                         }
                 }
@@ -567,7 +567,7 @@ class image_pattern_raw : public image_pattern {
         public:
                 explicit image_pattern_raw(string config) {
                         if (config.empty()) {
-                                throw ug_runtime_error("Empty raw pattern is not allowed!");
+                                throw std::runtime_error("Empty raw pattern is not allowed!");
                         }
                         if (config.substr(0, "0x"s.length()) == "0x") { // strip optional "0x"
                                 config = config.substr(2);
@@ -629,7 +629,7 @@ class image_pattern_text : public image_pattern {
                                                 text = tok;
                                                 text_set = true;
                                         } else {
-                                                throw ug_runtime_error("Testcard text - wrong option: " + string(tok));
+                                                throw std::runtime_error("Testcard text - wrong option: " + string(tok));
                                         }
                                 }
                         }
@@ -688,7 +688,7 @@ class image_pattern_diagonal : public image_pattern{
                                         } else if (key == "line_width") {
                                                 line_width = stol((string) val, nullptr, 0);
                                         } else {
-                                                throw ug_runtime_error("Testcard diagonal - wrong option: " + string(tok));
+                                                throw std::runtime_error("Testcard diagonal - wrong option: " + string(tok));
                                         }
                                 }
                         }
@@ -755,7 +755,7 @@ unique_ptr<image_pattern> image_pattern::create(string const &pattern, string co
         if (pattern == "diagonal") {
                 return make_unique<image_pattern_diagonal>(params);
         }
-        throw ug_runtime_error("Unknown pattern: "s +  pattern + "!"s);
+        throw std::runtime_error("Unknown pattern: "s +  pattern + "!"s);
 }
 
 struct video_pattern_generator {
@@ -872,7 +872,7 @@ struct interlaced_video_pattern_generator : public video_pattern_generator {
                 : width(w), height(h), linesize(vc_get_linesize(width, color_spec))
         {
                 if (width % step != 0) {
-                        throw ug_runtime_error(
+                        throw std::runtime_error(
                             string("[interlaced] width must be divisible by ") +
                             std::to_string(step) + "!");
                 }
