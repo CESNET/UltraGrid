@@ -53,6 +53,7 @@
 #include "video.h"
 #include "openapv/openapv_common.hpp"
 #include "openapv/to_openapv_conversions.h"
+#include "utils/string_view_utils.hpp"
 #include "utils/video_frame_pool.h"
 
 using std::shared_ptr;
@@ -69,7 +70,7 @@ using oapve_uniq = std::unique_ptr<std::remove_pointer_t<oapve_t>, deleter_from_
 struct state_video_compress_oapv {
         state_video_compress_oapv() = default;
 
-        bool parse_fmt(char *fmt);
+        bool parse_fmt(std::string_view cfg);
 
         oapve_uniq enc_h;           // OAPV encoder handle
         oapve_cdesc_t cdsc{};       // description used for encoder creation (params, threads, …)
@@ -155,37 +156,38 @@ const struct {
         },
 };
 
-bool state_video_compress_oapv::parse_fmt(char *fmt)
+bool state_video_compress_oapv::parse_fmt(std::string_view cfg)
 {
-        char *tok = nullptr;
-        char *save_ptr = nullptr;
+        while(!cfg.empty()){
+                auto tok = tokenize(cfg, ':', '"');
+                auto key = tokenize(tok, '=');
+                auto val = tokenize(tok, '=');
 
-        while ((tok = strtok_r(fmt, ":", &save_ptr)) != nullptr) {
-                fmt = nullptr;
-                const char *val = strchr(tok, '=');
-                if (val == nullptr) {
-                        MSG(ERROR, "Missing value for option: %s\n", tok);
+                if(val.empty()){
+                        MSG(ERROR, "Missing value for option: %s\n", SV_TO_CSTR(key));
                         return false;
                 }
-                val += 1;
 
-                if (IS_KEY_PREFIX(tok, "threads")) {
-                        const int threads = atoi(val);
-                        if (threads < 0) {
-                                MSG(ERROR, "Invalid number of threads '%s' (must be >= 0, 0 = auto).\n", val);
+                if(key == "threads"){
+                        if(!parse_num(val, cdsc.threads)){
+                                MSG(ERROR, "Failed to parse %s\n", SV_TO_CSTR(val));
                                 return false;
                         }
-                        cdsc.threads = threads;
-                } else if (IS_KEY_PREFIX(tok, "qp")) {
-                        if (oapve_param_parse(&cdsc.param[FRM_INDEX], "qp", val) != 0) {
-                                MSG(ERROR, "Invalid QP value '%s' (0~75 or 255 for auto).\n", val);
+                        if (cdsc.threads < 0) {
+                                MSG(ERROR, "Invalid number of threads '%s' (must be >= 0, 0 = auto).\n", SV_TO_CSTR(val));
                                 return false;
                         }
-                } else if (IS_KEY_PREFIX(tok, "bitrate")) {
+                } else if(key == "qp"){
+                        if(oapve_param_parse(&cdsc.param[FRM_INDEX], "qp", SV_TO_CSTR(val)) != 0){
+                                MSG(ERROR, "Invalid QP value '%s' (0~75 or 255 for auto).\n", SV_TO_CSTR(val));
+                                return false;
+                        }
+                } else if(key == "bitrate"){
+                        std::string valstr(val);
                         const char *endptr = nullptr;
-                        long long rate_bps = unit_evaluate(val, &endptr);
+                        long long rate_bps = unit_evaluate(valstr.c_str(), &endptr);
                         if (rate_bps == LLONG_MIN || *endptr != '\0') {
-                                MSG(ERROR, "Invalid bitrate value '%s'.\n", val);
+                                MSG(ERROR, "Invalid bitrate value '%s'.\n", valstr.c_str());
                                 return false;
                         }
                         if(rate_bps < 1000){
@@ -193,44 +195,34 @@ bool state_video_compress_oapv::parse_fmt(char *fmt)
                                 return false;
                         }
                         cdsc.param[FRM_INDEX].bitrate = (int)(rate_bps / 1000);
-                } else if (IS_KEY_PREFIX(tok, "preset")) {
-                        if (oapve_param_parse(&cdsc.param[FRM_INDEX], "preset", val) != 0) {
-                                MSG(ERROR, "Invalid preset '%s' (fastest, fast, medium, slow, placebo).\n", val);
+                } else if(key == "preset"){
+                        if (oapve_param_parse(&cdsc.param[FRM_INDEX], "preset", SV_TO_CSTR(val)) != 0){
+                                MSG(ERROR, "Invalid preset '%s' (fastest, fast, medium, slow, placebo).\n", SV_TO_CSTR(val));
                                 return false;
                         }
-                } else if (strstr(tok, "tile-w=") == tok) {
-                        if (oapve_param_parse(&cdsc.param[FRM_INDEX], "tile-w", val) != 0) {
-                                MSG(ERROR,
-                                    "Invalid tile-h '%s' (must be at least %d "
-                                    "and a multiple of %d).\n",
-                                    val, OAPV_MIN_TILE_W, OAPV_MB_W);
+                } else if(key == "tile-w"){
+                        if (oapve_param_parse(&cdsc.param[FRM_INDEX], "tile-w", SV_TO_CSTR(val)) != 0){
+                                MSG(ERROR, "Invalid tile-h '%s' (must be at least %d and a multiple of %d).\n",
+                                    SV_TO_CSTR(val), OAPV_MIN_TILE_W, OAPV_MB_W);
                                 return false;
                         }
-                } else if (strstr(tok, "tile-h=") == tok) {
-                        if (oapve_param_parse(&cdsc.param[FRM_INDEX], "tile-h", val) != 0) {
-                                MSG(ERROR,
-                                    "Invalid tile-h '%s' (must be at least %d "
-                                    "and a multiple of %d).\n",
-                                    val, OAPV_MIN_TILE_W, OAPV_MB_W);
+                } else if(key == "tile-h"){
+                        if (oapve_param_parse(&cdsc.param[FRM_INDEX], "tile-h", SV_TO_CSTR(val)) != 0) {
+                                MSG(ERROR, "Invalid tile-h '%s' (must be at least %d and a multiple of %d).\n",
+                                    SV_TO_CSTR(val), OAPV_MIN_TILE_W, OAPV_MB_W);
                                 return false;
                         }
-                } else if (strstr(tok, "qp-offset-c1=") == tok ||
-                           strstr(tok, "qp-offset-c2=") == tok ||
-                           strstr(tok, "qp-offset-c3=") == tok) {
-                        char *key = tok;
-                        *strchr(key, '=') = '\0';
-                        if (oapve_param_parse(&cdsc.param[FRM_INDEX], key, val) != 0) {
-                                MSG(ERROR,
-                                    "Invalid %s '%s'.\n", key, val);
+                } else if (key == "qp-offset-c1"
+                           || key == "qp-offset-c2"
+                           || key == "qp-offset-c3")
+                {
+                        if (oapve_param_parse(&cdsc.param[FRM_INDEX], SV_TO_CSTR(key), SV_TO_CSTR(val)) != 0) {
+                                MSG(ERROR, "Invalid %s '%s'.\n", SV_TO_CSTR(key), SV_TO_CSTR(val));
                                 return false;
                         }
-                } else {
-                        char *key = tok;
-                        *strchr(key, '=') = '\0';
-                        if (oapve_param_parse(&cdsc.param[FRM_INDEX], key, val) != 0) {
-                                MSG(ERROR,
-                                    "Unknown option or invalid value: %s=%s\n",
-                                    key, val);
+                } else{
+                        if (oapve_param_parse(&cdsc.param[FRM_INDEX], SV_TO_CSTR(key), SV_TO_CSTR(val)) != 0) {
+                                MSG(ERROR, "Unknown option or invalid value: %s=%s\n", SV_TO_CSTR(key), SV_TO_CSTR(val));
                                 return false;
                         }
                 }
@@ -373,11 +365,9 @@ void* openapv_compress_init(module */*parent*/, const char *opts) {
         s->cdsc.max_num_frms = MAX_NUM_FRMS;
 
         if (opts && opts[0] != '\0') {
-                char *fmt = strdup(opts);
-                if (!s->parse_fmt(fmt)) {
+                if (!s->parse_fmt(opts)) {
                         return nullptr;
                 }
-                free(fmt);
         }
 
         if(s->cdsc.param->bitrate != 0 && s->cdsc.param->rc_type == OAPV_RC_CQP){
