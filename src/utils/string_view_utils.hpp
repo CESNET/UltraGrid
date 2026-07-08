@@ -45,6 +45,10 @@
 #include <stdlib.h>
 #include <ctype.h>
 
+/* Useful for calling C style interfaces which expect a null terminated const char *
+ * The result is temporary, don't save it! */
+#define SV_TO_CSTR(sv) (std::string((sv)).c_str())
+
 /**
  * @brief Tokenizer for string_view
  *
