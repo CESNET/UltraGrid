@@ -159,26 +159,25 @@ static juice_agent_t *create_agent(const Holepunch_config *c, void *usr_ptr){
 
 
 static void recv_msg(int sock, char *buf, size_t buf_len){
-        char header[MSG_HEADER_LEN + 1];
-        buf[0] = '\0';
+        char header[MSG_HEADER_LEN]{};
 
-        int bytes = recv(sock, header, MSG_HEADER_LEN, MSG_WAITALL);
+        unsigned bytes = recv(sock, header, MSG_HEADER_LEN, MSG_WAITALL);
         if(bytes != MSG_HEADER_LEN){
                 return;
         }
-        header[MSG_HEADER_LEN] = '\0';
 
         unsigned expected_len;
-        char *end;
-        expected_len = strtol(header, &end, 10);
-        if(header == end){
+        if(!parse_num({header, bytes}, expected_len)){
                 return;
         }
-
-        if(expected_len > buf_len - 1)
-                expected_len = buf_len - 1;
+        expected_len = std::min<unsigned>(expected_len, buf_len - 1);
 
         bytes = recv(sock, buf, expected_len, MSG_WAITALL);
+        if(bytes != expected_len){
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Expected %u bytes, got %u\n", expected_len, bytes);
+                buf[0] = '\0';
+                return;
+        }
         buf[bytes] = '\0';
 }
 
