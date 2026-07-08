@@ -124,7 +124,6 @@ recompress_output_port::recompress_output_port(
 
         //RTP
         params.parent      = parent;
-        params.video_compression = "none";
         params.medium[TX_MEDIA_VIDEO].rxtx_mode = MODE_SENDER;
         params.receiver = this->host.c_str();
         params.medium[TX_MEDIA_VIDEO].rx_port = rx_port;

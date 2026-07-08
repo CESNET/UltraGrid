@@ -95,8 +95,7 @@ public:
         enum rxtx_mode rxtx_mode[NUM_TX_MEDIA] = {};
 
 protected:
-        rxtx(const char *protocol_name,
-             struct rxtx_params *params) noexcept(false);
+        rxtx(struct rxtx_params *params);
         void check_sender_messages();
 
         struct module m_sender_mod;
@@ -140,44 +139,12 @@ rxtx_get_acompression(const char *net_protocol, const char *req_codec) {
         return TX_IS_STD(net_protocol) ? "mp3" : DEFAULT_AUDIO_CODEC;
 }
 
-/**
- * @returns req_compression if specified (!= 0); protocol default compression
- * otherwise
- */
-const char *
-rxtx_get_vcompression(const char *net_protocol, const char *req_compression)
-{
-        if (req_compression != nullptr) {
-                return req_compression;
-        }
-        // default values for different RXTX protocols
-        if (TX_IS_STD(net_protocol)) {
-                return "none"; // will be set later by video_rxtx::send_frame()
-        }
-        // UG RTP or loopback
-        return DEFAULT_VIDEO_COMPRESSION;
-}
-
-rxtx::rxtx(const char         *protocol_name,
-           struct rxtx_params *params) noexcept(false)
+rxtx::rxtx(struct rxtx_params *params)
     : m_video_exporter(params->video_exporter)
 {
         module_init_default(&m_sender_mod);
         m_sender_mod.cls = MODULE_CLASS_SENDER;
         module_register(&m_sender_mod, params->parent);
-
-        const char *compression =
-            rxtx_get_vcompression(protocol_name, params->video_compression);
-        int ret = compress_init(&m_sender_mod, compression, &m_video_compression);
-        if(ret != 0) {
-                module_done(&m_sender_mod);
-                if(ret < 0) {
-                        error_msg("Error initializing compression %s.\n",
-                                  compression);
-                        throw -1;
-                }
-                throw 1;
-        }
 
         module_init_default(&m_receiver_mod);
         m_receiver_mod.cls = MODULE_CLASS_RECEIVER;
@@ -390,12 +357,7 @@ rxtx::create(string const              &proto,
                 return nullptr;
         }
 
-        rxtx *ret = nullptr;
-        try {
-                ret = new rxtx(proto.c_str(), params);
-        } catch (int i) {
-                return i < 0 ? nullptr : (rxtx *) INIT_NOERR;
-        }
+        rxtx *ret = new rxtx(params);
 
         params->sender_mod  = &ret->m_sender_mod;
         params->receiver_mod  = &ret->m_receiver_mod;
@@ -406,6 +368,21 @@ rxtx::create(string const              &proto,
                 return (rxtx *) retval;
         }
         ret->m_impl_funcs = vri;
+
+        if (strlen(params->video_compression) == 0) {
+                // not set by user or RXTX mod
+                strcpy_ch(params->video_compression, DEFAULT_VIDEO_COMPRESSION);
+        }
+        int rc = compress_init(&ret->m_sender_mod, params->video_compression,
+                               &ret->m_video_compression);
+        if (rc != 0) {
+                delete ret;
+                if (rc < 0) {
+                        error_msg("Error initializing compression %s.\n",
+                                  params->video_compression);
+                }
+                return nullptr;
+        }
 
         for (int i = 0; i < NUM_TX_MEDIA; ++i) {
                 ret->rxtx_mode[i] = params->medium[i].rxtx_mode;

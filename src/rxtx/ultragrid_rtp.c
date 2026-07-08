@@ -180,7 +180,6 @@ init(struct rxtx_params *params)
                 return INIT_NOERR;
         }
         return s;
-
 }
 
 

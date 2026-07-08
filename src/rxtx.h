@@ -77,7 +77,8 @@ struct rxtx_params {
         int             force_ip_version;
         time_ns_t       start_time;
 
-        const char     *video_compression; ///< nullptr selects proto dfl
+        /// if set to "", RXTX module may request preferred
+        char            video_compression[STR_LEN];
         struct display *display_device;    ///< only iHDTV, UG RTP
         struct vidcap  *capture_device;    ///< iHDTV only
         /// video rate limiter in bps or RATE_ constantts
@@ -95,7 +96,7 @@ struct rxtx_params {
                                              .rx_port   = -1,                  \
                                              .tx_port   = -1,                  \
                                              .fec       = "none",              \
-                                         }, {                                     \
+                                         }, {                                  \
                                              .rxtx_mode = RXTX_MODE_NONE,      \
                                              .rx_port   = -1,                  \
                                              .tx_port   = -1,                  \
@@ -111,7 +112,7 @@ struct rxtx_params {
                 .ttl                 = -1,                                     \
                 .force_ip_version    = 0,                                      \
                 .start_time          = get_time_in_ns(),                       \
-                .video_compression   = nullptr,                                \
+                .video_compression   = "",                                     \
                 .display_device      = nullptr,                                \
                 .capture_device      = nullptr,                                \
                 .video_bitrate_limit = RATE_UNLIMITED,                         \
@@ -219,8 +220,6 @@ unsigned int rxtx_get_achannels(const char  *net_protocol,
                                 unsigned int req_channels);
 const char  *rxtx_get_acompression(const char *net_protocol,
                                    const char *req_codec);
-const char  *rxtx_get_vcompression(const char *net_protocol,
-                                   const char *req_compression);
 
 #ifdef __cplusplus
 } // extern "C"

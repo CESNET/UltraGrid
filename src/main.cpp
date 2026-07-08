@@ -789,7 +789,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         print_configuration();
                         return 1;
                 case 'c':
-                        opt->rxtx.video_compression = optarg;
+                        strcpy_ch(opt->rxtx.video_compression, optarg);
                         break;
                 case OPT_RTSP_SERVER:
                         log_msg(LOG_LEVEL_WARNING, "Option \"--rtsp-server[=args]\" "
@@ -1180,7 +1180,7 @@ validate_params(struct ug_options *opt)
 {
         struct rxtx_medium_params *video = &opt->rxtx.medium[TX_MEDIA_VIDEO];
         if (opt->vidcap_params_head == opt->vidcap_params_tail) {
-                if (opt->rxtx.video_compression != nullptr) {
+                if (strlen(opt->rxtx.video_compression) == 0) {
                         MSG(WARNING,
                             "Video compression set but no vidcap given!\n");
                 }
@@ -1367,9 +1367,7 @@ int main(int argc, char *argv[])
         color_printf(TBOLD("Audio capture    :") " %s\n", opt.audio.send_cfg);
         color_printf(TBOLD("Audio playback   :") " %s\n", opt.audio.recv_cfg);
         color_printf(TBOLD("MTU              :") " %d B\n", opt.rxtx.mtu);
-        color_printf(TBOLD("Video compression:") " %s\n",
-                     rxtx_get_vcompression(opt.net_protocol,
-                                           opt.rxtx.video_compression));
+        color_printf(TBOLD("Video compression:") " %s\n", opt.rxtx.video_compression);
         color_printf(TBOLD("Audio codec      : ") "%s\n", get_name_to_audio_codec(ac_params.codec));
         color_printf(TBOLD("Network protocol : ") "%s\n", rxtx_get_proto_long_name(opt.net_protocol));
         color_printf(TBOLD("Audio FEC        : ") "%s\n", audio->fec);
