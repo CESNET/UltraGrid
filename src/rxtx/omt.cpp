@@ -124,7 +124,7 @@ void init_send(omt_rxtx_state *s){
         s->send_video_frame.Timestamp = -1;
 }
 
-void *omt_rxtx_create(const rxtx_params *params){
+void *omt_rxtx_create(rxtx_params *params){
         const struct rxtx_medium_params *params_video =
             &params->medium[TX_MEDIA_VIDEO];
         auto s    = std::make_unique<omt_rxtx_state>();

@@ -138,7 +138,7 @@ static void *ihdtv_sender_thread(void *arg)
 #endif
 
 static void *
-create_video_rxtx_ihdtv(const struct rxtx_params *params)
+create_video_rxtx_ihdtv(struct rxtx_params *params)
 {
         bug_msg(LOG_LEVEL_WARNING,
                 "Warning: iHDTV support may be currently broken. ");

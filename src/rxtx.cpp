@@ -83,8 +83,8 @@ public:
          * If overridden, children must call also video_rxtx::join()
          */
         virtual void       join() noexcept;
-        static rxtx *create(std::string const         &name,
-                                  const struct rxtx_params *params) noexcept;
+        static rxtx       *create(std::string const  &proto,
+                                  struct rxtx_params *params) noexcept;
         static void        list(bool full) noexcept;
         void set_audio_spec(const struct audio_desc *desc, int audio_rx_port,
                             int audio_tx_port, bool ipv6) noexcept;
@@ -96,7 +96,7 @@ public:
 
 protected:
         rxtx(const char *protocol_name,
-                   const struct rxtx_params *params) noexcept(false);
+             struct rxtx_params *params) noexcept(false);
         void check_sender_messages();
 
         struct module m_sender_mod;
@@ -158,8 +158,8 @@ rxtx_get_vcompression(const char *net_protocol, const char *req_compression)
         return DEFAULT_VIDEO_COMPRESSION;
 }
 
-rxtx::rxtx(const char                *protocol_name,
-                       const struct rxtx_params *params) noexcept(false)
+rxtx::rxtx(const char         *protocol_name,
+           struct rxtx_params *params) noexcept(false)
     : m_video_exporter(params->video_exporter)
 {
         module_init_default(&m_sender_mod);
@@ -347,7 +347,7 @@ void *rxtx::video_sender_loop() {
  */
 rxtx *
 rxtx::create(string const              &proto,
-                   const struct rxtx_params *params) noexcept
+                   struct rxtx_params *params) noexcept
 {
         const struct rxtx_medium_params *params_audio =
             &params->medium[TX_MEDIA_AUDIO];
@@ -397,10 +397,9 @@ rxtx::create(string const              &proto,
                 return i < 0 ? nullptr : (rxtx *) INIT_NOERR;
         }
 
-        auto params_c = *params;
-        params_c.sender_mod  = &ret->m_sender_mod;
-        params_c.receiver_mod  = &ret->m_receiver_mod;
-        ret->m_impl_state = vri->create(&params_c);
+        params->sender_mod  = &ret->m_sender_mod;
+        params->receiver_mod  = &ret->m_receiver_mod;
+        ret->m_impl_state = vri->create(params);
         if (ret->m_impl_state == nullptr || ret->m_impl_state == INIT_NOERR) {
                 void *retval = ret->m_impl_state;
                 delete ret;
@@ -437,10 +436,13 @@ rxtx::list(bool full) noexcept
 }
 
 /**
+ * @param[in]  params requested parameters
+ * @param[out] params actual parameters (some default vals may filled with
+ *                    adjusted values)
  * @returns -1 error; 0 OK; 1 help shown (as usual)
  */
 int
-rxtx_init(const char *proto_name, const struct rxtx_params *params,
+rxtx_init(const char *proto_name, struct rxtx_params *params,
            struct rxtx **state)
 {
         rxtx *ret = rxtx::create(proto_name, params);

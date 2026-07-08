@@ -149,7 +149,7 @@ static void done(void *state)
 }
 
 static void *
-init(const struct rxtx_params *params)
+init(struct rxtx_params *params)
 {
         if (strlen(params->protocol_opts) > 0) {
                 usage();

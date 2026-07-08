@@ -36,7 +36,7 @@ jack_trans_done(void *state)
 }
 
 static void *
-jack_trans_init(const struct rxtx_params *params)
+jack_trans_init(struct rxtx_params *params)
 {
         struct jack_audio_rxtx *s = calloc(
             1, sizeof(struct jack_audio_rxtx));

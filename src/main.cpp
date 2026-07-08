@@ -1269,25 +1269,6 @@ int main(int argc, char *argv[])
         if (ac_params.codec == AC_NONE) {
                 EXIT(EXIT_FAILURE);
         }
-        if (!show_help) {
-                col() << TBOLD("Display device   : ") << opt.requested_display << "\n";
-                col() << TBOLD("Capture device   : ") << vidcap_params_get_driver(opt.vidcap_params_head) << "\n";
-                col() << TBOLD("Audio capture    : ") << opt.audio.send_cfg << "\n";
-                col() << TBOLD("Audio playback   : ") << opt.audio.recv_cfg << "\n";
-                col() << TBOLD("MTU              : ") << opt.rxtx.mtu << " B\n";
-                col() << TBOLD("Video compression: ")
-                      << rxtx_get_vcompression(opt.net_protocol,
-                                               opt.rxtx.video_compression)
-                      << "\n";
-                col() << TBOLD("Audio codec      : ")
-                      << get_name_to_audio_codec(ac_params.codec) << "\n";
-                col() << TBOLD("Network protocol : ")
-                      << rxtx_get_proto_long_name(opt.net_protocol) << "\n";
-                col() << TBOLD("Audio FEC        : ") << audio->fec << "\n";
-                col() << TBOLD("Video FEC        : ") << video->fec << "\n";
-                col() << "\n";
-        }
-
         opt.audio.parent = &uv.root_module;
         opt.rxtx.parent = &uv.root_module;
 
@@ -1379,6 +1360,21 @@ int main(int argc, char *argv[])
                 exit_uv(ret < 0 ? EXIT_FAIL_AUDIO : 0);
                 goto cleanup;
         }
+
+        color_printf("\n");
+        color_printf(TBOLD("Display device   :") " %s\n", opt.requested_display);
+        color_printf(TBOLD("Capture device   :") " %s\n", vidcap_params_get_driver(opt.vidcap_params_head));
+        color_printf(TBOLD("Audio capture    :") " %s\n", opt.audio.send_cfg);
+        color_printf(TBOLD("Audio playback   :") " %s\n", opt.audio.recv_cfg);
+        color_printf(TBOLD("MTU              :") " %d B\n", opt.rxtx.mtu);
+        color_printf(TBOLD("Video compression:") " %s\n",
+                     rxtx_get_vcompression(opt.net_protocol,
+                                           opt.rxtx.video_compression));
+        color_printf(TBOLD("Audio codec      : ") "%s\n", get_name_to_audio_codec(ac_params.codec));
+        color_printf(TBOLD("Network protocol : ") "%s\n", rxtx_get_proto_long_name(opt.net_protocol));
+        color_printf(TBOLD("Audio FEC        : ") "%s\n", audio->fec);
+        color_printf(TBOLD("Video FEC        : ") "%s\n", video->fec);
+        color_printf("\n");
 
         if (video->rxtx_mode & MODE_SENDER) {
                 if (pthread_create(&capture_thread_id, NULL, capture_thread,

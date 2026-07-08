@@ -84,7 +84,7 @@ struct loopback_rxtx {
 static void should_exit_audio(void *arg);
 
 static void*
-init(const struct rxtx_params *params)
+init(struct rxtx_params *params)
 {
         struct loopback_rxtx *s = calloc(1, sizeof *s);
         s->parent               = params->parent;

@@ -457,10 +457,10 @@ adjust_params(struct rxtx_params *rxtx) {
         }
 }
 
-struct rtp_rxtx_common *rtp_rxtx_common_init(const struct rxtx_params *params_c)
+struct rtp_rxtx_common *
+rtp_rxtx_common_init(struct rxtx_params *params)
 {
-        struct rxtx_params params = *params_c;
-        adjust_params(&params);
+        adjust_params(params);
 
         struct rtp_rxtx_common_priv_state *s = calloc(
             1, sizeof(struct rtp_rxtx_common_priv_state));
@@ -468,16 +468,16 @@ struct rtp_rxtx_common *rtp_rxtx_common_init(const struct rxtx_params *params_c)
         pub->magic = RTP_COMMON_MAGIC;
 
         pub->priv = s;
-        pub->encryption       = strdup(params.encryption);
+        pub->encryption       = strdup(params->encryption);
         s->magic              = MAGIC;
-        s->parent             = params.parent;
-        s->force_ip_version   = params.force_ip_version,
-        s->mcast_if           = strdup(params.mcast_if);
-        s->ttl                = params.ttl;
-        s->start_time         = params.start_time;
+        s->parent             = params->parent;
+        s->force_ip_version   = params->force_ip_version,
+        s->mcast_if           = strdup(params->mcast_if);
+        s->ttl                = params->ttl;
+        s->start_time         = params->start_time;
 
         for (unsigned i = 0; i < NUM_TX_MEDIA; ++i) {
-                bool rc = init_medium_state(s, &params, i);
+                bool rc = init_medium_state(s, params, i);
                 if (!rc) {
                         rtp_rxtx_common_done(pub);
                         return nullptr;

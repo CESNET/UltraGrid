@@ -50,7 +50,7 @@
 #include "types.h"    // for codec_t, video_desc, video_frame (ptr only)
 
 enum {
-        RXTX_ABI_VERSION = 5,
+        RXTX_ABI_VERSION = 6,
 };
 
 struct audio_desc;
@@ -139,7 +139,7 @@ enum rxtx_property {
  * @retval INIT_NOERR  if help requested
  * @return the actual state
  */
-typedef void *rxtx_create_fn(const struct rxtx_params *params);
+typedef void *rxtx_create_fn(struct rxtx_params *params);
 typedef void  rxtx_done_fn(void *state);
 typedef bool  rxtx_ctl_property_fn(void *state, enum rxtx_property p, void *val,
                                    size_t *len);
@@ -196,7 +196,7 @@ extern "C" {
 struct audio_frame2;
 struct rxtx;
 
-int         rxtx_init(const char *proto_name, const struct rxtx_params *params,
+int         rxtx_init(const char *proto_name, struct rxtx_params *params,
                       struct rxtx **state);
 void        rxtx_destroy(struct rxtx *state);
 void        rxtx_list_protocols(bool full);

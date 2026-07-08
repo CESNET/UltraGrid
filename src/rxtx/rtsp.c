@@ -97,7 +97,7 @@ static int  get_rtsp_server_port(const char *config);
 static void done(void *state);
 
 static void *
-create_rxtx_rtsp(const struct rxtx_params *params)
+create_rxtx_rtsp(struct rxtx_params *params)
 {
         int rtsp_port = 0;
         const char *rtsp_port_str = params->protocol_opts;

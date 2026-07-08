@@ -92,7 +92,7 @@ static void change_address_callback(void *udata, const char *address);
 static void done(void *state);
 
 static void *
-create_rxtx_h264_sdp(const struct rxtx_params *params)
+create_rxtx_h264_sdp(struct rxtx_params *params)
 {
         struct sdp_rxtx *s = calloc(1, sizeof *s);
 

@@ -85,7 +85,7 @@ struct rtp_rxtx_common {
 
 struct rxtx_params;
 
-struct rtp_rxtx_common *rtp_rxtx_common_init(const struct rxtx_params *params);
+struct rtp_rxtx_common *rtp_rxtx_common_init(struct rxtx_params *params);
 void                    rtp_rxtx_common_done(struct rtp_rxtx_common *state);
 
 void rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *pub,
