@@ -154,7 +154,6 @@ COMMON_OBJS     = \
 		src/utils/profile_timer.o \
 		src/utils/pthread.o \
 		src/utils/random.o \
-		src/utils/resource_manager.o \
 		src/utils/ring_buffer.o \
 		src/utils/string.o \
 		src/utils/string_view_utils.o \

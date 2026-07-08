@@ -78,6 +78,7 @@
 #include <iterator>                     // for size
 #include <map>                          // for map, _Rb_tree_iterator, opera...
 #include <mutex>                        // for mutex, unique_lock
+#include <pthread.h>                    // for PTHREAD_MUTEX_INITIALIZER
 #include <string_view>                  // for operator<<, operator==, string...
 #include <sys/stat.h>                   // for stat
 #include <sys/types.h>                  // for ssize_t
@@ -183,6 +184,9 @@ char *export_dir = NULL;
 
 volatile int audio_offset; ///< added audio delay in ms (non-negative), can be used to tune AV sync
 volatile int video_offset; ///< added video delay in ms (non-negative), can be used to tune AV sync
+
+pthread_mutex_t x11_common_lock = PTHREAD_MUTEX_INITIALIZER;
+void           *x11_state;
 
 std::unordered_map<std::string, std::string> commandline_params;
 

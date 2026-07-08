@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2018 CESNET, z. s. p. o.
+ * Copyright (c) 2011-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -54,9 +54,11 @@
 #include <stdlib.h>                  // for calloc, abort, free
 #include <string.h>                  // for memcpy
 
-#include "utils/resource_manager.h"
+#include "compat/c23.h" // IWYU pragma: keep
 
-#define resource_symbol "X11-state"
+// defined in host.cpp
+extern pthread_mutex_t x11_common_lock;
+extern void           *x11_state;
 
 struct x11_state {
         Display *display;
@@ -72,8 +74,11 @@ struct x11_state *get_state(void);
 
 struct x11_state *get_state() {
         struct x11_state *state;
-        rm_lock();
-        state = (struct x11_state *) rm_get_shm(resource_symbol, sizeof(struct x11_state));
+        pthread_mutex_lock(&x11_common_lock);
+        if (x11_state == nullptr) {
+                x11_state = calloc(1, sizeof (struct x11_state));
+        }
+        state = x11_state;
         if(!state->initialized) {
                 state->display = NULL;
                 pthread_mutex_init(&state->lock, NULL);
@@ -81,7 +86,7 @@ struct x11_state *get_state() {
                 state->ref_num = 0;
                 state->initialized = true;
         }
-        rm_unlock();
+        pthread_mutex_unlock(&x11_common_lock);
 
         return state;
 }
@@ -151,80 +156,5 @@ void x11_unlock(void)
 {
         struct x11_state *s = get_state();
         pthread_mutex_unlock(&s->lock);
-}
-
-/*
- * Copyright (C) 2017 Alberts Muktupāvels
- * Code to disable window decorations taken from:
- * https://gist.github.com/muktupavels/d03bb14ea6042b779df89b4c87df975d
- */
-typedef struct
-{
-	unsigned long flags;
-	unsigned long functions;
-	unsigned long decorations;
-	long input_mode;
-	unsigned long status;
-} MotifWmHints;
-
-static MotifWmHints * get_motif_wm_hints (Display *display, Window window)
-{
-	Atom property;
-	int result;
-	Atom actual_type;
-	int actual_format;
-	unsigned long nitems;
-	unsigned long bytes_after;
-	unsigned char *data;
-
-	property = XInternAtom (display, "_MOTIF_WM_HINTS", False);
-	result = XGetWindowProperty (display, window, property,
-			0, LONG_MAX, False, AnyPropertyType,
-			&actual_type, &actual_format,
-			&nitems, &bytes_after, &data);
-
-	if (result == Success && data != NULL)
-	{
-		size_t data_size;
-		size_t max_size;
-		MotifWmHints *hints;
-
-		data_size = nitems * sizeof (long);
-		max_size = sizeof (*hints);
-
-		hints = calloc (1, max_size);
-
-		memcpy (hints, data, data_size > max_size ? max_size : data_size);
-		XFree (data);
-
-		return hints;
-	}
-
-	return NULL;
-}
-
-void x11_unset_window_decorations (Display *display, Window window)
-{
-	MotifWmHints *hints;
-	Atom property;
-	int nelements;
-
-	hints = get_motif_wm_hints (display, window);
-	if (hints == NULL)
-	{
-		hints = calloc (1, sizeof (*hints));
-		hints->decorations = (1L << 0);
-	}
-
-	hints->flags |= (1L << 1);
-	hints->decorations = 0;
-
-	property = XInternAtom (display, "_MOTIF_WM_HINTS", False);
-	nelements = sizeof (*hints) / sizeof (long);
-
-	XChangeProperty (display, window, property, property, 32, PropModeReplace,
-			(unsigned char *) hints, nelements);
-
-	free (hints);
 }
 
