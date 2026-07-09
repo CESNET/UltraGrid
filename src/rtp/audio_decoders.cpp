@@ -457,10 +457,8 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
         }
 
         decoder->summary.update(bufnum);
-        s->expected_bytes =
-            packet_counter_get_all_bytes(decoder->packet_counter);
-        s->received_bytes =
-            packet_counter_get_total_bytes(decoder->packet_counter);
+        packet_counter_get_bytes(decoder->packet_counter, &s->expected_bytes,
+                                 &s->received_bytes);
         packet_counter_clear(decoder->packet_counter);
 
         if (fec_params != 0) {

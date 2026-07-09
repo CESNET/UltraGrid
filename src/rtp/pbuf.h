@@ -109,8 +109,8 @@ struct acodec_state {
         struct state_audio_decoder *decoder;
         struct audio_frame2        *decoded;
         struct sockaddr_storage     source; // network source address
-        long long int               received_bytes;
-        long long int               expected_bytes;
+        long                        received_bytes;
+        long                        expected_bytes;
 };
 
 /**
