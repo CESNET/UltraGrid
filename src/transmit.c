@@ -72,20 +72,21 @@
 #include "audio/codec.h"
 #include "audio/types.h"
 #include "audio/utils.h"
-#include "compat/c23.h"              // IWYU pragma: keep
-#include "compat/net.h"              // for htonl etc.
+#include "compat/c23.h" // IWYU pragma: keep
+#include "compat/net.h" // for htonl etc.
 #include "control_socket.h"
 #include "crypto/openssl_encrypt.h"
 #include "debug.h"
-#include "host.h"
+#include "host.h" // for exit_uv
 #include "lib_common.h"
-#include "messaging.h"               // for check_message...
+#include "messaging.h" // for check_message...
 #include "module.h"
 #include "rtp/fec.h"
 #include "rtp/rtp.h"
-#include "rtp/rtp_types.h"           // for fec_payload_hdr_t, crypto_payloa...
-#include "rtp/rtpdec_h264.h"         // for hevc_nal_type
+#include "rtp/rtp_types.h"   // for fec_payload_hdr_t, crypto_payloa...
+#include "rtp/rtpdec_h264.h" // for hevc_nal_type
 #include "rtp/rtpenc_h264.h"
+#include "rxtx.h" // for RATE_*
 #include "tv.h"
 #include "types.h"
 #include "utils/color_out.h"
@@ -94,7 +95,7 @@
 #include "utils/misc.h" // unit_evaluate
 #include "utils/random.h"
 #include "video_codec.h"
-#include "video_frame.h"             // for vf_get_tile
+#include "video_frame.h" // for vf_get_tile
 
 struct audio_frame2;
 

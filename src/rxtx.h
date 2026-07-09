@@ -45,10 +45,11 @@
 #include <stddef.h>   // for size_t
 #endif
 
-#include "audio/types.h" // IWYU pragma: keep for nullptr
-#include "compat/c23.h" // IWYU pragma: keep for nullptr
-#include "host.h"
-#include "types.h"    // for codec_t, video_desc, video_frame (ptr only)
+#include "audio/types.h"  // IWYU pragma: keep for nullptr
+#include "compat/c23.h"   // IWYU pragma: keep for nullptr
+#include "tv.h"           // for time_ns_t
+#include "types.h"        // for codec_t, video_desc, video_frame (ptr only)
+#include "utils/macros.h" // for STR_LEN
 
 enum {
         RXTX_ABI_VERSION = 6,
@@ -91,6 +92,17 @@ struct rxtx_params {
         struct module  *sender_mod;   ///< set by rxtx::create
         struct module  *receiver_mod; ///< @copydoc sender_mod
 };
+
+#define RATE_UNLIMITED 0
+/// spread packets evenly across frame time (currently 3/4)
+#define RATE_AUTO (-1)
+/// same as @ref RATE_AUTO but occasional excess frame allowed
+#define RATE_DYNAMIC (-2)
+/// imaginary value, must not be passed to transmit module
+#define RATE_DEFAULT (-3)
+#define RATE_MIN     RATE_DYNAMIC
+/// use the bitrate as fixed, not capped
+#define RATE_FLAG_FIXED_RATE (1ll << 62ll)
 
 #define RXTX_INIT                                                              \
         {                                                                      \
@@ -214,6 +226,8 @@ struct rx_audio_frames *rxtx_recv_audio_frame(struct rxtx *s);
 void                    rxtx_free_audio_frames(struct rx_audio_frames *frames);
 enum rxtx_mode          rxtx_get_mode(struct rxtx *s, enum tx_media_type t);
 void rxtx_send_video(struct rxtx *state, struct video_frame *tx_frame);
+
+int parse_bitrate(char *optarg, long long int *bitrate);
 
 // utils
 const char *get_tx_name(enum tx_media_type);

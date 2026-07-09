@@ -846,11 +846,9 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         }
                         break;
                 case 'l':
-                        if (!parse_bitrate(optarg_copy, &opt->rxtx.video_bitrate_limit)) {
-                                return -EXIT_FAILURE;
-                        }
-                        if (opt->rxtx.video_bitrate_limit == RATE_DEFAULT) {
-                                return 1; // help written
+                        if (int ret = parse_bitrate(
+                                optarg_copy, &opt->rxtx.video_bitrate_limit)) {
+                                return ret;
                         }
                         break;
                 case '4':

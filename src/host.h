@@ -115,14 +115,6 @@ extern volatile int video_offset;
 int get_audio_delay(void);
 void set_audio_delay(int val);
 
-#define RATE_UNLIMITED                0
-#define RATE_AUTO                   (-1) ///< spread packets evenly across frame time (currently 3/4)
-#define RATE_DEFAULT \
-        (-3) ///< imaginary value, must not be passed to transmit module
-#define RATE_DYNAMIC                (-2) ///< same as @ref RATE_AUTO but occasional excess frame allowed
-#define RATE_MIN                RATE_DYNAMIC
-#define RATE_FLAG_FIXED_RATE (1ll<<62ll) ///< use the bitrate as fixed, not capped
-
 struct init_data;
 struct init_data *common_preinit(int argc, char *argv[]);
 void common_cleanup(struct init_data *init_data);
@@ -149,7 +141,6 @@ bool tok_in_argv(char **argv, const char *tok);
 int set_audio_capture_format(const char *optarg);
 int set_pixfmt_conv_policy(const char *optarg);
 bool parse_params(const char *optarg, bool preinit);
-bool parse_bitrate(char *optarg, long long int *bitrate);
 void print_pixel_formats(void);
 void print_video_codecs(void);
 void register_param(const char *param, const char *doc);

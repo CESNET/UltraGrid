@@ -69,6 +69,7 @@
 #include "messaging.h"
 #include "module.h"
 #include "rtp/rtp.h"
+#include "rxtx.h" // for RATE_UNLIMITED
 #include "transmit.h"
 #include "types.h"                 // for tx_media_type
 #include "utils/audio_buffer.h"
