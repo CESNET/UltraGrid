@@ -1211,6 +1211,29 @@ validate_params(struct ug_options *opt)
         }
 }
 
+static const char *
+mtu_to_str(int mtu, size_t buflen, char *buf)
+{
+        if (mtu == 0) {
+                return "undefined";
+        }
+        (void) snprintf(buf, buflen, "%d B", mtu);
+        return buf;
+}
+
+static const char *
+port_to_str(int port, size_t buflen, char *buf)
+{
+        switch (port) {
+        case -1:
+                return "undefined";
+        case 0:
+                return "dynamic";
+        default:
+                (void) snprintf(buf, buflen, "%d", port);
+                return buf;
+        }
+}
 
 #define EXIT(expr) { int rc = expr; common_cleanup(init); return rc; }
 #define RET_TO_RC(ret) (ret < 0 ? -ret : EXIT_SUCCESS)
@@ -1362,13 +1385,15 @@ int main(int argc, char *argv[])
         }
 
         color_printf("\n");
+        char buf[128];
         color_printf(TBOLD("Display device   :") " %s\n", opt.requested_display);
         color_printf(TBOLD("Capture device   :") " %s\n", vidcap_params_get_driver(opt.vidcap_params_head));
         color_printf(TBOLD("Audio capture    :") " %s\n", opt.audio.send_cfg);
         color_printf(TBOLD("Audio playback   :") " %s\n", opt.audio.recv_cfg);
-        color_printf(TBOLD("MTU              :") " %d B\n", opt.rxtx.mtu);
+        color_printf(TBOLD("MTU              :") " %s\n", mtu_to_str(opt.rxtx.mtu, sizeof buf, buf));
         color_printf(TBOLD("Video compression:") " %s\n", opt.rxtx.video_compression);
         color_printf(TBOLD("Audio codec      : ") "%s\n", get_name_to_audio_codec(ac_params.codec));
+        color_printf(TBOLD("Network port     : ") "%s\n", port_to_str(opt.rxtx.port_base, sizeof buf, buf));
         color_printf(TBOLD("Network protocol : ") "%s\n", rxtx_get_proto_long_name(opt.net_protocol));
         color_printf(TBOLD("Audio FEC        : ") "%s\n", audio->fec);
         color_printf(TBOLD("Video FEC        : ") "%s\n", video->fec);

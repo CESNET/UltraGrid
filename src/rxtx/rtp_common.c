@@ -384,6 +384,11 @@ adjust_ports(struct rxtx_params *rxtx)
                 if ((a_send_and_recv || a_no_send_or_recv) && a_ports_unset) {
                         audio->rx_port = audio->tx_port = 0;
                 }
+                if (audio->rx_port == 0 && audio->tx_port == 0 &&
+                    video->rx_port == 0 && video->tx_port == 0) {
+                        rxtx->port_base = 0; // for the info output in main
+                        return; // all ports dynamic
+                }
         }
         if (rxtx->port_base == -1) {
                 rxtx->port_base = RTP_PORT_BASE;
