@@ -306,7 +306,7 @@ src/pixfmt_conv.o: src/pixfmt_conv.c
 	$(CC_NO_SUFF) $(CFLAGS) $(OMAX) $(INC) -MD -c $(srcdir)/src/pixfmt_conv.c -o $@
 	$(POSTPROCESS_DEPS)
 
-src/from_plaanr.o: src/from_planar.c
+src/from_planar.o: src/from_planar.c
 	$(MKDIR_P) $$(dirname $@)
 	$(CC_NO_SUFF) $(CFLAGS) $(OMAX) $(INC) -MD -c $(srcdir)/src/from_planar.c -o $@
 	$(POSTPROCESS_DEPS)
