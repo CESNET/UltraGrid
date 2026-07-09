@@ -65,6 +65,9 @@ extern "C" {
 #define RTP_COMMON_MAGIC to_fourcc('R', 'T', 'r', 'c')
 #define RTP_PORT_BASE    5004
 
+// to be passed to rxtx_params.video_bitrate_limit
+#define RTP_RATE_UNLIMITED "unlimited"
+
 struct rtp_rxtx_medium {
         struct rtp     *network_device;
         struct tx      *tx;
@@ -85,8 +88,9 @@ struct rtp_rxtx_common {
 
 struct rxtx_params;
 
-struct rtp_rxtx_common *rtp_rxtx_common_init(struct rxtx_params *params);
-void                    rtp_rxtx_common_done(struct rtp_rxtx_common *state);
+int  rtp_rxtx_common_init(struct rtp_rxtx_common **out,
+                          struct rxtx_params      *params);
+void rtp_rxtx_common_done(struct rtp_rxtx_common *state);
 
 void rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *pub,
                                      enum tx_media_type      t);

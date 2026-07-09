@@ -63,7 +63,7 @@ uint32_t recompress_get_port_ssrc(struct state_recompress *s, int idx);
 int recompress_add_port(struct state_recompress *s,
 		const char *host, const char *compress, unsigned short rx_port,
                 unsigned short tx_port, const struct rxtx_params *params, struct module *parent,
-                const char *fec, long long bitrate);
+                const char *fec, const char *bitrate);
 
 void recompress_remove_port(struct state_recompress *s, int index);
 

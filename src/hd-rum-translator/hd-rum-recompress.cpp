@@ -53,8 +53,8 @@
 #include "debug.h"
 #include "host.h"
 #include "rtp/rtp.h"
+#include "utils/macros.h" // for strcpy_ch
 #include "utils/misc.h"
-#include "tv.h"
 #include "video_compress.h"
 
 #include "rxtx.h"                  // for rxtx_medium_params, vrxtx_pa...
@@ -77,7 +77,7 @@ struct recompress_output_port {
                 std::string host, unsigned short rx_port,
                 unsigned short tx_port, const struct rxtx_params *p,
                 struct module *parent,
-                const char *fec, long long bitrate);
+                const char *fec, const char *bitrate);
 
         std::unique_ptr<struct rxtx, decltype(&rxtx_destroy)> rxtx{
                 nullptr, rxtx_destroy
@@ -114,7 +114,7 @@ recompress_output_port::recompress_output_port(
                 std::string host, unsigned short rx_port,
                 unsigned short tx_port, const struct rxtx_params *p,
                 struct module *parent,
-                const char *fec, long long bitrate) :
+                const char *fec, const char *bitrate) :
         host(std::move(host)),
         tx_port(tx_port),
         frames(0),
@@ -131,7 +131,7 @@ recompress_output_port::recompress_output_port(
         if (fec != nullptr) {
                 params.medium[TX_MEDIA_VIDEO].fec = fec;
         }
-        params.video_bitrate_limit = bitrate;
+        strcpy_ch(params.video_bitrate_limit, bitrate);
 
         // UltraGrid RTP - fllowing already set by VRXTX_INIT
         // params["decoder_mode"].l = VIDEO_NORMAL;
@@ -220,7 +220,7 @@ int
 recompress_add_port(struct state_recompress *s, const char *host,
                     const char *compress, unsigned short rx_port,
                     unsigned short tx_port, const struct rxtx_params *params,
-                    struct module *parent, const char *fec, long long bitrate)
+                    struct module *parent, const char *fec, const char *bitrate)
 {
         recompress_output_port port;
 

@@ -86,7 +86,6 @@
 #include "rtp/rtp_types.h"   // for fec_payload_hdr_t, crypto_payloa...
 #include "rtp/rtpdec_h264.h" // for hevc_nal_type
 #include "rtp/rtpenc_h264.h"
-#include "rxtx.h" // for RATE_*
 #include "tv.h"
 #include "types.h"
 #include "utils/color_out.h"
@@ -103,6 +102,7 @@ struct audio_frame2;
 #define TRANSMIT_MAGIC	0xe80ab15f
 
 #define FEC_MAX_MULT 10
+#define RATE_MIN     RATE_DYNAMIC
 
 #define CONTROL_PORT_BANDWIDTH_REPORT_INTERVAL_NS NS_IN_SEC
 

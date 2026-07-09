@@ -85,24 +85,13 @@ struct rxtx_params {
         char            video_compression[STR_LEN];
         struct display *display_device;    ///< only iHDTV, UG RTP
         struct vidcap  *capture_device;    ///< iHDTV only
-        /// video rate limiter in bps or RATE_ constantts
-        long long       video_bitrate_limit;
+        /// typically a number but can be also keyword like "auto"
+        char            video_bitrate_limit[STR_LEN];
         enum video_mode decoder_mode;
         char            protocol_opts[STR_LEN];
         struct module  *sender_mod;   ///< set by rxtx::create
         struct module  *receiver_mod; ///< @copydoc sender_mod
 };
-
-#define RATE_UNLIMITED 0
-/// spread packets evenly across frame time (currently 3/4)
-#define RATE_AUTO (-1)
-/// same as @ref RATE_AUTO but occasional excess frame allowed
-#define RATE_DYNAMIC (-2)
-#define RATE_MIN     RATE_DYNAMIC
-/// imaginary value, must not be passed to transmit.c
-#define RATE_AUTOSELECT (-3)
-/// use the bitrate as fixed, not capped
-#define RATE_FLAG_FIXED_RATE (1ll << 62ll)
 
 #define RXTX_INIT                                                              \
         {                                                                      \
@@ -131,7 +120,7 @@ struct rxtx_params {
                 .video_compression   = "",                                     \
                 .display_device      = nullptr,                                \
                 .capture_device      = nullptr,                                \
-                .video_bitrate_limit = RATE_AUTOSELECT,                        \
+                .video_bitrate_limit = "",                                     \
                 .decoder_mode        = VIDEO_NORMAL,                           \
                 .protocol_opts       = "",                                     \
                 .sender_mod          = nullptr,                                \
@@ -226,8 +215,6 @@ struct rx_audio_frames *rxtx_recv_audio_frame(struct rxtx *s);
 void                    rxtx_free_audio_frames(struct rx_audio_frames *frames);
 enum rxtx_mode          rxtx_get_mode(struct rxtx *s, enum tx_media_type t);
 void rxtx_send_video(struct rxtx *state, struct video_frame *tx_frame);
-
-int parse_bitrate(char *optarg, long long int *bitrate);
 
 // utils
 const char *get_tx_name(enum tx_media_type);

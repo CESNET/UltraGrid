@@ -77,9 +77,11 @@
 #include "module.h"
 #include "rtp/net_udp.h"
 #include "rxtx.h"
+#include "rxtx/rtp_common.h" // for RTP_RATE_UNLIMITED
 #include "tv.h"
 #include "utils/color_out.h"
-#include "utils/misc.h" // format_in_si_units, unit_evaluate
+#include "utils/macros.h" // for strcpy_ch
+#include "utils/misc.h"   // format_in_si_units, unit_evaluate
 #include "utils/net.h"
 #include "utils/pthread.h" // for CHK_PTHR
 
@@ -351,7 +353,7 @@ print_unapplied_config_warns(const char *fec, bool cap_filter_used)
 static int create_output_port(struct hd_rum_translator_state *s,
         const char *addr, int rx_port, int tx_port, int bufsize,
         struct rxtx_params *opts,const char *compression, const char *fec,
-        int bitrate, bool use_server_sock = false)
+        const char *bitrate, bool use_server_sock = false)
 {
         struct replica *rep;
         try {
@@ -471,9 +473,9 @@ static void *writer(void *arg)
                 char *compress = strtok_r(NULL, " ", &save_ptr);
 
                 struct rxtx_params opts = RXTX_INIT;
-                int idx = create_output_port(s,
-                        host, 0, tx_port, s->bufsize, &opts,
-                        compress, nullptr, RATE_UNLIMITED, s->server_socket != nullptr);
+                int idx = create_output_port(
+                    s, host, 0, tx_port, s->bufsize, &opts, compress, nullptr,
+                    RTP_RATE_UNLIMITED, s->server_socket != nullptr);
 
                 if(idx < 0) {
                     free_message((struct message *) msg, new_response(RESPONSE_INT_SERV_ERR, "Cannot create output port."));
@@ -629,7 +631,7 @@ struct host_opts {
     int tx_port;
     const char *compression;
     char *fec;
-    long long int bitrate;
+    char bitrate[128];
     struct rxtx_params rxtx_opts = RXTX_INIT;
 };
 
@@ -804,7 +806,7 @@ parse_fmt(int argc, char **argv,
     parsed->host_count = 0;
     while (optind < argc) {
             parsed->hosts.resize(parsed->host_count + 1);
-            parsed->hosts[parsed->host_count].bitrate = RATE_UNLIMITED;
+            strcpy_ch(parsed->hosts[parsed->host_count].bitrate, "unlimited");
 
             const char *const optstring = "+46P:c:f:l:m:";
             int               ch        = 0;
@@ -832,11 +834,7 @@ parse_fmt(int argc, char **argv,
                             parsed->hosts[parsed->host_count].fec = optarg;
                             break;
                     case 'l':
-                            if (!parse_bitrate(
-                                    optarg, &parsed->hosts[parsed->host_count]
-                                                 .bitrate)) {
-                                    return -1;
-                            }
+                            strcpy_ch(parsed->hosts[parsed->host_count].bitrate, optarg);
                             break;
                     case '4':
                             parsed->hosts[parsed->host_count]

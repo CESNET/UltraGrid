@@ -167,10 +167,10 @@ init(struct rxtx_params *params)
         s->receiver_mod   = params->receiver_mod;
         ug_pthread_mutex_init(&s->async_sending_lock);
         pthread_cond_init(&s->async_sending_cv, nullptr);
-        s->rtp_common = rtp_rxtx_common_init(params);
-        if (s->rtp_common == nullptr) {
+        int rc = rtp_rxtx_common_init(&s->rtp_common, params);
+        if (rc != 0) {
                 done(s);
-                return nullptr;
+                return rc < 0 ? nullptr : INIT_NOERR;
         }
 
         const char *dec_use_codec = get_commandline_param("decoder-use-codec");

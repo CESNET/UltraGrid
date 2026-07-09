@@ -79,12 +79,14 @@
 #include "transmit.h"
 #include "tv.h" // for time_ns_t, get_time_in_ns, NS_IN_SEC
 #include "types.h"
-#include "utils/net.h"     // for is_host_loopback
-#include "utils/pthread.h" // for CHK_PTHR
-#include "utils/string.h"  // for strprintf
+#include "utils/color_out.h" // for color_printf
+#include "utils/net.h"       // for is_host_loopback
+#include "utils/pthread.h"   // for CHK_PTHR
+#include "utils/string.h"    // for strprintf
 
 #define MAGIC to_fourcc('R', 'T', 'r', 't')
 #define MOD_NAME "[rxtx/rtp] "
+#define RATE_AUTOSELECT (-3)
 
 #if !defined _WIN32
 #define VIDEO_MT true
@@ -127,6 +129,7 @@ struct rtp_rxtx_common_priv_state {
         int   force_ip_version;
         char *mcast_if;
         int   ttl;
+        long long vbitrate;
         struct rtp_medium_priv medium[NUM_TX_MEDIA];
 
         struct rtp_rxtx_common pub;
@@ -142,6 +145,7 @@ static struct rtp *initialize_network(const char *addr, int recv_port,
                                       const char *mcast_if, int ttl,
                                       enum tx_media_type medium);
 static void        destroy_rtp_device(struct rtp *network_device);
+static int         parse_bitrate(char *optarg, long long int *bitrate);
 
 static struct response *
 rtp_process_sender_message(struct rtp_rxtx_common_priv_state *s,
@@ -306,9 +310,8 @@ init_medium_state(struct rtp_rxtx_common_priv_state *s,
                 enum module_class mod_cls;
 
         } medium_defaults[NUM_TX_MEDIA] = {
-                { &audio_offset, 0,                           MODULE_CLASS_AUDIO },
-                { &video_offset, params->video_bitrate_limit,
-                 MODULE_CLASS_VIDEO                                              },
+                { &audio_offset, 0,           MODULE_CLASS_AUDIO },
+                { &video_offset, s->vbitrate, MODULE_CLASS_VIDEO },
         };
         assert(params_medium->fec != nullptr);
         const char       *medium_str    = get_tx_name(t);
@@ -434,7 +437,7 @@ adjust_ports(struct rxtx_params *rxtx)
 }
 
 static void
-adjust_params(struct rxtx_params *rxtx) {
+adjust_params(struct rxtx_params *rxtx, long long *vbitrate) {
         struct rxtx_medium_params *audio = &rxtx->medium[TX_MEDIA_AUDIO];
         struct rxtx_medium_params *video = &rxtx->medium[TX_MEDIA_VIDEO];
 
@@ -449,32 +452,35 @@ adjust_params(struct rxtx_params *rxtx) {
             (audio->rx_port == audio->tx_port || audio->tx_port == 0)) {
                 rxtx->mtu = rxtx->mtu == 0 ? MIN(RTP_MAX_MTU, 65535)
                                                    : rxtx->mtu;
-                rxtx->video_bitrate_limit =
-                    rxtx->video_bitrate_limit == RATE_AUTOSELECT
-                        ? RATE_UNLIMITED
-                        : rxtx->video_bitrate_limit;
+                if (*vbitrate == RATE_AUTOSELECT) {
+                        *vbitrate = RATE_UNLIMITED;
+                }
         } else {
                 rxtx->mtu = rxtx->mtu == 0 ? 1500 : rxtx->mtu;
-                rxtx->video_bitrate_limit =
-                    rxtx->video_bitrate_limit == RATE_AUTOSELECT
-                        ? RATE_DYNAMIC
-                        : rxtx->video_bitrate_limit;
+                if (*vbitrate == RATE_AUTOSELECT) {
+                        *vbitrate = RATE_DYNAMIC;
+                }
         }
 }
 
-struct rtp_rxtx_common *
-rtp_rxtx_common_init(struct rxtx_params *params)
+int
+rtp_rxtx_common_init(struct rtp_rxtx_common **out, struct rxtx_params *params)
 {
-        adjust_params(params);
-
         struct rtp_rxtx_common_priv_state *s = calloc(
             1, sizeof(struct rtp_rxtx_common_priv_state));
         struct rtp_rxtx_common *pub = &s->pub;
-        pub->magic = RTP_COMMON_MAGIC;
+        pub->magic                  = RTP_COMMON_MAGIC;
+        pub->priv                   = s;
+        s->magic                    = MAGIC;
 
-        pub->priv = s;
+        int rc = parse_bitrate(params->video_bitrate_limit, &s->vbitrate);
+        if (rc != 0) {
+                rtp_rxtx_common_done(pub);
+                return rc;
+        }
+        adjust_params(params, &s->vbitrate);
+
         pub->encryption       = strdup(params->encryption);
-        s->magic              = MAGIC;
         s->parent             = params->parent;
         s->force_ip_version   = params->force_ip_version,
         s->mcast_if           = strdup(params->mcast_if);
@@ -485,11 +491,12 @@ rtp_rxtx_common_init(struct rxtx_params *params)
                 bool rc = init_medium_state(s, params, i);
                 if (!rc) {
                         rtp_rxtx_common_done(pub);
-                        return nullptr;
+                        return -1;
                 }
         }
 
-        return pub;
+        *out = pub;
+        return 0;
 }
 
 void
@@ -756,4 +763,90 @@ rtp_recv_audio_frame(void *state, decode_audio_frame_fn decode)
         }
         pdb_iter_done(&it);
         return retval;
+}
+
+static int
+parse_bitrate(char *optarg, long long int *bitrate)
+{
+        if (strlen(optarg) == 0) {
+                *bitrate = RATE_AUTOSELECT;
+                return 0;
+        }
+        struct {
+                const char *name;
+                long long   val;
+        } bitrate_spec_map[] = {
+                { .name = "auto",      .val = RATE_AUTO      },
+                { .name = "dynamic",   .val = RATE_DYNAMIC   },
+                { .name = "unlimited", .val = RATE_UNLIMITED },
+        };
+        for (unsigned i = 0; countof(bitrate_spec_map); i++) {
+                if (strcmp(bitrate_spec_map[i].name, optarg) == 0) {
+                        *bitrate = bitrate_spec_map[i].val;
+                        return 0;
+                }
+        }
+        if (strcmp(optarg, "help") == 0) {
+#define NUMERIC_PATTERN "[1-9][0-9]*[kMG][!][E]"
+                color_printf(
+                    "Usage:\n"
+                    "\tuv " TBOLD ("-l [auto | dynamic | unlimited | "
+                    NUMERIC_PATTERN "]\n")
+                    "where\n"
+                    "\t"
+                    TBOLD("auto")
+                    " - spread packets across frame time\n"
+                    "\t"
+                    TBOLD("dynamic")
+                    " - similar to \"auto\" but more relaxed - occasional "
+                    "huge frame can spread 1.5x frame time (default)\n"
+                    "\t"
+                    TBOLD("unlimited")
+                    " - send packets at a wire speed (in bursts)\n"
+                    "\t"
+                    TBOLD(NUMERIC_PATTERN)
+                    " - send packets at most at specified bitrate\n\n"
+                    TBOLD("Notes: ")
+                    "Use an exclamation mark to indicate intentionally very "
+                    "low bitrate. 'E' to use the value as a fixed bitrate, "
+                    "not cap /i. e. even the frames that may be sent at "
+                    "lower bitrate are sent at the nominal bitrate)\n"
+                    "\n");
+                return 1;
+        }
+        bool force = false;
+        bool fixed = false;
+        for (int i = 0; i < 2; ++i) {
+                if (optarg[strlen(optarg) - 1] == '!' ||
+                    optarg[strlen(optarg) - 1] == 'E') {
+                        if (optarg[strlen(optarg) - 1] == '!') {
+                                force                      = true;
+                                optarg[strlen(optarg) - 1] = '\0';
+                        }
+                        if (optarg[strlen(optarg) - 1] == 'E') {
+                                fixed                      = true;
+                                optarg[strlen(optarg) - 1] = '\0';
+                        }
+                }
+        }
+        *bitrate = unit_evaluate(optarg, nullptr);
+        if (*bitrate <= 0) {
+                log_msg(LOG_LEVEL_ERROR, "Invalid bitrate %s!\n", optarg);
+                return -1;
+        }
+        // it'll take 6.4 sec to send 4 MB frame at 5 Mbps
+        const long long mb5 = 5ll * 1000 * 1000;
+        // traffic shaping to eg. 40 Gbps may make sense
+        const long long gb100 = 100ll * 1000 * 1000 * 1000;
+        if ((*bitrate < mb5 || *bitrate > gb100) && !force) {
+                log_msg(LOG_LEVEL_WARNING,
+                        "Bitrate %lld bps seems to be too %s, use \"-l %s!\" "
+                        "to force if this is not a mistake.\n",
+                        *bitrate, *bitrate < mb5 ? "low" : "high", optarg);
+                return -1;
+        }
+        if (fixed) {
+                *bitrate |= RATE_FLAG_FIXED_RATE;
+        }
+        return 0;
 }

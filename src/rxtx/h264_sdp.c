@@ -116,10 +116,10 @@ create_rxtx_h264_sdp(struct rxtx_params *params)
                 s->video_tx_port = video->tx_port;
         }
 
-        s->rtp_common = rtp_rxtx_common_init(params);
-        if (s->rtp_common == nullptr) {
+        int rc = rtp_rxtx_common_init(&s->rtp_common, params);
+        if (rc != 0) {
                 done(s);
-                return nullptr;
+                return rc < 0 ? nullptr : INIT_NOERR;
         }
 
         bool is_ipv6 = rtp_rxtx_common_is_ipv6(s->rtp_common);

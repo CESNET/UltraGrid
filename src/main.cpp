@@ -846,10 +846,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         }
                         break;
                 case 'l':
-                        if (int ret = parse_bitrate(
-                                optarg_copy, &opt->rxtx.video_bitrate_limit)) {
-                                return ret;
-                        }
+                        strcpy_ch(opt->rxtx.video_bitrate_limit, optarg);
                         break;
                 case '4':
                 case '6':

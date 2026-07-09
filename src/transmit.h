@@ -71,6 +71,17 @@ struct module;
 struct rtp;
 struct tx;
 
+/// special values for bitrate tx_init() param
+enum {
+        RATE_UNLIMITED = 0, ///< no rate limiter
+        /// spread packets evenly across frame time (currently 3/4)
+        RATE_AUTO = -1,
+        /// same as @ref RATE_AUTO but occasional excess frame allowed
+        RATE_DYNAMIC = -2,
+};
+        /// flag to use the bitrate as fixed, not capped
+#define RATE_FLAG_FIXED_RATE (1ll << 62ll)
+
 struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media_type,
                 const char *fec, const char *encryption, long long bitrate);
 void             tx_send(struct tx *tx_session, struct video_frame *frame, struct rtp *rtp_session);
