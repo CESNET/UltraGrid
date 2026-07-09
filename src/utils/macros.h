@@ -196,5 +196,7 @@ enum {
                       "src (" #src ") has wrong type (expected: const " #T     \
                       ")")
 
+#define MASK(bits) ((1U << (bits)) - 1U)
+
 #endif // !defined UTILS_MACROS_H_1982D373_8862_4453_ADFB_33AECC853E48
 

@@ -1,6 +1,21 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // Copyright (c) 2026 CESNET, zájmové sdružení právických osob
 
+/**
+ * @file
+ * WIP - basic send-only implementation so far
+ * - working - H.264 + Opus/AAC
+ * - single medium send (audio or video)
+ * - opportunistic A/V synchronization
+ * missing:
+ * - receiving
+ * - parameters like H264 level, is_keyframe, bitrate....
+ * - rate limitting (should it be according to PCR?)
+ * - other codecs like H.265 (it would require updating libmpegts code)
+ * - synchronize TS (when sync from source)
+ * - many more...
+ */
+
 #include <assert.h>  // for assert
 #include <math.h>    // for fabs
 #include <pthread.h> // for pthread_mutex_t
@@ -29,9 +44,23 @@ struct audio_frame2;
 #define DEFAULT_MPEGTS_COMPRESSION "lavc:c=H.264"
 #define MOD_NAME                   "[rxtx/mpegts] "
 
+// definitions
 enum {
         DEFAULT_MTU  = 1500,
         DEFAULT_PORT = 1234,
+
+        PCR_PID   = 0x100,
+        VIDEO_PID = 0x100,
+        AUDIO_PID = 0x101,
+        PMT_PID   = 0x1000,
+
+        ADTS_HDR_SIZE_BASE = 7, // without CRC and explicit sampling rate
+        ADTS_EXPLICIT_SR   = 3,
+        ADTS_HDR_SZ_MAX    = ADTS_HDR_SIZE_BASE + ADTS_EXPLICIT_SR,
+        /// this is just limit of the audio queue (eg. if no vid frames
+        /// received), otherwise excessive audio frames are handled with
+        /// drop_excess_audio_frames()
+        MAX_AUDIO_FRAMES_BUF = 20,
 };
 
 #include "types.h"
@@ -59,19 +88,19 @@ struct rxtx_mpegts {
         codec_t vc;
         double  vf_duration;
 
+        // aggregate duration since start
         double video_duration;
         double audio_duration;
+
+        // audio statistics (for sync)
+        double audio_frames_avg;
+        double audio_frames_jitter;
+        long audio_underflows;
+        long audio_overflows;
 };
 
 static void send_audio_frame_impl(struct rxtx_mpegts        *s,
                                   const struct audio_frame2 *f);
-
-enum {
-        PCR_PID   = 0x100,
-        VIDEO_PID = 0x100,
-        AUDIO_PID = 0x101,
-        PMT_PID   = 0x1000
-};
 
 static void *
 init(struct rxtx_params *params)
@@ -116,8 +145,8 @@ init_libmpegts(struct rxtx_mpegts *s)
                 return false;
         }
 
-        ts_stream_t stream[2]   = { 0 };
-        int str_cnt = 0;
+        ts_stream_t stream[2] = { 0 };
+        int         str_cnt   = 0;
         if (s->use_video) {
                 stream[str_cnt].pid           = VIDEO_PID;
                 stream[str_cnt].stream_format = LIBMPEGTS_VIDEO_AVC;           // = 2 [1]
@@ -162,15 +191,15 @@ init_libmpegts(struct rxtx_mpegts *s)
         }
 
         if (s->use_video) {
+                enum {
+                        AVC_LEVEL_52 = 52, // level 5.2
+                };
                 // Setup AVC stream parameters
                 rc = ts_setup_mpegvideo_stream(
-                    s->writer,
-                    VIDEO_PID, // PID
-                    52,        // level
-                    AVC_HIGH,  // profile (from avc_profile_t enum) [1]
-                    5000000,   // vbv_maxrate (bits/s)
-                    1000000,   // vbv_bufsize
-                    0          // frame_rate (not used for AVC) [1]
+                    s->writer, VIDEO_PID, AVC_LEVEL_52, AVC_HIGH,
+                    5000000, // vbv_maxrate (bps)
+                    1000000, // vbv_bufsize
+                    0        // frame_rate (not used for AVC)
                 );
                 if (rc != 0) {
                         return false;
@@ -211,22 +240,68 @@ udp_send_packets(struct rxtx_mpegts *s, uint8_t *output, int output_len)
 }
 
 /**
- * processes audio frames ending prior to given video TS
- * @todo
- * handle underflows/excessive frames
+ * drops excessive audio frames remaining in the queue depending on the
+ * moving average
+ */
+static void
+drop_excess_audio_frames(struct rxtx_mpegts *s, bool underflowed)
+{
+#define MOV_AVG(prev_avg, cur_val, win_sz)                                     \
+        (((cur_val) + ((prev_avg) * ((win_sz) - 1))) / (win_sz))
+
+        enum {
+                AUD_JIT_WIN = 300,
+        };
+
+        const int af_count =
+            simple_linked_list_size(s->audio_frames) - (int) underflowed;
+        const double diff = fabs(s->audio_frames_avg - af_count);
+        s->audio_frames_avg =
+            MOV_AVG(s->audio_frames_avg, af_count, AUD_JIT_WIN);
+        s->audio_frames_jitter =
+            MOV_AVG(s->audio_frames_jitter, diff, AUD_JIT_WIN);
+
+        if (s->audio_frames_avg - 2 * s->audio_frames_jitter > 1) {
+                struct audio_frame2 *af =
+                    simple_linked_list_pop(s->audio_frames);
+                if (af != nullptr) {
+                        s->audio_overflows += 1;
+                        MSG(INFO, "Audio frame dropped.\n");
+                        audio_frame2_delete(af);
+                }
+        }
+        MSG(DEBUG, "remaining frames: %d avg: %f jitter: %f\n",
+            simple_linked_list_size(s->audio_frames), s->audio_frames_avg,
+            s->audio_frames_jitter);
+}
+
+/**
+ * Processes audio frames ending prior to given video TS
+ * when both audio and video is used.
  */
 static void
 handle_audio_frames(struct rxtx_mpegts *s, double video_ts)
 {
+        if (!s->use_audio) {
+                return;
+        }
+
+        bool underflow = false;
         while (s->audio_duration + s->af_duration < video_ts) {
                 struct audio_frame2 *af =
                     simple_linked_list_pop(s->audio_frames);
                 if (af == nullptr) {
+                        // add at least 1 audio frame time to compensate
+                        s->audio_duration += s->af_duration;
+                        s->audio_underflows += 1;
+                        underflow = true;
+                        MSG(VERBOSE, "audio underflow\n");
                         break;
                 }
                 send_audio_frame_impl(s, af);
                 audio_frame2_delete(af);
         }
+        drop_excess_audio_frames(s, underflow);
 }
 
 static void
@@ -305,11 +380,6 @@ send_video_frame(void *state, struct video_frame *f)
         f->callbacks.dispose(f);
 }
 
-enum {
-        ADTS_HDR_SIZE_BASE = 7, // without CRC and explicit sampling rate
-        ADTS_EXPLICIT_SR   = 3,
-        ADTS_HDR_SZ_MAX    = ADTS_HDR_SIZE_BASE + ADTS_EXPLICIT_SR,
-};
 // <https://wiki.multimedia.cx/index.php/ADTS>
 static int
 write_adts_header(uint8_t *header, size_t raw_frame_size, unsigned sample_rate,
@@ -321,12 +391,6 @@ write_adts_header(uint8_t *header, size_t raw_frame_size, unsigned sample_rate,
                 MPEG2 = 1,
                 CRC   = 0,
                 NOCRC = 1,
-        };
-        enum {
-                MASK_2B = 0x3,
-                MASK_3B = 0x7,
-                MASK_6B = 0x3F,
-                MASK_8B = 0xFF,
         };
         size_t hdr_len = ADTS_HDR_SZ_MAX;
         // 4 lsb of syncword, 1b mpeg ver, 2b layer (always 0), 1b CRC presence
@@ -356,21 +420,21 @@ write_adts_header(uint8_t *header, size_t raw_frame_size, unsigned sample_rate,
         // 2 lsb of channel_cfg, 4 flags: originality, home, copyright
         // bit&start, 2/13 msb of frame length
         size_t frame_size = raw_frame_size + hdr_len;
-        header[3] = (channel_cfg & MASK_2B) << 6 | frame_size >> 11;
+        header[3] = (channel_cfg & MASK(2)) << 6 | frame_size >> 11;
         // bits 2-10 of 13b length
-        header[4] = (frame_size >> 3) & MASK_8B;
+        header[4] = (frame_size >> 3) & MASK(8);
         enum { VBR = 0x7ff };
         // 3 lsb of frame length, 5/11 msb of buffer fullness
-        header[5] = (frame_size & MASK_3B) << 5 | VBR >> 6;
+        header[5] = (frame_size & MASK(3)) << 5 | VBR >> 6;
         // 6 lsb of buffer_fullness, 2 bits - nr of frames minus 1 (so 1 is 0)
-        header[6] = (VBR & MASK_6B) << 2;
+        header[6] = (VBR & MASK(6)) << 2;
         // not using CRC, otherwise additional 2 bytes
         if (sample_rate_idx != 15) {
                 return hdr_len;
         }
         header[7] = sample_rate >> 16;
-        header[8] = (sample_rate >> 8) & MASK_8B;
-        header[9] = sample_rate & MASK_8B;
+        header[8] = (sample_rate >> 8) & MASK(8);
+        header[9] = sample_rate & MASK(8);
         return hdr_len;
 }
 
@@ -479,7 +543,13 @@ send_audio_frame(void *state, const struct audio_frame2 *f)
                         goto unlock;
                 }
                 struct audio_frame2 *copy = audio_frame2_copy(f);
-                simple_linked_list_append(s->audio_frames, copy);
+                if (!simple_linked_list_append_if_less(s->audio_frames, copy,
+                                                       MAX_AUDIO_FRAMES_BUF)) {
+                        MSG(WARNING,
+                            "Audio queue full (%d), dropping frame...\n",
+                            MAX_AUDIO_FRAMES_BUF);
+                        audio_frame2_delete(copy);
+                }
         }
 unlock:
         CHK_PTHR(pthread_mutex_unlock(&s->lock));
@@ -491,6 +561,10 @@ done(void *state)
         struct rxtx_mpegts *s = state;
         if (s->dump_f) {
                 fclose(s->dump_f);
+        }
+        if (s->use_audio) {
+                MSG(VERBOSE, "Audio underflows: %ld, overflows: %ld\n",
+                    s->audio_underflows, s->audio_overflows);
         }
         simple_linked_list_destroy(s->audio_frames);
         free(s);
