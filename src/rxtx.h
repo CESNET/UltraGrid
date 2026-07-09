@@ -214,10 +214,6 @@ void rxtx_send_video(struct rxtx *state, struct video_frame *tx_frame);
 // utils
 const char *get_tx_name(enum tx_media_type);
 
-// get protocol eligible params if user doesn't specify any
-// (passthrough otherwise)
-unsigned int rxtx_get_achannels(const char  *net_protocol,
-                                unsigned int req_channels);
 const char  *rxtx_get_acompression(const char *net_protocol,
                                    const char *req_codec);
 

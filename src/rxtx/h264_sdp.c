@@ -134,9 +134,18 @@ create_rxtx_h264_sdp(struct rxtx_params *params)
         }
         s->saved_addr = strdup(params->receiver);
 
+        // adj parameters
         if (strlen(params->video_compression) == 0) {
                 strcpy_ch(params->video_compression,
                           DEFAULT_SDP_COMPRESSION " (tentatively)");
+        }
+        if (audio_capture_channels > 1) {
+                MSG(WARNING,
+                    "Requested more than 1 channel (%u) - sending may not "
+                    "be possible if acap respects the count.\n",
+                    audio_capture_channels);
+        } else {
+                audio_capture_channels = 1;
         }
 
         return s;

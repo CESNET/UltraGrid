@@ -121,16 +121,6 @@ private:
 #define TX_IS_STD(proto)                                                       \
         (strcasecmp((proto), "rtsp") == 0 || strcasecmp((proto), "sdp") == 0)
 
-unsigned int
-rxtx_get_achannels(const char *net_protocol, unsigned int req_channels)
-{
-        if (req_channels != 0) {
-                return req_channels;
-        }
-        const bool tx_audio_std = TX_IS_STD(net_protocol);
-        return tx_audio_std ? 1 : 0 /*default*/;
-}
-
 const char *
 rxtx_get_acompression(const char *net_protocol, const char *req_codec) {
         if (req_codec != nullptr) {

@@ -139,9 +139,18 @@ create_rxtx_rtsp(struct rxtx_params *params)
                 done(s);
                 return nullptr;
         }
+        // adj parameters
         if (strlen(params->video_compression) == 0) {
                 strcpy_ch(params->video_compression,
                           DEFAULT_RTSP_COMPRESSION " (tentatively)");
+        }
+        if (audio_capture_channels > 1) {
+                MSG(WARNING,
+                    "Requested more than 1 channel (%u) - sending may not "
+                    "be possible if acap respects the count.\n",
+                    audio_capture_channels);
+        } else {
+                audio_capture_channels = 1;
         }
         return s;
 }

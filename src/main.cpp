@@ -1142,8 +1142,6 @@ adjust_params(struct ug_options *opt)
 
         opt->audio.codec_cfg =
             rxtx_get_acompression(opt->net_protocol, opt->audio.codec_cfg);
-        audio_capture_channels =
-            rxtx_get_achannels(opt->net_protocol, audio_capture_channels);
 
         if(opt->nat_traverse_config && strncmp(opt->nat_traverse_config, "holepunch", strlen("holepunch")) == 0){
                 int rc = adjust_params_holepunch(opt);
