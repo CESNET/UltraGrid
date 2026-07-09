@@ -1,5 +1,5 @@
 /*
- * FILE:    transmit.cpp
+ * FILE:    transmit.c
  * AUTHOR:  Colin Perkins <csp@csperkins.org>
  *          Ladan Gharai
  *          Martin Benes     <martinbenesh@gmail.com>
@@ -198,6 +198,39 @@ static void tx_update(struct tx *tx, struct video_frame *frame, int substream)
         }
 }
 
+static bool
+check_print_bitrate(long long int bitrate)
+{
+        if (bitrate < RATE_MIN) {
+                MSG(ERROR,
+                    "Invalid bitrate value %lld passed (either positive "
+                    "bitrate or magic values from %d supported)!\n",
+                    bitrate, RATE_MIN);
+                return false;
+        }
+        if (log_level < LOG_LEVEL_VERBOSE) {
+                return true;
+        }
+        char buf[100];
+        char *num = buf;
+        switch (bitrate) {
+        case RATE_UNLIMITED:
+                num = "unlimited";
+                break;
+        case RATE_AUTO :
+                num = "auto";
+                break;
+        case RATE_DYNAMIC :
+                num = "dynamic";
+                break;
+        default:
+                snprintf_ch(buf, "%lld%s", bitrate & ~RATE_FLAG_FIXED_RATE,
+                            bitrate & RATE_FLAG_FIXED_RATE ? " (fixed)" : "");
+        }
+        MSG(VERBOSE, "Using bitrate: %s\n", num);
+        return true;
+}
+
 /**
  * @brief initializes transmission
  *
@@ -211,9 +244,7 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                 log_msg(LOG_LEVEL_ERROR, "Requested MTU exceeds maximal value allowed by RTP library (%d B).\n", RTP_MAX_MTU);
                 return NULL;
         }
-
-        if (bitrate < RATE_MIN) {
-                log_msg(LOG_LEVEL_ERROR, "Invalid bitrate value %lld passed (either positive bitrate or magic values from %d supported)!\n", bitrate, RATE_MIN);
+        if (!check_print_bitrate(bitrate)) {
                 return NULL;
         }
 
