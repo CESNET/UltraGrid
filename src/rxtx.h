@@ -98,9 +98,9 @@ struct rxtx_params {
 #define RATE_AUTO (-1)
 /// same as @ref RATE_AUTO but occasional excess frame allowed
 #define RATE_DYNAMIC (-2)
-/// imaginary value, must not be passed to transmit module
-#define RATE_DEFAULT (-3)
 #define RATE_MIN     RATE_DYNAMIC
+/// imaginary value, must not be passed to transmit.c
+#define RATE_AUTOSELECT (-3)
 /// use the bitrate as fixed, not capped
 #define RATE_FLAG_FIXED_RATE (1ll << 62ll)
 
@@ -131,7 +131,7 @@ struct rxtx_params {
                 .video_compression   = "",                                     \
                 .display_device      = nullptr,                                \
                 .capture_device      = nullptr,                                \
-                .video_bitrate_limit = RATE_UNLIMITED,                         \
+                .video_bitrate_limit = RATE_AUTOSELECT,                        \
                 .decoder_mode        = VIDEO_NORMAL,                           \
                 .protocol_opts       = "",                                     \
                 .sender_mod          = nullptr,                                \

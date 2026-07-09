@@ -450,13 +450,13 @@ adjust_params(struct rxtx_params *rxtx) {
                 rxtx->mtu = rxtx->mtu == 0 ? MIN(RTP_MAX_MTU, 65535)
                                                    : rxtx->mtu;
                 rxtx->video_bitrate_limit =
-                    rxtx->video_bitrate_limit == RATE_DEFAULT
+                    rxtx->video_bitrate_limit == RATE_AUTOSELECT
                         ? RATE_UNLIMITED
                         : rxtx->video_bitrate_limit;
         } else {
                 rxtx->mtu = rxtx->mtu == 0 ? 1500 : rxtx->mtu;
                 rxtx->video_bitrate_limit =
-                    rxtx->video_bitrate_limit == RATE_DEFAULT
+                    rxtx->video_bitrate_limit == RATE_AUTOSELECT
                         ? RATE_DYNAMIC
                         : rxtx->video_bitrate_limit;
         }
