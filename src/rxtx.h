@@ -45,6 +45,7 @@
 #include <stddef.h>   // for size_t
 #endif
 
+#include "audio/types.h" // IWYU pragma: keep for nullptr
 #include "compat/c23.h" // IWYU pragma: keep for nullptr
 #include "host.h"
 #include "types.h"    // for codec_t, video_desc, video_frame (ptr only)
@@ -77,6 +78,8 @@ struct rxtx_params {
         int             force_ip_version;
         time_ns_t       start_time;
 
+        /// output only - set RXTX prefered codec if any
+        char audio_compression[STR_LEN];
         /// if set to "", RXTX module may request preferred
         char            video_compression[STR_LEN];
         struct display *display_device;    ///< only iHDTV, UG RTP
@@ -112,6 +115,7 @@ struct rxtx_params {
                 .ttl                 = -1,                                     \
                 .force_ip_version    = 0,                                      \
                 .start_time          = get_time_in_ns(),                       \
+                .audio_compression   = "",                                     \
                 .video_compression   = "",                                     \
                 .display_device      = nullptr,                                \
                 .capture_device      = nullptr,                                \
@@ -213,9 +217,6 @@ void rxtx_send_video(struct rxtx *state, struct video_frame *tx_frame);
 
 // utils
 const char *get_tx_name(enum tx_media_type);
-
-const char  *rxtx_get_acompression(const char *net_protocol,
-                                   const char *req_codec);
 
 #ifdef __cplusplus
 } // extern "C"

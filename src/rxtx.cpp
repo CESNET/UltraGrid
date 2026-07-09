@@ -118,17 +118,6 @@ private:
   std::atomic<codec_t> m_input_video_codec{};
 };
 
-#define TX_IS_STD(proto)                                                       \
-        (strcasecmp((proto), "rtsp") == 0 || strcasecmp((proto), "sdp") == 0)
-
-const char *
-rxtx_get_acompression(const char *net_protocol, const char *req_codec) {
-        if (req_codec != nullptr) {
-                return req_codec;
-        }
-        return TX_IS_STD(net_protocol) ? "mp3" : DEFAULT_AUDIO_CODEC;
-}
-
 rxtx::rxtx(struct rxtx_params *params)
     : m_video_exporter(params->video_exporter)
 {

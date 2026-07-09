@@ -924,6 +924,10 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                                 return 1;
                         }
                         opt->audio.codec_cfg = optarg;
+                        if (parse_audio_codec_params(opt->audio.codec_cfg)
+                                .codec == AC_NONE) {
+                                return -1;
+                        }
                         break;
                 case 'F':
                         vidcap_params_add_capture_filter(
@@ -1140,9 +1144,6 @@ adjust_params(struct ug_options *opt)
                 opt->rxtx.force_ip_version = 4;
         }
 
-        opt->audio.codec_cfg =
-            rxtx_get_acompression(opt->net_protocol, opt->audio.codec_cfg);
-
         if(opt->nat_traverse_config && strncmp(opt->nat_traverse_config, "holepunch", strlen("holepunch")) == 0){
                 int rc = adjust_params_holepunch(opt);
                 if (rc != 0) {
@@ -1286,10 +1287,6 @@ int main(int argc, char *argv[])
                 EXIT(RET_TO_RC(ret));
         }
 
-        const auto ac_params = parse_audio_codec_params(opt.audio.codec_cfg);
-        if (ac_params.codec == AC_NONE) {
-                EXIT(EXIT_FAILURE);
-        }
         opt.audio.parent = &uv.root_module;
         opt.rxtx.parent = &uv.root_module;
 
@@ -1376,6 +1373,11 @@ int main(int argc, char *argv[])
 
         opt.audio.rxtx    = uv.state_rxtx;
         opt.audio.display = uv.display_device;
+        if (opt.audio.codec_cfg == nullptr) {
+                opt.audio.codec_cfg = strlen(opt.rxtx.audio_compression) > 0
+                                          ? opt.rxtx.audio_compression
+                                          : "PCM";
+        }
         ret               = audio_init(&uv.audio, &opt.audio);
         if (ret != 0) {
                 exit_uv(ret < 0 ? EXIT_FAIL_AUDIO : 0);
@@ -1390,7 +1392,7 @@ int main(int argc, char *argv[])
         color_printf(TBOLD("Audio playback   :") " %s\n", opt.audio.recv_cfg);
         color_printf(TBOLD("MTU              :") " %s\n", mtu_to_str(opt.rxtx.mtu, sizeof buf, buf));
         color_printf(TBOLD("Video compression:") " %s\n", opt.rxtx.video_compression);
-        color_printf(TBOLD("Audio codec      : ") "%s\n", get_name_to_audio_codec(ac_params.codec));
+        color_printf(TBOLD("Audio codec      : ") "%s\n", opt.audio.codec_cfg);
         color_printf(TBOLD("Network port     : ") "%s\n", port_to_str(opt.rxtx.port_base, sizeof buf, buf));
         color_printf(TBOLD("Network protocol : ") "%s\n", rxtx_get_proto_long_name(opt.net_protocol));
         color_printf(TBOLD("Audio FEC        : ") "%s\n", audio->fec);

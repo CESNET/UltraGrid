@@ -152,6 +152,8 @@ create_rxtx_rtsp(struct rxtx_params *params)
         } else {
                 audio_capture_channels = 1;
         }
+        strcpy_ch(params->audio_compression, "MP3");
+
         return s;
 }
 
