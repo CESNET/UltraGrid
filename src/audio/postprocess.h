@@ -27,7 +27,6 @@ void audio_postprocess_done(struct state_audio_postprocess *postprocess);
 bool decode_audio_frame_postprocess(struct state_audio_postprocess *postprocess,
                                     struct audio_frame2 *decompressed,
                                     struct audio_frame  *out,
-                                    long long int       *expected_bytes_cum,
                                     long long int       *received_bytes_cum);
 
 #ifdef __cplusplus

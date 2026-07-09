@@ -259,28 +259,28 @@ struct adec_stats_processing_data {
         struct audio_frame2 *frame;
         double seconds;
         long bytes_received;
-        long bytes_expected;
+        // long bytes_expected;
         bool muted_receiver;
 };
 
 static void *adec_compute_and_print_stats(void *arg) {
         struct adec_stats_processing_data* d = arg;
         char loss[STR_LEN];
-        if (d->bytes_received < d->bytes_expected) {
-                snprintf_ch(loss, " (%ld lost)",
-                            d->bytes_expected - d->bytes_received);
-        } else {
+        // if (d->bytes_received < d->bytes_expected) {
+        //         snprintf_ch(loss, " (%ld lost)",
+        //                     d->bytes_expected - d->bytes_received);
+        // } else {
                 loss[0] = '\0';
-        }
+        // }
 
         const double exp_samples = audio_frame2_get_sample_rate(d->frame) * d->seconds;
         const char *dec_cnt_warn_col = get_stat_color(
             audio_frame2_get_sample_count(d->frame) / exp_samples);
 
         MSG(INFO,
-            "Received %ld/%ld B%s, "
+            "Received %ld B%s, "
             "decoded %s%d samples" TERM_RESET " in %.2f sec.\n",
-            d->bytes_received, d->bytes_expected, loss,
+            d->bytes_received, loss,
             dec_cnt_warn_col, audio_frame2_get_sample_count(d->frame), d->seconds);
 
         char volume[STR_LEN];
@@ -335,7 +335,6 @@ bool
 decode_audio_frame_postprocess(struct state_audio_postprocess *postprocess,
                                struct audio_frame2            *decompressed,
                                struct audio_frame             *out,
-                               long long int *expected_bytes_cum,
                                long long int *received_bytes_cum)
 {
         // Perform a variable rate resample if any output device has requested it
@@ -465,14 +464,14 @@ decode_audio_frame_postprocess(struct state_audio_postprocess *postprocess,
                 SWAP_PTR(d->frame, postprocess->decoded);
                 d->seconds = NS_TO_SEC_DBL(t - postprocess->t0);
                 d->bytes_received = *received_bytes_cum;
-                d->bytes_expected = *expected_bytes_cum;
+                // d->bytes_expected = *expected_bytes_cum;
                 d->muted_receiver = postprocess->muted;
 
                 task_run_async_detached(adec_compute_and_print_stats, d);
 
                 postprocess->t0 = t;
                 *received_bytes_cum = 0;
-                *expected_bytes_cum = 0;
+                // *expected_bytes_cum = 0;
         }
 
         DEBUG_TIMER_START(audio_decode_compute_autoscale);

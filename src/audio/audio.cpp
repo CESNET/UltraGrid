@@ -481,7 +481,7 @@ static void *audio_receiver_thread(void *arg)
         struct audio_desc network_desc{};
         bool  playback_supports_multiple_streams = false;
         long long int received_bytes_cum         = 0;
-        long long int expected_bytes_cum         = 0;
+        // long long int expected_bytes_cum         = 0;
 
         size_t len = sizeof playback_supports_multiple_streams;
         audio_playback_ctl(s->audio_playback_device, AUDIO_PLAYBACK_CTL_MULTIPLE_STREAMS,
@@ -559,11 +559,11 @@ static void *audio_receiver_thread(void *arg)
                 while (cur_frame != nullptr) {
                         audio_update_recv_buf(s, cur_frame->frame->get_data_len());
 
-                        expected_bytes_cum += cur_frame->expected_bytes;
+                        // expected_bytes_cum += cur_frame->expected_bytes;
                         received_bytes_cum += cur_frame->received_bytes;
 
                         if (!decode_audio_frame_postprocess(
-                                s->pp, cur_frame->frame, &f, &expected_bytes_cum,
+                                s->pp, cur_frame->frame, &f,
                                 &received_bytes_cum)) {
                                 break;
                         }
