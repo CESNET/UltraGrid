@@ -810,7 +810,7 @@ audio_get_display_flags(const char *playback_dev)
 
 std::ostream& operator<<(std::ostream& os, const audio_desc& desc)
 {
-    os << desc.ch_count << " channel" << (desc.ch_count > 1 ? "s" : "") << ", " << desc.bps << " Bps, " << desc.sample_rate << " Hz, codec: " << get_name_to_audio_codec(desc.codec);
+    os << desc.ch_count << " channel" << (desc.ch_count > 1 ? "s" : "") << ", " << desc.bps << " Bps, " << desc.sample_rate << " Hz, codec: " << get_audio_codec_name(desc.codec);
     return os;
 }
 

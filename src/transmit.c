@@ -984,7 +984,7 @@ validate_std_audio(const struct audio_frame2 * buffer, size_t payload_size)
                              "%s can currently have only 1 channel in "
                              "RFC-compliant mode! Discarding channels but the "
                              "first one...\n",
-                             get_name_to_audio_codec(audio_codec));
+                             get_audio_codec_name(audio_codec));
         }
         if (audio_codec == AC_OPUS &&
             payload_size < audio_frame2_get_data_len(buffer, 0)) {

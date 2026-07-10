@@ -115,7 +115,7 @@ get_audio_codec_list()
         for (auto const &it : audio_codec_info) {
                 if(it.first != AC_NONE) {
                         struct audio_codec_state *st = (struct audio_codec_state *)
-                                audio_codec_init_real(get_name_to_audio_codec(it.first),
+                                audio_codec_init_real(get_audio_codec_name(it.first),
                                                 AUDIO_CODER, true);
                         bool available = false;
                         string desc;
@@ -161,7 +161,7 @@ void list_audio_codecs(void) {
 
 struct audio_codec_state *audio_codec_init(audio_codec_t audio_codec,
                 audio_codec_direction_t direction) {
-        return audio_codec_init_real(get_name_to_audio_codec(audio_codec), direction, false);
+        return audio_codec_init_real(get_audio_codec_name(audio_codec), direction, false);
 }
 
 struct audio_codec_state *audio_codec_init_cfg(const char *audio_codec_cfg,
@@ -208,7 +208,7 @@ static struct audio_codec_state *audio_codec_init_real(const char *audio_codec_c
                 if (!silent) {
                         log_msg(LOG_LEVEL_ERROR,
                                 "Unable to find encoder for audio codec '%s'\n",
-                                get_name_to_audio_codec(params.codec));
+                                get_audio_codec_name(params.codec));
                 }
                 return NULL;
         }
@@ -456,7 +456,7 @@ parse_audio_codec_params(const char *ccfg)
         return params;
 }
 
-const char *get_name_to_audio_codec(audio_codec_t codec)
+const char *get_audio_codec_name(audio_codec_t codec)
 {
         return audio_codec_info.at(codec).name;
 }

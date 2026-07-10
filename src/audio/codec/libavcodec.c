@@ -244,7 +244,7 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
         if (!it->id) {
                 if (!silent) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot find mapping for codec \"%s\"!\n",
-                                        get_name_to_audio_codec(audio_codec));
+                                        get_audio_codec_name(audio_codec));
                 }
                 return NULL;
         } else {
@@ -267,7 +267,7 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
                     (direction != AUDIO_CODER ||
                      get_commandline_param("audio-lavc-encoder") == NULL)) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Your Libavcodec build doesn't contain codec \"%s\".\n",
-                                get_name_to_audio_codec(audio_codec));
+                                get_audio_codec_name(audio_codec));
                 }
                 free(s);
                 return NULL;

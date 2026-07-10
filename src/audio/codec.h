@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -105,7 +105,7 @@ struct audio_codec_params {
 };
 struct audio_codec_params parse_audio_codec_params(const char *ccfg);
 
-const char *get_name_to_audio_codec(audio_codec_t codec);
+const char *get_audio_codec_name(audio_codec_t codec);
 uint32_t get_audio_tag(audio_codec_t codec);
 audio_codec_t get_audio_codec_to_tag(uint32_t audio_tag);
 

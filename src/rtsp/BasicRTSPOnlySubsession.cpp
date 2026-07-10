@@ -142,7 +142,7 @@ void BasicRTSPOnlySubsession::setSDPLines(int addressFamily) {
         if (rtpPayloadType < 0) {
                 MSG(ERROR, "Unsupported %s codec %s!\n", mspec->mname,
                     avType == rtsp_type_audio
-                        ? get_name_to_audio_codec(rtsp_params.adesc.codec)
+                        ? get_audio_codec_name(rtsp_params.adesc.codec)
                         : get_codec_name(rtsp_params.video_codec));
         }
         //char const* auxSDPLine = "";

@@ -232,10 +232,10 @@ audio_decoder_reconfigure(struct state_audio_decoder *decoder,
 
         log_msg(LOG_LEVEL_NOTICE, "New incoming audio format detected: %d Hz, %d channel%s, %d bits per sample, codec %s\n",
                         sample_rate, input_channels, input_channels == 1 ? "": "s",  bps * 8,
-                        get_name_to_audio_codec(get_audio_codec_to_tag(audio_tag)));
+                        get_audio_codec_name(get_audio_codec_to_tag(audio_tag)));
 
         std::ostringstream oss;
-        oss << "new incoming audio fmt: " << sample_rate << "Hz " << input_channels << "ch " << get_name_to_audio_codec(get_audio_codec_to_tag(audio_tag));
+        oss << "new incoming audio fmt: " << sample_rate << "Hz " << input_channels << "ch " << get_audio_codec_name(get_audio_codec_to_tag(audio_tag));
         control_report_stats(decoder->control, oss.str().c_str());
 
         decoder->saved_desc.ch_count = input_channels;
