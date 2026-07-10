@@ -166,7 +166,7 @@ static void recv_msg(int sock, char *buf, size_t buf_len){
                 return;
         }
 
-        unsigned expected_len;
+        unsigned expected_len = 0;
         if(!parse_num({header, bytes}, expected_len)){
                 return;
         }
