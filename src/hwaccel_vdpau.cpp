@@ -1,11 +1,11 @@
 /**
- * @file   hwaccel_vdpau.c
+ * @file   hwaccel_vdpau.cpp
  * @author Martin Piatka <piatka@cesnet.cz>
  *
  * @brief This file contains functions related to hw acceleration
  */
 /*
- * Copyright (c) 2018-2021 CESNET z.s.p.o.
+ * Copyright (c) 2018-2026 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -42,20 +42,24 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif // defined HAVE_CONFIG_H
+#include <cassert>
+#include <cstdint>
+#include <cstring>
+#include <memory>
 
-#include <assert.h>
-#include <stdint.h>
-#include <string.h>
-#include "debug.h"
 #include "hwaccel_vdpau.h"
+#include "debug.h"
 #include "types.h"
+#include "utils/misc.h"
 
-#define DEFAULT_SURFACES 20
+namespace{
 
-static bool is_emulated(VdpDevice dev, VdpGetProcAddress *get_proc_address){
+constexpr int DEFAULT_SURFACES = 20;
+
+using AVFrame_uniq = std::unique_ptr<AVFrame, deleter_from_fcn_double_ptr<av_frame_free>>;
+using AVBufferRef_uniq = std::unique_ptr<AVBufferRef, deleter_from_fcn_double_ptr<av_buffer_unref>>;
+
+bool is_emulated(VdpDevice dev, VdpGetProcAddress *get_proc_address){
         VdpStatus st;
 
         VdpGetInformationString *get_info_str;
@@ -67,7 +71,7 @@ static bool is_emulated(VdpDevice dev, VdpGetProcAddress *get_proc_address){
                 return false;
         }
 
-        const char *info_str = NULL;
+        const char *info_str = nullptr;
         st = get_info_str(&info_str);
         if(st != VDP_STATUS_OK || !info_str){
                 error_msg("Failed to get vdpau info string\n");
@@ -78,31 +82,28 @@ static bool is_emulated(VdpDevice dev, VdpGetProcAddress *get_proc_address){
 
         return strstr(info_str, "VAAPI");
 }
+}
 
-int vdpau_init(struct AVCodecContext *s,
-		struct hw_accel_state *state,
-		codec_t out_codec)
-{
-        AVBufferRef *device_ref = NULL;
-        int ret = create_hw_device_ctx(AV_HWDEVICE_TYPE_VDPAU, &device_ref);
+int vdpau_init(AVCodecContext *s, hw_accel_state *state, codec_t out_codec){
+        AVBufferRef_uniq device_ref;
+        int ret = create_hw_device_ctx(AV_HWDEVICE_TYPE_VDPAU, out_ptr(device_ref));
         if(ret < 0)
                 return ret;
 
-        AVHWDeviceContext *device_ctx = (AVHWDeviceContext*)(void *)device_ref->data;
-        AVVDPAUDeviceContext *device_vdpau_ctx = device_ctx->hwctx;
+        const auto *device_ctx = reinterpret_cast<AVHWDeviceContext*>(device_ref->data);
+        const auto *device_vdpau_ctx = static_cast<AVVDPAUDeviceContext *>(device_ctx->hwctx);
 
-        AVBufferRef *hw_frames_ctx = NULL;
-        ret = create_hw_frame_ctx(device_ref,
+        AVBufferRef_uniq hw_frames_ctx;
+        ret = create_hw_frame_ctx(device_ref.get(),
                         s->coded_width,
                         s->coded_height,
                         AV_PIX_FMT_VDPAU,
                         s->sw_pix_fmt,
                         DEFAULT_SURFACES,
-                        &hw_frames_ctx);
-        if(ret < 0)
-                goto fail;
+                        out_ptr(hw_frames_ctx));
 
-        s->hw_frames_ctx = hw_frames_ctx;
+        if(ret < 0)
+                return ret;
 
         if(is_emulated(device_vdpau_ctx->device, device_vdpau_ctx->get_proc_address)){
                 log_msg(LOG_LEVEL_WARNING, "[hwacc] Looks like vdpau is being emulated"
@@ -110,6 +111,20 @@ int vdpau_init(struct AVCodecContext *s,
                                 " This can lead to degraded performance.\n");
         }
 
+        AVFrame_uniq tmp_frame(av_frame_alloc());
+        if(!tmp_frame){
+                return -1;
+        }
+
+        if(av_vdpau_bind_context(s, device_vdpau_ctx->device, device_vdpau_ctx->get_proc_address,
+                                AV_HWACCEL_FLAG_ALLOW_HIGH_DEPTH |
+                                AV_HWACCEL_FLAG_IGNORE_LEVEL) != 0){
+                log_msg(LOG_LEVEL_ERROR, "[lavd] Unable to bind vdpau context!\n");
+                return -1;
+        }
+
+        s->hw_frames_ctx = hw_frames_ctx.release();
+        state->tmp_frame = tmp_frame.release();
         state->type = HWACCEL_VDPAU;
         state->copy = out_codec != HW_VDPAU;
         if (state->copy && out_codec != VIDEO_CODEC_NONE) {
@@ -118,34 +133,12 @@ int vdpau_init(struct AVCodecContext *s,
                                 " (maybe the display doesn't support it)"
                                 " This may be slower than sw decoding.\n");
         }
-        state->tmp_frame = av_frame_alloc();
-        if(!state->tmp_frame){
-                ret = -1;
-                goto fail;
-        }
 
-        if(av_vdpau_bind_context(s, device_vdpau_ctx->device, device_vdpau_ctx->get_proc_address,
-                                AV_HWACCEL_FLAG_ALLOW_HIGH_DEPTH |
-                                AV_HWACCEL_FLAG_IGNORE_LEVEL)){
-                log_msg(LOG_LEVEL_ERROR, "[lavd] Unable to bind vdpau context!\n");
-                ret = -1;
-                goto fail;
-        }
-
-        av_buffer_unref(&device_ref);
         return 0;
-
-fail:
-        av_frame_free(&state->tmp_frame);
-        av_buffer_unref(&hw_frames_ctx);
-        av_buffer_unref(&device_ref);
-        return ret;
 }
 
 void hw_vdpau_ctx_init(hw_vdpau_ctx *ctx){
-        ctx->device_ref = NULL;
-        ctx->device = 0;
-        ctx->get_proc_address = NULL;
+        *ctx = {};
 }
 
 void hw_vdpau_ctx_unref(hw_vdpau_ctx *ctx){
@@ -169,35 +162,33 @@ void hw_vdpau_frame_init(hw_vdpau_frame *frame){
         hw_vdpau_ctx_init(&frame->hwctx);
 
         for(int i = 0; i < AV_NUM_DATA_POINTERS; i++){
-                frame->buf[i] = NULL;
-                frame->data[i] = NULL;
+                frame->buf[i] = nullptr;
+                frame->data[i] = nullptr;
         }
 
         frame->surface = 0;
 }
 
 void hw_vdpau_frame_unref(hw_vdpau_frame *frame){
-        for(int i = 0; i < AV_NUM_DATA_POINTERS; i++){
-                av_buffer_unref(&frame->buf[i]);
+        for(auto& buf : frame->buf){
+                av_buffer_unref(&buf);
         }
-
         hw_vdpau_ctx_unref(&frame->hwctx);
-
         hw_vdpau_frame_init(frame);
 }
 
-void hw_vdpau_recycle_callback(struct video_frame *frame){
+void hw_vdpau_recycle_callback(video_frame *frame){
         for(unsigned i = 0; i < frame->tile_count; i++){
-                struct hw_vdpau_frame *vdp_frame = (struct hw_vdpau_frame *)(void *) frame->tiles[i].data;
+                auto *vdp_frame = reinterpret_cast<hw_vdpau_frame *>(frame->tiles[i].data);
                 hw_vdpau_frame_unref(vdp_frame);
         }
 
-        frame->callbacks.recycle = NULL;
+        frame->callbacks.recycle = nullptr;
 }
 
-void hw_vdpau_copy_callback(struct video_frame *frame){
+void hw_vdpau_copy_callback(video_frame *frame){
         for(unsigned i = 0; i < frame->tile_count; i++){
-                struct hw_vdpau_frame *vdp_frame = (struct hw_vdpau_frame *)(void *) frame->tiles[i].data;
+                auto *vdp_frame = reinterpret_cast<hw_vdpau_frame *>(frame->tiles[i].data);
                 *vdp_frame = hw_vdpau_frame_copy(vdp_frame);
         }
 }
@@ -223,19 +214,17 @@ hw_vdpau_frame hw_vdpau_frame_copy(const hw_vdpau_frame *frame){
 void *hw_vdpau_frame_data_cpy(void *dst, const void *src, size_t n){
         assert(n == sizeof(hw_vdpau_frame));
 
-        hw_vdpau_frame *new = (hw_vdpau_frame *) dst;
-
-        *new = hw_vdpau_frame_copy((const hw_vdpau_frame *) src);
-
-        return new;
+        auto *new_frame = static_cast<hw_vdpau_frame *>(dst);
+        *new_frame = hw_vdpau_frame_copy(static_cast<const hw_vdpau_frame *>(src));
+        return new_frame;
 }
 
 hw_vdpau_frame *hw_vdpau_frame_from_avframe(hw_vdpau_frame *dst, const AVFrame *src){
         hw_vdpau_frame_init(dst);
 
-        AVHWFramesContext *frame_ctx = (AVHWFramesContext *)(void *) src->hw_frames_ctx->data;
-        AVHWDeviceContext *device_ctx = frame_ctx->device_ctx; 
-        AVVDPAUDeviceContext *vdpau_ctx = (AVVDPAUDeviceContext *) device_ctx->hwctx;
+        const auto *frame_ctx = reinterpret_cast<AVHWFramesContext *>(src->hw_frames_ctx->data);
+        const auto *device_ctx = frame_ctx->device_ctx;
+        const auto *vdpau_ctx = static_cast<AVVDPAUDeviceContext *>(device_ctx->hwctx);
 
 
         dst->hwctx.device_ref = av_buffer_ref(frame_ctx->device_ref);
@@ -243,8 +232,9 @@ hw_vdpau_frame *hw_vdpau_frame_from_avframe(hw_vdpau_frame *dst, const AVFrame *
         dst->hwctx.get_proc_address = vdpau_ctx->get_proc_address;
 
         for(int i = 0; i < AV_NUM_DATA_POINTERS; i++){
-                if(src->buf[i])
+                if(src->buf[i]){
                         dst->buf[i] = av_buffer_ref(src->buf[i]);
+                }
                 dst->data[i] = src->data[i];
         }
 
@@ -254,14 +244,11 @@ hw_vdpau_frame *hw_vdpau_frame_from_avframe(hw_vdpau_frame *dst, const AVFrame *
 }
 
 void vdp_funcs_init(vdp_funcs *f){
-        memset(f, 0, sizeof(vdp_funcs));
+        *f = {};
 }
 
 static void load_func(void **f, VdpFuncId f_id, VdpDevice dev, VdpGetProcAddress *get_proc_address){
-        VdpStatus st;
-
-        st = get_proc_address(dev, f_id, f);
-
+        VdpStatus st = get_proc_address(dev, f_id, f);
         if(st != VDP_STATUS_OK){
                 error_msg("Error loading vdpau function id: %u\n", f_id);
         }
