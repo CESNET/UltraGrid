@@ -188,14 +188,17 @@ misc_test_ug_reltimedwait_timeout()
 
         return 0;
 }
+
+struct cv_trigger_data {
+        pthread_mutex_t lock;
+        pthread_cond_t cv;
+        bool flag;
+};
+
 static void *
 cv_trigger_worker(void *arg)
 {
-        struct {
-                pthread_mutex_t lock;
-                pthread_cond_t  cv;
-                bool            flag;
-        } *s = arg;
+        struct cv_trigger_data *s = arg;
 
         CHK_PTHR(pthread_mutex_lock(&s->lock));
         s->flag = true;
@@ -207,11 +210,7 @@ cv_trigger_worker(void *arg)
 static int
 misc_test_ug_reltimedwait_notimeout()
 {
-        struct {
-                pthread_mutex_t lock;
-                pthread_cond_t cv;
-                bool flag;
-        } thr_data;
+        struct cv_trigger_data thr_data;
         thr_data.flag = false;
         ug_pthread_mutex_init(&thr_data.lock);
         pthread_cond_init(&thr_data.cv, nullptr);
@@ -220,10 +219,11 @@ misc_test_ug_reltimedwait_notimeout()
         time_ns_t timeout = TIMEOUT_200MS;
         int       rc      = ETIMEDOUT;
 
+        CHK_PTHR(pthread_mutex_lock(&thr_data.lock));
+
         pthread_t thr;
         pthread_create(&thr, nullptr, cv_trigger_worker, &thr_data);
 
-        CHK_PTHR(pthread_mutex_lock(&thr_data.lock));
         while (!thr_data.flag) {
                 rc = ug_pthread_cond_reltimedwait(&thr_data.cv, &thr_data.lock,
                                                   &timeout);
