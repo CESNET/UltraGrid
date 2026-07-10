@@ -233,14 +233,25 @@ void                 audio_frame2_delete(struct audio_frame2 *frame);
 
 void audio_frame2_append(struct audio_frame2       *dst,
                          const struct audio_frame2 *src);
+void audio_frame2_append_channel(struct audio_frame2 *dst, int ch,
+                                 const char *data, size_t data_len);
 void audio_frame2_change_bps(struct audio_frame2 *frame, int new_bps);
 struct audio_frame2 *audio_frame2_copy(const struct audio_frame2 *frame);
 int                  audio_frame2_get_bps(const struct audio_frame2 *frame);
 audio_codec_t        audio_frame2_get_codec(const struct audio_frame2 *frame);
 size_t      audio_frame2_get_all_data_len(const struct audio_frame2 *frame);
 int         audio_frame2_get_channel_count(const struct audio_frame2 *frame);
-const char *audio_frame2_get_data(const struct audio_frame2 *frame,
+
+const char *audio_frame2_get_data_c(const struct audio_frame2 *frame,
                                   int                        channel);
+char       *audio_frame2_get_data_nc(struct audio_frame2 *frame, int channel);
+#ifndef __cplusplus
+#define audio_frame2_get_data(f, ch)                                           \
+        _Generic((f),                                                          \
+            const struct audio_frame2 *: audio_frame2_get_data_c,              \
+            struct audio_frame2 *: audio_frame2_get_data_nc)(f, ch)
+#endif
+
 struct audio_desc audio_frame2_get_desc(const struct audio_frame2 *frame);
 size_t audio_frame2_get_data_len(const struct audio_frame2 *frame, int channel);
 struct fec_desc audio_frame2_get_fec_params(const struct audio_frame2 *frame,
@@ -251,6 +262,7 @@ int             audio_frame2_get_sample_rate(const struct audio_frame2 *frame);
 int64_t         audio_frame2_get_timestamp(const struct audio_frame2 *frame);
 void audio_frame2_replace(struct audio_frame2 *dst, struct audio_frame2 **src);
 void audio_frame2_reserve(struct audio_frame2 *frame, double seconds);
+void audio_frame2_resize(struct audio_frame2 *frame, int ch, size_t bytes);
 
 struct audio_frame2_resampler *audio_frame2_resampler_init();
 void delete_resampler(struct audio_frame2_resampler *resampler);
@@ -261,6 +273,10 @@ audio_frame2_resample_fake(struct audio_frame2_resampler *resampler,
                            struct audio_frame2 *frame, int new_sample_rate_num,
                            int                   new_sample_rate_den,
                            struct audio_frame2 **remainder_out);
+
+void audio_frame2_set_timestamp(struct audio_frame2 *frame, int64_t timestamp);
+void audio_frame2_set_duration(struct audio_frame2 *frame, double duration);
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus

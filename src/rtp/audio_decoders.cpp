@@ -468,15 +468,17 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 }
         }
 
-        audio_frame2 decompressed = audio_codec_decompress(decoder->audio_decompress, &received_frame);
-        if (!decompressed) {
+        audio_frame2 *decompressed =
+            audio_codec_decompress(decoder->audio_decompress, &received_frame);
+        if (decompressed == nullptr) {
                 return false;
         }
 
         if (s->decoded == nullptr) {
-                s->decoded = new audio_frame2(std::move(decompressed));
+                s->decoded = decompressed;
         } else {
-                s->decoded->append(decompressed);
+                s->decoded->append(*decompressed);
+                audio_frame2_delete(decompressed);
         }
 
         DEBUG_TIMER_STOP(audio_decode);
@@ -557,8 +559,8 @@ int decode_audio_frame_mulaw(struct coded_data *cdata, void *pbuf_data, struct p
 
     }
 
-    audio_frame2 decompressed = audio_codec_decompress(decoder->audio_decompress, &received_frame);
-    s->decoded = new audio_frame2(std::move(decompressed));
+    s->decoded =
+        audio_codec_decompress(decoder->audio_decompress, &received_frame);
 
     return true;
 }

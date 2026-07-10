@@ -771,10 +771,11 @@ static void *audio_sender_thread(void *arg)
                         }
                         // SEND
                         audio_frame2 *uncompressed = &bf_n;
-                        while (audio_frame2 to_send = audio_codec_compress(
+                        while (struct audio_frame2 *to_send = audio_codec_compress(
                                    s->audio_encoder, uncompressed)) {
-                                rxtx_send_audio(s->rxtx, &to_send);
+                                rxtx_send_audio(s->rxtx, to_send);
                                 uncompressed = NULL;
+                                audio_frame2_delete(to_send);
                         }
                 }
         }

@@ -469,6 +469,13 @@ audio_frame2_append(struct audio_frame2 *dst, const struct audio_frame2 *src)
 }
 
 void
+audio_frame2_append_channel(struct audio_frame2 *dst, int ch, const char *data,
+                            size_t data_len)
+{
+        dst->append(ch, data, data_len);
+}
+
+void
 audio_frame2_change_bps(struct audio_frame2 *frame, int new_bps)
 {
         frame->change_bps(new_bps);
@@ -504,7 +511,12 @@ audio_frame2_get_channel_count(const struct audio_frame2 *frame)
         return frame->get_channel_count();
 }
 const char *
-audio_frame2_get_data(const struct audio_frame2 *frame, int channel)
+audio_frame2_get_data_c(const struct audio_frame2 *frame, int channel)
+{
+        return frame->get_data(channel);
+}
+char *
+audio_frame2_get_data_nc(struct audio_frame2 *frame, int channel)
 {
         return frame->get_data(channel);
 }
@@ -570,6 +582,12 @@ audio_frame2_reserve(struct audio_frame2 *frame, double seconds)
         frame->reserve(bytes);
 }
 
+void
+audio_frame2_resize(struct audio_frame2 *frame, int ch, size_t bytes)
+{
+        frame->resize(ch, bytes);
+}
+
 struct audio_frame2_resampler *
 audio_frame2_resampler_init()
 {
@@ -613,4 +631,16 @@ audio_frame2_resample_fake(struct audio_frame2_resampler *resampler,
         *remainder_out =
             remainder ? new audio_frame2(std::move(remainder)) : nullptr;
         return true;
+}
+
+void
+audio_frame2_set_timestamp(struct audio_frame2 *frame, int64_t timestamp)
+{
+        frame->set_timestamp(timestamp);
+}
+
+void
+audio_frame2_set_duration(struct audio_frame2 *frame, double duration)
+{
+        frame->set_duration(duration);
 }

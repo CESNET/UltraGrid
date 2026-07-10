@@ -907,10 +907,10 @@ void print_capabilities(const char *cfg)
                     get_libraries_for_class(mod_class.cls, mod_class.abi_ver));
         }
         auto codecs = get_audio_codec_list();
-        for(const auto& codec : codecs){
+        for (int i = 0; i < codecs.count; ++i) {
                 strcpy_ch(class_mod_map[LIBRARY_CLASS_AUDIO_COMPRESS]
                     .item[class_mod_map[LIBRARY_CLASS_AUDIO_COMPRESS].count++]
-                    .name, get<0>(codec).name);
+                    .name, codecs.item[i]);
         }
 
         if(conf == "noprobe"){

@@ -50,6 +50,10 @@
 #include <stdint.h>       // for uint32_t
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif // defined __cplusplus
+
 typedef enum {
         AUDIO_CODER,
         AUDIO_DECODER
@@ -74,28 +78,28 @@ typedef struct {
         uint32_t    tag;
 } audio_codec_info_t;
 
-#ifdef __cplusplus
-#include <string>
-#include <tuple>
-#include <vector>         // for vector
 struct audio_codec_state;
 
-struct audio_codec_state *audio_codec_init(audio_codec_t audio_codec, audio_codec_direction_t);
-struct audio_codec_state *audio_codec_init_cfg(const char *audio_codec_cfg, audio_codec_direction_t);
+struct audio_codec_state *audio_codec_init(audio_codec_t audio_codec,
+                                           audio_codec_direction_t);
+struct audio_codec_state *audio_codec_init_cfg(const char *audio_codec_cfg,
+                                               audio_codec_direction_t);
 struct audio_codec_state *audio_codec_reconfigure(struct audio_codec_state *old,
-                audio_codec_t audio_codec, audio_codec_direction_t);
-audio_frame2 audio_codec_compress(struct audio_codec_state *, const audio_frame2 *);
-audio_frame2 audio_codec_decompress(struct audio_codec_state *, audio_frame2 *);
-const int   *audio_codec_get_supported_samplerates(struct audio_codec_state *);
-void audio_codec_done(struct audio_codec_state *);
+                                                  audio_codec_t audio_codec,
+                                                  audio_codec_direction_t);
+struct audio_frame2      *audio_codec_compress(struct audio_codec_state *,
+                                               const struct audio_frame2 *);
+struct audio_frame2      *audio_codec_decompress(struct audio_codec_state *,
+                                                 struct audio_frame2 *);
+const int *audio_codec_get_supported_samplerates(struct audio_codec_state *);
+void       audio_codec_done(struct audio_codec_state *);
 
-std::vector<std::tuple<audio_codec_info_t, bool, std::string>>
-get_audio_codec_list();
-#endif
+struct audio_codec_list {
+        char item[50][50];
+        int  count;
+};
+struct audio_codec_list get_audio_codec_list();
 
-#ifdef __cplusplus
-extern "C" {
-#endif // defined __cplusplus
 void list_audio_codecs(void);
 
 struct audio_codec_params {
