@@ -1131,6 +1131,31 @@ fi
 
 ENSURE_FEATURE_PRESENT([$libjuice_req], [$libjuice], [LIBJUICE not found])
 
+tracy=no
+found_tracy=no
+
+AC_ARG_ENABLE(tracy,
+        AS_HELP_STRING([--enable-tracy], [enable tracy profiler (default is disabled)]
+        [Requires: tracy]),
+[tracy_req=$enableval],
+[tracy_req=no])
+
+TRACY_PREFIX=$srcdir/ext-deps/tracy
+
+if test "$tracy_req" != no; then
+        AC_CHECK_FILES([$TRACY_PREFIX/public/TracyClient.cpp], [found_tracy=yes])
+
+        if test "$found_tracy" = yes
+        then
+                tracy=yes
+                COMMON_FLAGS="$COMMON_FLAGS -DBUILD_PROFILED -DTRACY_ENABLE"
+                OBJS="$OBJS $TRACY_PREFIX/public/TracyClient.o"
+                INC="$INC -I$TRACY_PREFIX/public"
+        fi
+fi
+
+ENSURE_FEATURE_PRESENT([$tracy_req], [$tracy], [tracy not found])
+
 # -------------------------------------------------------------------------------------------------
 # DELTACAST stuff
 
