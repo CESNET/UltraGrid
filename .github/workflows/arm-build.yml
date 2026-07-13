@@ -60,7 +60,8 @@ jobs:
         path: '~/chroot.tar'
         key: cache-bootstrap-${{ env.ImageOS }}-${{ matrix.arch }}-${{
           hashFiles('.github/scripts/Linux/arm/bootstrap.sh',
-          '.github/scripts/Linux/install_others.sh') }}
+          '.github/scripts/Linux/install_others.sh',
+          '.github/scripts/install-common-deps.sh') }}
     - name: Debootstrap
       if: steps.cache-bootstrap.outputs.cache-hit != 'true'
       run: |
