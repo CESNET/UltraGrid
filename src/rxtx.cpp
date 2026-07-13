@@ -365,8 +365,9 @@ rxtx::create(string const              &proto,
                 if (rc < 0) {
                         error_msg("Error initializing compression %s.\n",
                                   params->video_compression);
+                        return nullptr;
                 }
-                return nullptr;
+                return (rxtx *) INIT_NOERR;
         }
 
         for (int i = 0; i < NUM_TX_MEDIA; ++i) {
