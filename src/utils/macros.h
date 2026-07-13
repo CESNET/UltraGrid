@@ -101,16 +101,18 @@
 
 /// shortcut for `snprintf(var, sizeof var...)`, `var` must be a char array;
 /// truncation handled
-#define snprintf_ch(str, ...) \
-        do { /* NOLINT(cppcoreguidelines-avoid-do-while) */ \
-                if (snprintf(str, sizeof str, __VA_ARGS__) >= \
-                    (int) sizeof str) { \
-                        (void) fprintf(stderr, \
-                                "\n%s:%d: %s: snprintf truncates %s (%d B " \
-                                "needed)!\n\n", \
-                                __FILE__, __LINE__, __func__, #str, \
-                                snprintf(str, sizeof str, __VA_ARGS__)); \
-                } \
+#define snprintf_ch(str, ...)                                                  \
+        do { /* NOLINT(cppcoreguidelines-avoid-do-while) */                    \
+                if (snprintf(str, sizeof str, __VA_ARGS__) <                   \
+                    (int) sizeof str) {                                        \
+                        break;                                                 \
+                }                                                              \
+                (void) fprintf(stderr,                                         \
+                               "\n%s:%d: %s: snprintf truncates %s (%d B "     \
+                               "needed, %zu B given)!\n\n",                    \
+                               __FILE__, __LINE__, __func__, #str,             \
+                               snprintf(str, sizeof str, __VA_ARGS__),         \
+                               sizeof str);                                    \
         } while (0)
 
 /**
@@ -128,8 +130,9 @@
                         (void) fprintf(                                        \
                             stderr,                                            \
                             "\n%s:%d: %s: strcpy_ch truncates %s (%u B "       \
-                            "needed)!\n\n",                                    \
-                            __FILE__, __LINE__, __func__, #src, src_len + 1);  \
+                            "needed %u B given)!\n\n",                         \
+                            __FILE__, __LINE__, __func__, #src, src_len + 1,   \
+                            dst_sz);                                           \
                 } else {                                                       \
                         memcpy(dst, src, src_len);                             \
                         dst[src_len] = '\0';                                   \
