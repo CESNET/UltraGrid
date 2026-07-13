@@ -495,16 +495,39 @@ parse_audio_codec_params(const char *ccfg)
         return params;
 }
 
+// if adding a case-branch, do not forget to audio_codec_info
+#define CHECKED_GET(codec, item)                                               \
+        switch (codec) {                                                       \
+        case AC_NONE:                                                          \
+        case AC_PCM:                                                           \
+        case AC_ALAW:                                                          \
+        case AC_MULAW:                                                         \
+        case AC_SPEEX:                                                         \
+        case AC_OPUS:                                                          \
+        case AC_G722:                                                          \
+        case AC_MP3:                                                           \
+        case AC_AAC:                                                           \
+        case AC_FLAC:                                                          \
+                assert((codec) < countof(audio_codec_info));                   \
+                return audio_codec_info[codec].item;                           \
+        case AC_COUNT:                                                         \
+                MSG(FATAL, "AC_COUNT passed to %s!\n", __func__);              \
+                abort();                                                       \
+        }                                                                      \
+        MSG(FATAL, "Unexpected codec=%d passed to %s!\n", (int) (codec),       \
+            __func__);                                                         \
+        abort();
+
 const char *
 get_audio_codec_name(audio_codec_t codec)
 {
-        return audio_codec_info[codec].name;
+        CHECKED_GET(codec, name);
 }
 
 uint32_t
 get_audio_tag(audio_codec_t codec)
 {
-        return audio_codec_info[codec].audio_tag;
+        CHECKED_GET(codec, audio_tag);
 }
 
 audio_codec_t
