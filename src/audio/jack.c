@@ -89,12 +89,7 @@ struct state_jack {
         int out_channel_count_req; /* requested playback ch. count */
 };
 
-int jack_process_callback(jack_nframes_t nframes, void *arg);
-int jack_samplerate_changed_callback(jack_nframes_t nframes, void *arg);
-void reconfigure_send_ch_count(struct state_jack *s, int ch_count);
-static int settings_init(struct state_jack *s, char *cfg);
-
-int jack_process_callback(jack_nframes_t nframes, void *arg) {
+static int jack_process_callback(jack_nframes_t nframes, void *arg) {
         struct state_jack *s = (struct state_jack *) arg;
         int send_b;
         int i;
@@ -140,14 +135,14 @@ int jack_process_callback(jack_nframes_t nframes, void *arg) {
         return 0;
 }
 
-int jack_samplerate_changed_callback(jack_nframes_t nframes, void *arg) {
+static int jack_samplerate_changed_callback(jack_nframes_t nframes, void *arg) {
         struct state_jack *s = (struct state_jack *) arg;
         
         s->record.sample_rate = nframes;
         return 0;
 }
 
-void reconfigure_send_ch_count(struct state_jack *s, int ch_count)
+static void reconfigure_send_ch_count(struct state_jack *s, int ch_count)
 {
         const char **ports;
         int i;
