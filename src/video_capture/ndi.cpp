@@ -43,7 +43,6 @@
  */
 
 #include <algorithm>
-#include <array>
 #include <cassert>                 // for assert
 #include <cctype>                  // for isdigit
 #include <chrono>
@@ -74,7 +73,6 @@
 static constexpr double DEFAULT_AUDIO_DIVISOR = 1;
 static constexpr const char *MOD_NAME = "[NDI cap.] ";
 
-using std::array;
 using std::cout;
 using std::max;
 using std::min;
@@ -90,7 +88,7 @@ struct vidcap_state_ndi {
         const NDIlib_t *NDIlib{};
         NDIlib_recv_instance_t pNDI_recv = nullptr;
         NDIlib_find_instance_t pNDI_find = nullptr;
-        array<struct audio_frame, 2> audio;
+        struct audio_frame audio[2];
         int audio_buf_idx = 0;
         bool capture_audio = false;
         struct video_desc last_desc{};
@@ -528,11 +526,11 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                                 } else if (video_frame.FourCC == to_fourcc('H', 'E', 'V', 'C') || video_frame.FourCC == to_fourcc('h', 'e', 'v', 'c')) {
                                         out_desc.color_spec = H265;
                                 } else {
-                                        array<char, sizeof(uint32_t) + 1> fcc_s{};
-                                        memcpy(fcc_s.data(), &video_frame.FourCC, sizeof(uint32_t));
-                                        bug_msg(LOG_LEVEL_ERROR,
-                                                "%sUnsupported codec '%s', ",
-                                                MOD_NAME, fcc_s.data());
+                                        bug_msg(
+                                            LOG_LEVEL_ERROR,
+                                            "%sUnsupported codec '%4.4s', ",
+                                            MOD_NAME,
+                                            (const char *) &video_frame.FourCC);
                                         return {};
                                 }
                 }
