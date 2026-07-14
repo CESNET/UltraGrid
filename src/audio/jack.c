@@ -388,7 +388,6 @@ jack_send(void *state, const struct audio_frame *frame)
  * @brief Receives data from JACK
  *
  * @param[in]  state state returned by jack_init()
- * @param[out] data  @ref acodec_data
  * @returns received audio frame
  */
 struct audio_frame2 *jack_receive(void *state)
