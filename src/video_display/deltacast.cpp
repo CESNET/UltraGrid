@@ -58,8 +58,8 @@
 #include "deltacast_common.hpp"
 #include "lib_common.h"
 #include "tv.h"
-#include "video.h"
 #include "video_display.h"
+#include "video_frame.h"
 #include "audio/types.h"
 #include "audio/utils.h"
 #include "utils/color_out.h"          // for color_printf

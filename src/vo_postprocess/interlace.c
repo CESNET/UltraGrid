@@ -37,21 +37,21 @@
  * interlaced (in case of the 50p it is 50i)
  */
 
-#include <assert.h>          // for assert
-#include <stdbool.h>         // for bool, false, true
-#include <stdio.h>           // for printf
-#include <stdlib.h>          // for NULL, free, malloc, size_t
-#include <string.h>          // for memcpy, strcmp
+#include <assert.h> // for assert, static_assert
+#include <stdlib.h> // for NULL, free, malloc, size_t
+#include <string.h> // for memcpy, strcmp
 
 #include "capture_filter/vo_pp_wrapper.h" // for ADD_CAPTURE_FILTER_VO_PP_W...
-#include "compat/c23.h"      // IWYU pragma: keep
-#include "debug.h"
-#include "lib_common.h"
-#include "utils/color_out.h" // for TBOLD
-#include "utils/text.h"      // for color_printf_wrapped
-#include "video.h"
-#include "video_display.h"
-#include "vo_postprocess.h"
+#include "compat/c23.h"                   // IWYU pragma: keep
+#include "debug.h"                        // for UNUSED
+#include "host.h"                         // for INIT_NOERR
+#include "lib_common.h"                   // for REGISTER_MODULE, library_c...
+#include "types.h"                        // for tile, video_frame, video_desc
+#include "utils/color_out.h"              // for color_printf, TBOLD
+#include "utils/text.h"                   // for color_printf_wrapped
+#include "video_codec.h"                  // for vc_get_linesize
+#include "video_frame.h"                  // for vf_free, vf_alloc_desc_data
+#include "vo_postprocess.h"               // for VO_PP_ABI_VERSION, VO_PP_A...
 
 enum last_frame {
         ODD = 0,

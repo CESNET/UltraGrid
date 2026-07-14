@@ -50,9 +50,10 @@
 #include "utils/color_out.h"  // for color_printf
 #include "utils/list.h"
 #include "utils/pthread.h"
-#include "video.h"
+#include "video_codec.h"
 #include "video_display.h"
 #include "video_display/pipe.h"
+#include "video_frame.h"
 
 #define MOD_NAME "[pipe] "
 

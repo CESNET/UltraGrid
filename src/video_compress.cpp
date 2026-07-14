@@ -49,6 +49,8 @@
 #include <vector>
 
 #include "messaging.h"
+#include "debug.h"
+#include "lib_common.h"
 #include "module.h"
 #include "tv.h"
 #include "utils/macros.h"              // for to_fourcc
@@ -57,10 +59,8 @@
 #include "utils/thread.h"
 #include "utils/vf_split.h"
 #include "utils/worker.h"
-#include "video.h"
 #include "video_compress.h"
-#include "lib_common.h"
-#include "debug.h"
+#include "video_frame.h"
 
 constexpr uint32_t MAGIC = to_fourcc('v','c','m','p');
 #define MOD_NAME "[vcompress] "

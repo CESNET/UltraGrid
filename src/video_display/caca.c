@@ -48,8 +48,9 @@
 #include "tv.h"
 #include "utils/color_out.h"
 #include "utils/pthread.h"    // for CHK_PTHR
-#include "video.h"
+#include "video_codec.h"
 #include "video_display.h"
+#include "video_frame.h"
 
 #define MOD_NAME "[caca] "
 

@@ -51,7 +51,6 @@
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/text.h"
-#include "video.h"
 #include "video_capture.h"
 
 #define MOD_NAME "[switcher] "

@@ -57,8 +57,8 @@
 #include "lib_common.h"
 #include "types.h"          // for tile, video_desc, device_info, DXT1, codec_t
 #include "utils/pthread.h"  // for CHK_PTHR
+#include "video_codec.h"
 #include "video_frame.h"    // for vf_alloc, vf_free, vf_get_tile
-#include "video.h"
 #include "video_display.h"
 
 #include <GL/gl.h>

@@ -54,7 +54,6 @@
 #include <libavutil/channel_layout.h>
 #include "types.h"
 #include "utils/macros.h"
-#include "video.h"
 
 #define MOD_NAME "[lavc_common] "
 

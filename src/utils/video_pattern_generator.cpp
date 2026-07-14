@@ -70,7 +70,7 @@
 #include "utils/macros.h"                   // for IS_KEY_PREFIX, MAX, STR_LEN
 #include "utils/string_view_utils.hpp"
 #include "utils/text.h"
-#include "video.h"
+#include "video_codec.h"
 #include "video_capture/testcard_common.h"
 #include "video_pattern_generator.h"
 

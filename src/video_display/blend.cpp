@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,8 +42,8 @@
 
 #include "debug.h"
 #include "lib_common.h"
-#include "video.h"
 #include "video_display.h"
+#include "video_frame.h" // for vf_free, video_desc_from_frame, video_...
 
 #include <cassert>
 #include <cinttypes>

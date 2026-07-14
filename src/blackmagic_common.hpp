@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2014-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2014-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,18 +46,14 @@
 
 #include "DeckLinkAPI.h" /*  From DeckLink SDK */
 
-#include <cctype>
 #include <cstdint>
 #include <map>
 #include <memory>
 #include <tuple>
 #include <vector>
-#include <string>
-#include <type_traits>
 #include <utility>
 
-#include "utils/macros.h"
-#include "video.h"
+#include "types.h"
 
 std::string bmd_hresult_to_string(HRESULT res);
 

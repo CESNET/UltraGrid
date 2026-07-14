@@ -52,9 +52,9 @@
 #include "utils/macros.h"     // for TOSTRING, to_fourcc, MIN
 #include "utils/misc.h"
 #include "utils/text.h"
-#include "video.h"
 #include "video_codec.h"
 #include "video_display.h"
+#include "video_frame.h"           // for vf_free, vf_alloc_desc_data, save_...
 
 struct module;
 

@@ -65,11 +65,12 @@
 #include "audio/utils.h"
 #include "debug.h"
 #include "lib_common.h"
-#include "video.h"
 #include "video_capture.h"
 #include "video_capture_params.h"  // for vidcap_params_get_fmt, vidcap_para...
+#include "video_codec.h"
 #include "video_display.h"
 #include "video_display/dvs.h"
+#include "video_frame.h"
 #include "tv.h"
 #include "types.h"
 #include "dvs_clib.h"           /* From the DVS SDK */

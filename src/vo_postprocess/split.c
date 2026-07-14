@@ -35,21 +35,20 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <assert.h>          // for assert
-#include <stdbool.h>         // for bool, true, false
-#include <stdio.h>           // for printf
-#include <stdlib.h>          // for free, NULL, atoi, malloc, size_t
-#include <string.h>          // for strtok_r, strcmp, strdup
+#include <assert.h> // for assert, static_assert
+#include <stdio.h>  // for NULL, printf, size_t
+#include <stdlib.h> // for free, atoi, malloc
+#include <string.h> // for strtok_r, strcmp, strdup
 
-#include "compat/c23.h"      // IWYU pragma: keep
-#include "debug.h"
-#include "lib_common.h"
-#include "utils/vf_split.h"
-#include "video.h"
-#include "video_display.h" /* DISPLAY_PROPERTY_VIDEO_SEPARATE_FILES */
-#include "vo_postprocess.h" /* VO_PP_DOES_CHANGE_TILING_MODE */
-#include <pthread.h>
-#include <stdlib.h>
+#include "compat/c23.h"     // IWYU pragma: keep
+#include "debug.h"          // for LOG_LEVEL_ERROR, UNUSED, MSG
+#include "lib_common.h"     // for REGISTER_MODULE, library_class
+#include "types.h"          // for video_desc, tile, video_frame
+#include "utils/vf_split.h" // for vf_split
+#include "video_codec.h"    // for vc_get_linesize
+#include "video_display.h"  // for display_prop_vid_mode
+#include "video_frame.h"     // for vf_get_tile, vf_alloc, vf_free
+#include "vo_postprocess.h"  // for VO_PP_ABI_VERSION, VO_PP_ABI_POSTPROCESS...
 
 static_assert(VO_PP_ABI_VERSION  == VO_PP_ABI_POSTPROCESS_NULLPTR);
 

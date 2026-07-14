@@ -65,8 +65,8 @@
 #include "utils/misc.h"
 #include "utils/pthread.h" // for CHK_PTHR
 #include "utils/text.h"
-#include "video.h"
 #include "video_display.h"
+#include "video_frame.h" // for vf_free, video_desc_from_frame
 
 #define DEFAULT_FILENAME     "out.mp4"
 #define DEFAULT_PIXEL_FORMAT AV_PIX_FMT_YUV420P

@@ -61,8 +61,8 @@
 #include "types.h"                          // for video_desc, codec_t, hw_a..
 #include "utils/debug.h"          // for debug_file_dump
 #include "utils/macros.h"                   // for SWAP_PTR
-#include "video.h"
 #include "video_codec.h"
+#include "video_frame.h"
 #include "video_decompress.h"
 
 #include "hwaccel_libav_common.h"

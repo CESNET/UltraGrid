@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2016-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2016-2026 CESNET, zájmové sdružení právických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -53,8 +53,10 @@
 #include "types.h"            // for video_frame, tile, video_desc, codec_t
 #include "utils/color_out.h"
 #include "utils/macros.h"
-#include "video.h"
+#include "video_codec.h"      // for is_codec_opaque
 #include "video_display.h"
+#include "video_frame.h"      // for vf_free, vf_alloc_desc, vf_data_deleter
+
 struct module;
 
 #define MOD_NAME "[dump] "

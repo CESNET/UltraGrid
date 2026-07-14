@@ -47,8 +47,8 @@
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
-#include "video.h"
 #include "video_display.h"
+#include "video_frame.h"
 
 #include "opengl_utils.hpp"
 #include "opengl_panorama.hpp"

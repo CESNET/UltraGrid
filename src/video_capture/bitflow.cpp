@@ -40,8 +40,8 @@
 
 #include "debug.h"
 #include "lib_common.h"
-#include "video.h"
 #include "video_capture.h"
+#include "video_frame.h"
 
 #define MOD_NAME "[bitflow] "
 

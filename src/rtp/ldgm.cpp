@@ -68,7 +68,7 @@
 #include "rtp/rtp_callback.h"
 #include "transmit.h"
 #include "utils/color_out.h"
-#include "video.h"
+#include "video_frame.h"
 
 using std::endl;
 using std::map;

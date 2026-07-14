@@ -45,7 +45,8 @@
 #include "debug.h"
 #include "gl_context.h"      // for GL_TEXTURE_2D, glTexParameteri, glBindTe...
 #include "lib_common.h"
-#include "video.h"
+#include "video_codec.h"
+#include "video_frame.h"
 #include "video_display.h"
 #include "vo_postprocess.h"
 

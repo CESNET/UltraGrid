@@ -54,9 +54,9 @@
 #include "utils/color_out.h"
 #include "utils/misc.h"
 #include "utils/string_view_utils.hpp"
-#include "video.h"
 #include "video_codec.h"
 #include "video_display.h"
+#include "video_frame.h"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-align"

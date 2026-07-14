@@ -85,8 +85,9 @@
 #include "utils/math.h"
 #include "utils/string.h"          // for replace_all, DELDEL, ESCAPED_COLON
 #include "utils/windows.h"
-#include "video.h"
 #include "video_capture.h"
+#include "video_codec.h"
+#include "video_frame.h"
 
 constexpr const int DEFAULT_AUDIO_BPS = 4;
 constexpr const size_t MAX_AUDIO_PACKETS = 10;

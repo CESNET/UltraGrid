@@ -136,9 +136,11 @@
 #include "utils/thread.h"
 #include "utils/timed_message.h"
 #include "utils/worker.h"
-#include "video.h"
+#include "video.h"       // for get_video_mode_tiles_x, get_vi...
+#include "video_codec.h" // for vc_get_linesize, get_pf_block_...
 #include "video_decompress.h"
-#include "video_display.h"
+#include "video_display.h" // for display_prop_vid_mode, display...
+#include "video_frame.h"   // for vf_get_tile, vf_free, il_lower...
 
 #if __has_include(<libavcodec/avcodec.h>)
 #include <libavcodec/avcodec.h> // AV_INPUT_BUFFER_PADDING_SIZE

@@ -86,8 +86,10 @@
 #include "utils/misc.h"          // for ug_strerror
 #include "utils/pthread.h"       // for ug_pthread_*
 #include "utils/unicode.h"       // wcs_to_mbs_fallb
-#include "video.h"
+#include "video.h"               // for get_video_desc_from_mode
+#include "video_codec.h"         // for vc_get_linesize, get_bits_per_component
 #include "video_display.h"
+#include "video_frame.h" // for vf_free, video_desc_from_frame, vf_rec...
 
 #define MAGIC_GL         0x1331018e
 #define MOD_NAME         "[GL] "

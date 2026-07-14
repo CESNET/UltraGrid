@@ -57,9 +57,9 @@
 #include "rxtx.h"            // for rxtx
 #include "rxtx/rtp_common.h" // for rtp_rxtx_medium
 #include "tv.h"
-#include "video.h"
 #include "video_display.h"
-#include "video_display/pipe.h"                   // for pipe_frame_recv_del...
+#include "video_display/pipe.h" // for pipe_frame_recv_del...
+#include "video_frame.h"        // for vf_free
 
 #include "utils/profile_timer.hpp"
 

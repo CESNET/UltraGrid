@@ -8,7 +8,7 @@
  * the compiler or depend upon them).
  */
 /*
- * Copyright (c) 2017-2021 CESNET z.s.p.o.
+ * Copyright (c) 2017-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,9 +46,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "video.h"
 #include "audio/types.h"
 #include "audio/utils.h"
+#include "video_codec.h"
+#include "video_frame.h"
 
 void remux_channel(char *out, const char *in, int bps, int in_len, int in_stream_channels, int out_stream_channels, int pos_in_stream, int pos_out_stream)
 {

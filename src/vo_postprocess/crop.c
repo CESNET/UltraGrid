@@ -41,15 +41,16 @@
 #include <stdlib.h>           // for atoi, free, abort, calloc
 #include <string.h>           // for strlen, strchr, strcmp, memcpy, strdup
 
-#include "compat/c23.h"       // IWYU pragma: keep
-#include "compat/strings.h"   // for strncasecmp
 #include "capture_filter.h"
+#include "compat/c23.h"     // IWYU pragma: keep
+#include "compat/strings.h" // for strncasecmp
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
-#include "video.h"
-#include "video_display.h"
+#include "video_codec.h"   // for get_pf_block_bytes, get_bpp, vc_get_lin...
+#include "video_display.h" // for display_prop_vid_mode
+#include "video_frame.h"   // for vf_free, VIDEO_FRAME_DISPOSE, vf_alloc_...
 #include "vo_postprocess.h"
 
 #define MOD_NAME "[crop] "

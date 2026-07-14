@@ -60,8 +60,9 @@
 #include "utils/list.h"
 #include "utils/misc.h"
 #include "utils/pthread.h"              // for CHK_PTHR
-#include "video.h"
 #include "video_capture.h"
+#include "video_codec.h"
+#include "video_frame.h"
 
 #define FPS 60.0
 #define MOD_NAME "[syphon cap.] "

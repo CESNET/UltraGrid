@@ -63,8 +63,9 @@
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
-#include "video.h"
+#include "video_codec.h"
 #include "video_display.h"
+#include "video_frame.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"                                  // for IS_KEY_PREFIX
 #include "video_display/splashscreen.h"

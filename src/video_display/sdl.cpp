@@ -52,7 +52,8 @@
 #include "audio/types.h"
 #include "audio/utils.h"
 #include "utils/ring_buffer.h"
-#include "video.h"
+#include "video_codec.h"
+#include "video_frame.h"
 
 #ifdef __APPLE__
 #include "utils/autorelease_pool.h"

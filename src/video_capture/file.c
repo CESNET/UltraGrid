@@ -86,6 +86,8 @@
 #include "utils/time.h"
 #include "video.h"
 #include "video_capture.h"
+#include "video_codec.h"
+#include "video_frame.h"
 
 static const double AUDIO_RATIO = 1.05; ///< at this ratio the audio frame can be longer than the video frame
 enum {

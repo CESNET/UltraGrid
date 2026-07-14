@@ -35,21 +35,22 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <assert.h>          // for assert
-#include <stdbool.h>         // for bool, false, true
-#include <stdint.h>          // for uint32_t, uint8_t
-#include <stdio.h>           // for printf
-#include <stdlib.h>          // for free, NULL, atoi, calloc, strtol, size_t
-#include <string.h>          // for memcpy, strlen, strcmp, strdup, strtok_r
+#include <assert.h>  // for assert, static_assert
+#include <stdint.h>  // for uint32_t, uint8_t
+#include <stdio.h>   // for NULL, printf, size_t
+#include <stdlib.h>  // for free, atoi, calloc, strtol
+#include <string.h>  // for memcpy, strlen, strcmp, strdup, strtok_r
+#include <strings.h> // for strncasecmp
 
-#include "compat/strings.h"  // for strncasecmp
-#include "compat/c23.h"      // IWYU pragma: keep
-#include "capture_filter.h"
-#include "debug.h"
-#include "lib_common.h"
-#include "video.h"
-#include "video_display.h"
-#include "vo_postprocess.h"
+#include "compat/c23.h"     // IWYU pragma: keep
+#include "debug.h"          // for UNUSED, log_msg, LOG_LEVEL_ERROR, LOG_LE...
+#include "lib_common.h"     // for REGISTER_MODULE, library_class
+#include "pixfmt_conv.h"    // for decoder_t, get_decoder_from_to
+#include "types.h"          // for tile, video_frame, UYVY, RGBA, video_desc
+#include "video_codec.h"    // for vc_get_linesize, get_bpp
+#include "video_display.h"  // for display_prop_vid_mode
+#include "video_frame.h"    // for vf_free, vf_alloc_desc_data
+#include "vo_postprocess.h" // for VO_PP_ABI_VERSION, VO_PP_ABI_POSTPROCESS...
 
 static_assert(VO_PP_ABI_VERSION  == VO_PP_ABI_POSTPROCESS_NULLPTR);
 

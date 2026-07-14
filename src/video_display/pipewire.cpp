@@ -55,8 +55,8 @@
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/misc.h"
-#include "video.h"
 #include "video_codec.h"
+#include "video_frame.h"
 #include "video_display.h"
 
 #include "pipewire_common.hpp"

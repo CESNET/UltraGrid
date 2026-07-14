@@ -47,8 +47,9 @@
 #include "types.h"
 #include "utils/debug.h"                           // for DEBUG_TIMER_*
 #include "utils/misc.h"                            // for get_cpu_core_count
-#include "video.h"
+#include "video_codec.h"
 #include "video_decompress.h"
+#include "video_frame.h"
 
 #define MOD_NAME "[JPEG XS dec.] "
 

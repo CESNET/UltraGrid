@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2011-2025 CESNET
+ * Copyright (c) 2011-2026 CESNET, zájmové sdružení právnikých osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,8 +47,8 @@
 #include "host.h"
 #include "lib_common.h"
 #include "tv.h"
-#include "video.h"
 #include "video_display.h"
+#include "video_frame.h"
 
 #define MAGIC_AGGREGATE 0xbbcaa321
 

@@ -67,9 +67,10 @@
 #include "utils/misc.h" // get_cpu_core_count
 #include "utils/parallel_conv.h"
 #include "utils/pthread.h"         // for PTHREAD_NULL
-#include "video.h"
 #include "video_capture.h"
 #include "video_capture_params.h"  // for vidcap_params_get_flags, vidcap_pa...
+#include "video_codec.h"           // for vc_get_linesize
+#include "video_frame.h"           // for vf_alloc, vf_free, vf_get_tile
 
 #include "tv.h"
 

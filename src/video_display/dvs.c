@@ -65,9 +65,10 @@
 #include "audio/types.h"
 #include "debug.h"
 #include "lib_common.h"
-#include "video.h"
+#include "video_codec.h"        // for get_codec_from_name, vc_get_linesize
 #include "video_display.h"
 #include "video_display/dvs.h"
+#include "video_frame.h"        // for AUX_PROGRESSIVE, AUX_SF, AUX_INTERLACED
 #include "tv.h"
 #include "types.h"              // for video_desc, tile, device_info, video_...
 #include "utils/ring_buffer.h"

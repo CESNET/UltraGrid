@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2025 CESNET
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,14 +36,14 @@
  */
 
 #include <cassert>
+#include <cstdlib>
 
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
 #include "utils/video_frame_pool.h"
 #include "video_compress.h"
-#include "video.h"
-#include <stdlib.h>
+#include "video_frame.h" // for vf_alloc_desc, vide...
 
 #include "gl_context.h"
 

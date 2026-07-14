@@ -57,9 +57,10 @@
 #include "tv.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"             // for IS_KEY_PREFIX
-#include "video.h"
 #include "video_capture.h"
 #include "video_capture_params.h"
+#include "video_codec.h"
+#include "video_frame.h"
 
 #define MOD_NAME "[DELTACAST capture] "
 

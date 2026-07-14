@@ -3,7 +3,7 @@
  * @author Martin Piatka    <piatka@cesnet.cz>
  */
 /*
- * Copyright (c) 2010-2023 CESNET, z. s. p. o.
+ * Copyright (c) 2010-2026 CESNET, zájmové sdružení právických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -66,9 +66,9 @@
 #include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
-#include "video.h"
 #include "video_display.h"
 #include "video_display/splashscreen.h"
+#include "video_frame.h"
 
 #include "opengl_utils.hpp"
 #include "opengl_panorama.hpp"

@@ -62,8 +62,9 @@
 #include "utils/color_out.h"
 #include "utils/macros.h"     // for OPTIMIZED_FOR
 #include "utils/misc.h"
-#include "video.h"
+#include "video_codec.h" // for MAX_BPS, MAX_PADDING
 #include "video_display.h"
+#include "video_frame.h" // for vf_free, vf_alloc_desc_data
 
 #define DEFAULT_AUDIO_LEVEL 0
 #define MOD_NAME "[NDI disp.] "

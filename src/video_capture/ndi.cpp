@@ -67,6 +67,8 @@
 #include "utils/color_out.h"
 #include "utils/macros.h"          // OPTIMIZED_FOR, STR_LEN, snprintf_ch
 #include "video.h"
+#include "video_codec.h"
+#include "video_frame.h"
 #include "video_capture.h"
 
 static constexpr double DEFAULT_AUDIO_DIVISOR = 1;

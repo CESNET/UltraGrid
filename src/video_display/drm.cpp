@@ -64,9 +64,9 @@
 #include "utils/macros.h"
 #include "utils/misc.h"
 #include "utils/string_view_utils.hpp"
-#include "video.h"
 #include "video_codec.h"
 #include "video_display.h"
+#include "video_frame.h"
 #include "hwaccel_drm.h"
 
 #define MOD_NAME "[drm] "

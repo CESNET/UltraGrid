@@ -54,9 +54,10 @@
 #include "lib_common.h"
 #include "tv.h"
 #include "types.h"                 // for video_frame, tile, video_desc, dev...
-#include "video.h"
 #include "video_capture.h"
 #include "video_capture_params.h"  // for vidcap_params_get_fmt, vidcap_para...
+#include "video_codec.h"
+#include "video_frame.h"
 
 #ifndef UINT
 #define UINT uint32_t

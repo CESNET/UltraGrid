@@ -49,7 +49,9 @@
 #include "transmit.h"
 #include "utils/color_out.h"
 #include "utils/text.h"
-#include "video.h"
+#ifdef HAVE_ZFEC
+#include "video_frame.h" // IWYU prag
+#endif
 
 enum {
         DEFAULT_K_AUDIO = 160,

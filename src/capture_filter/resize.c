@@ -57,8 +57,8 @@
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/parallel_conv.h"
-#include "video.h"
 #include "video_codec.h"
+#include "video_frame.h"
 #include "vo_postprocess/capture_filter_wrapper.h"
 
 #define MOD_NAME "[resize filter] "

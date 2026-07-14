@@ -47,7 +47,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
-#include "video.h"
+#include "video_codec.h"
 #include "video_frame.h"
 #include "vo_postprocess.h"
 struct module;

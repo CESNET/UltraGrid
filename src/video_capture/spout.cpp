@@ -53,8 +53,9 @@
 #include "spout_sender.h" // spout_set_log_level
 #include "utils/color_out.h"
 #include "utils/text.h" // urlencode, urldecode
-#include "video.h"
 #include "video_capture.h"
+#include "video_codec.h"
+#include "video_frame.h"
 
 #define DEFAULT_FPS 60.0
 #define DEFAULT_CODEC RGB

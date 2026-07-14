@@ -72,8 +72,9 @@
 #include "types.h"               // for video_desc, device_info, tile, inter...
 #include "utils/pthread.h"       // for CHK_PTHR
 #include "utils/ring_buffer.h"
-#include "video.h"
+#include "video_codec.h" // for vc_get_linesize
 #include "video_display.h"
+#include "video_frame.h" // for get_interlacing_suffix, vf_alloc_desc
 
 #define BLUEFISH444_MAGIC 0x15b75db8
 

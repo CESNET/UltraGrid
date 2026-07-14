@@ -63,34 +63,31 @@
 #endif // defined _WIN32
 
 #include "audio/types.h"
-#include "config.h"                // for PACKAGE_BUGREPORT
-#include "compat/aligned_malloc.h" // for alignde_free, aligned_alloc
 #include "compat/strings.h"        // for strncasecmp
+#include "config.h"                // for PACKAGE_BUGREPORT
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
-#include "rtp/rtpenc_h264.h"
-#include "tv.h"
+#include "pdb.h"
+#include "rtp/pbuf.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/rtpdec_h264.h"
 #include "rtp/rtpdec_jpeg.h"
 #include "rtp/rtpdec_state.h"
+#include "rtp/rtpenc_h264.h"
 #include "rtsp/rtsp_utils.h"
+#include "tv.h"
 #include "utils/color_out.h"       // for color_printf, TBOLD
 #include "utils/fs.h"              // for get_temp_file
 #include "utils/macros.h"          // for MIN, STR_LEN
 #include "utils/pthread.h"         // for CHK_PTHR, PTHREAD_NULL
 #include "utils/sdp.h"             // for get_video_codec_from_pt_rtpmap
 #include "utils/text.h" // base64_decode
-#include "video_decompress.h"
-
-#include "pdb.h"
-#include "rtp/pbuf.h"
-
-#include "video.h"
-#include "video_codec.h"
 #include "video_capture.h"
+#include "video_codec.h"
+#include "video_decompress.h"
+#include "video_frame.h"
 
 #include <curl/curl.h>
 

@@ -83,9 +83,12 @@
 #include "utils/vf_split.h"
 #include "utils/video_pattern_generator.h"
 #include "utils/y4m.h"
-#include "video.h"
-#include "video_capture.h"
-#include "video_capture/testcard_common.h"
+#include "video.h"                          // for get_video_desc_from_mode
+#include "video_capture.h"                  // for VIDCAP_INIT_FAIL, VIDCAP_...
+#include "video_capture/testcard_common.h"  // for testcard_has_conversion
+#include "video_capture_params.h"           // for vidcap_params_get_fmt
+#include "video_codec.h"                    // for vc_get_datalen, get_codec...
+#include "video_frame.h"                    // for parse_fps, vf_free, vf_al...
 
 enum {
         AUDIO_SAMPLE_RATE        = 48000,

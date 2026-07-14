@@ -43,7 +43,7 @@
 #include "host.h"
 #include "lib_common.h"
 #include "tv.h"
-#include "video.h"
+#include "video_codec.h"
 #include "video_decompress.h"
 #include "utils/macros.h" // to_fourcc
 

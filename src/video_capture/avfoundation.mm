@@ -50,8 +50,10 @@
 #include "lib_common.h"
 #include "utils/color_out.h"
 #include "utils/unicode.h"   // for wcs_to_mbs_fallb
-#include "video.h"
 #include "video_capture.h"
+#include "video.h" // for video_desc_to_string
+#include "video_codec.h"
+#include "video_frame.h"
 
 #define MOD_NAME "[AVFoundation] "
 #define SCR_CAP_NAME_PREF "Capture screen "

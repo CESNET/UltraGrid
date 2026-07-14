@@ -85,9 +85,10 @@
 #include "utils/math.h"
 #include "utils/misc.h"
 #include "utils/string.h" // is_prefix_of
-#include "video.h"
+#include "video_codec.h"  // for get_codec_name, vc_g...
 #include "video_display.h"
 #include "video_display/decklink_drift_fix.hpp"
+#include "video_frame.h" // for vf_alloc_desc, vf_free
 
 #ifndef _WIN32
 #define STDMETHODCALLTYPE

@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2020 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,8 +51,6 @@
 #include <BlueVelvetCUtils.h>
 
 #define HAVE_BLUE_AUDIO 1
-
-#include <video.h>
 
 #define MAX_HANC_SIZE (256*1024)
 

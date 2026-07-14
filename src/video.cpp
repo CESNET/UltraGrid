@@ -57,6 +57,8 @@
 #include "rtp/rtp_types.h" // FPS_MAX
 #include "utils/color_out.h"  // for color_printf, TBOLD
 #include "utils/macros.h"
+#include "video_codec.h"      // for get_codec_name, get_codec_from_name
+#include "video_frame.h"      // for get_interlacing_from_suffix, video_desc_eq
 
 #define MOD_NAME "[video] "
 

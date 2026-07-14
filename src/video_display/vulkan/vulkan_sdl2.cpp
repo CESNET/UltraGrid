@@ -58,9 +58,10 @@
 #include "messaging.h"
 #include "module.h"
 #include "utils/color_out.h"
+#include "video_codec.h"
 #include "video_display.h"
 #include "video_display/splashscreen.h"
-#include "video.h"
+#include "video_frame.h"
 //remove leaking macros
 #undef min
 #undef max

@@ -15,9 +15,10 @@ extern "C" int gpujpeg_test_simple();
 #include "host.h"
 #include "module.h"
 #include "unit_common.h"
-#include "video.h"
+#include "video_codec.h"
 #include "video_compress.h"
 #include "video_decompress.h"
+#include "video_frame.h"
 
 using std::clog;
 using std::for_each;

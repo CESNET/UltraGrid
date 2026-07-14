@@ -26,8 +26,9 @@
 #include "utils/macros.h"
 #include "utils/string.h"
 #include "utils/windows.h"
-#include "video.h"
 #include "video_capture.h"
+#include "video_codec.h"
+#include "video_frame.h"
 
 #define MOD_NAME "[dshow] "
 

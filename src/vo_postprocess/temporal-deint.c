@@ -52,8 +52,9 @@
 #include "tv.h"
 #include "utils/color_out.h"
 #include "utils/text.h"
-#include "video.h"
-#include "video_display.h"
+#include "video_codec.h"   // for vc_get_linesize, codec_is_...
+#include "video_display.h" // for display_prop_vid_mode
+#include "video_frame.h"   // for vf_get_tile, get_interlaci...
 #include "vo_postprocess.h"
 
 #define MOD_NAME "[temporal deint] "

@@ -89,7 +89,6 @@
 #include "utils/color_out.h"
 #include "utils/misc.h"        // for ug_strerror
 #include "utils/thread.h"
-#include "video.h"
 
 #ifdef HAVE_TERMIOS_H
 #include <termios.h>

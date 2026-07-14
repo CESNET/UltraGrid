@@ -74,8 +74,9 @@
 #include "host.h"
 #include "lib_common.h"
 #include "utils/video_frame_pool.h"
-#include "video.h"
 #include "video_capture.h"
+#include "video.h"
+#include "video_codec.h"
 
 #include "ajatypes.h"
 #include <ajantv2/includes/ntv2rp188.h>

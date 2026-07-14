@@ -77,7 +77,6 @@
 #include "utils/macros.h" // for OPTIMIZED_FOR
 #include "utils/misc.h"   // get_cpu_core_count
 #include "utils/worker.h" // task_run_parallel
-#include "video.h"
 #include "video_codec.h"
 #include "video_decompress.h" // for VDEC_PRIO_*
 

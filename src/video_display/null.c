@@ -3,6 +3,7 @@
  * AUTHOR: Colin Perkins <csp@isi.edu>
  *
  * Copyright (c) 2001-2003 University of Southern California
+ * Copyright (c) 2005-2026 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -47,7 +48,6 @@
 #include <stdlib.h>
 #include "debug.h"
 #include "lib_common.h"
-#include "video.h"
 #include "video_display.h"
 
 #define MAGIC_NULL	0x17bad83f

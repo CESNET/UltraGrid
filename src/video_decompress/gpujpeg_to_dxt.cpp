@@ -48,7 +48,7 @@
 #include "lib_common.h"
 #include "host.h"
 #include "utils/synchronized_queue.h"
-#include "video.h"
+#include "video_codec.h"
 #include "video_decompress.h"
 
 #define MOD_NAME "[GPUJPEG to DXT] "

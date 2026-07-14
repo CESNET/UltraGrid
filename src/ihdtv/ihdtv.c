@@ -8,7 +8,7 @@
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2021 CESNET z.s.p.o.
+ * Copyright (c) 2005-2026 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -55,9 +55,9 @@
 #include <fcntl.h>
 
 #include "compat/net.h"
-#include "ihdtv.h"
 #include "debug.h"
-#include "video.h"
+#include "ihdtv.h"
+#include "video_frame.h"
 
 int
 ihdtv_init_rx_session(ihdtv_connection * connection, const char *address_1,

@@ -51,11 +51,11 @@
 #include "lib_common.h"
 #include "types.h"                                 // for video_desc, tile
 #include "utils/misc.h"                            // for get_cpu_core_count
-#include "video.h"
 #include "video_compress.h"
-#include "utils/video_frame_pool.h"
-#include "utils/synchronized_queue.h"
+#include "video_codec.h"
 #include "jpegxs/jpegxs_conv.h"
+#include "utils/synchronized_queue.h"
+#include "utils/video_frame_pool.h"
 #include "video_frame.h"                           // for video_desc_from_frame
 
 #define DEFAULT_POOL_SIZE 2

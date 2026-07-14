@@ -84,10 +84,11 @@
 #include "utils/pthread.h"              // for CHK_PTHR
 #include "utils/ring_buffer.h"
 #include "utils/worker.h"
-#include "video.h"
-#include "video_capture.h"
-#include "video_capture_params.h"   // for vidcap_params_get_flags, vidcap_p...
-#include "video_export.h"
+#include "video_capture.h"          // for VIDCAP_INIT_FAIL, VIDCAP_INIT_NOERR
+#include "video_capture_params.h"   // for VIDCAP_FLAG_AUDIO_EMBEDDED, vidca...
+#include "video_codec.h"            // for get_codec_file_extension, get_cod...
+#include "video_export.h"           // for VIDEO_EXPORT_SUMMARY_VERSION
+#include "video_frame.h"            // for vf_alloc_desc, vf_free
 
 #define BUFFER_LEN_MAX 40
 #define MAX_CLIENTS 16

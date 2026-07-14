@@ -58,7 +58,7 @@
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "tv.h" // US_IN_SEC
-#include "video.h"
+#include "video_frame.h"
 #include "video_capture.h"
 
 #define DEFAULT_TIMEOUT_MS 100

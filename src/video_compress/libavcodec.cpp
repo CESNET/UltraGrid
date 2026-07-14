@@ -76,7 +76,9 @@
 #include "utils/string.h" // replace_all
 #include "utils/text.h"
 #include "video.h"
+#include "video_codec.h"
 #include "video_compress.h"
+#include "video_frame.h"
 
 #ifdef HWACC_VAAPI
 extern "C"

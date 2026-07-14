@@ -61,8 +61,9 @@
 #include "utils/list.h"
 #include "utils/macros.h"
 #include "utils/pthread.h" // for CHK_PTHR
-#include "video.h"
 #include "video_capture.h"
+#include "video_codec.h"
+#include "video_frame.h"
 
 #define MAX_AUDIO_LEN (1024*1024)
 #define MOD_NAME "[swmix] "

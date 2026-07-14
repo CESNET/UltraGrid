@@ -58,9 +58,9 @@
 #include "lib_common.h"
 #include "utils/color_out.h"
 #include "utils/misc.h"
-#include "video.h"
-#include "video_display.h"
 #include "v4l2_common.h"
+#include "video_display.h" // for display_property, DISPLAY_NO_GENERIC_FP...
+#include "video_frame.h"   // for vf_alloc_desc
 
 struct display_v4l2_state {
         int fd;

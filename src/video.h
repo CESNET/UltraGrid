@@ -2,7 +2,7 @@
  * @file   video.h
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
- * @brief  This is an umbrella header for video functions.
+ * @brief  miscellaneous video utilities
  */
 /*
  * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
@@ -40,8 +40,7 @@
 #ifndef VIDEO_H_
 #define VIDEO_H_
 
-#include "video_codec.h"
-#include "video_frame.h"
+#include "types.h"
 
 #ifdef __cplusplus
 extern "C" {

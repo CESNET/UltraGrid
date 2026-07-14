@@ -45,8 +45,9 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
-#include "video.h"
-#include "video_display.h" /* DISPLAY_PROPERTY_VIDEO_SEPARATE_FILES */
+#include "video_codec.h"   // for vc_get_linesize
+#include "video_display.h" // for display_prop_vid_mode
+#include "video_frame.h"   // for vf_get_tile, vf_alloc, vf_free
 #include "vo_postprocess.h"
 
 #define MOD_NAME "[interlaced_3d] "

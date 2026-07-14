@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2024 CESNET
+ * Copyright (c) 2018-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -85,8 +85,10 @@
 #include "host.h"
 #include "lib_common.h"
 #include "utils/color_out.h"             // for col, SBOLD, SRED
-#include "video_display.h"
 #include "video.h"
+#include "video_codec.h"
+#include "video_display.h"
+#include "video_frame.h"
 
 #include "aja_common.hpp" // should be included last (overrides log_msg etc.)
 
