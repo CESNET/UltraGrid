@@ -48,6 +48,7 @@
 
 #include "debug.h"
 #include "lib_common.h"
+#include "pixfmt_conv.h"
 #include "utils/color_out.h"
 #include "utils/unicode.h"   // for wcs_to_mbs_fallb
 #include "video_capture.h"

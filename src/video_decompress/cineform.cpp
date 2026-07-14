@@ -42,6 +42,7 @@
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
+#include "pixfmt_conv.h"
 #include "tv.h"
 #include "video_codec.h"
 #include "video_decompress.h"

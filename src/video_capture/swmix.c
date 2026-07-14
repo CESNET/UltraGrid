@@ -56,6 +56,7 @@
 #include "host.h"
 #include "lib_common.h"
 #include "tv.h"
+#include "pixfmt_conv.h"
 #include "utils/config_file.h"
 #include "utils/fs.h"
 #include "utils/list.h"

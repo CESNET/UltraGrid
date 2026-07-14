@@ -53,8 +53,6 @@
 #include <stdbool.h>
 #endif // !defined __cplusplus
 
-#include "pixfmt_conv.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
