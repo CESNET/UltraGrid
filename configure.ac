@@ -1644,7 +1644,9 @@ if test "$opencv" = yes; then
         AC_LANG_POP(C++)
         CXXFLAGS=$SAVED_CXXFLAGS
         FOUND_OPENCV_IMGPROC=${ac_cv_header_opencv2_imgproc_hpp?}
-        opencv_version_str=" (ver. ${opencv_version:?})"
+        if test "${opencv_version?}"; then
+                opencv_version_str=" (ver. ${opencv_version:?})"
+        fi
 fi
 
 ENSURE_FEATURE_PRESENT([$opencv_req], [$opencv], [OpenCV dependencies not found!])
