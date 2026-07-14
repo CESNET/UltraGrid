@@ -2586,6 +2586,34 @@ fi
 ENSURE_FEATURE_PRESENT([${openapv_req:?}], [${openapv:?}], [oapv not found!])
 
 # -------------------------------------------------------------------------------------------------
+# Pyrowave
+
+pyrowave=no
+
+AC_ARG_ENABLE(pyrowave,
+[  --disable-pyrowave       disable pyrowave compression (auto)]
+[                          Requires: pyrowave],
+	[pyrowave_req=$enableval],
+        [pyrowave_req=$build_default]
+)
+
+if test "${pyrowave_req:?}" != no; then
+        PKG_CHECK_MODULES([PYROWAVE], [pyrowave-shared >= 0.1],
+            [FOUND_PYROWAVE_DEP=yes], [FOUND_PYROWAVE_DEP=no])
+fi
+
+if test "${FOUND_PYROWAVE_DEP-}" = yes; then
+        PYROWAVE_COMMON_OBJS=""
+        PYROWAVE_COMPRESS_OBJ="$PYROWAVE_COMMON_OBJS src/video_compress/pyrowave.o"
+        PYROWAVE_DECOMPRESS_OBJ="$PYROWAVE_COMMON_OBJS src/video_decompress/pyrowave.o"
+        add_module vcompress_pyrowave "$PYROWAVE_COMPRESS_OBJ" "$PYROWAVE_LIBS"
+        #add_module vdecompress_pyrowave "$PYROWAVE_DECOMPRESS_OBJ" "$PYROWAVE_LIBS"
+        pyrowave=yes
+fi
+
+ENSURE_FEATURE_PRESENT([${pyrowave_req:?}], [${pyrowave:?}], [pyrowave not found!])
+
+# -------------------------------------------------------------------------------------------------
 # GPUJPEG
 
 gpujpeg=no
@@ -4039,6 +4067,7 @@ add_column "GPUJPEG transcode to DXT" "${gpujpeg_to_dxt?}"
 add_column "JPEG XS" "${jpegxs?}"
 add_column "Lavc (VDP ${lavc_hwacc_vdpau?}, VA ${lavc_hwacc_vaapi?})" "${libavcodec?}"
 add_column "OpenAPV" "${openapv?}"
+add_column "Pyrowave" "${pyrowave?}"
 add_column "Realtime DXT" "${rtdxt?}"
 add_column "UYVY dummy compression" "${uyvy?}"
 end_section
