@@ -529,16 +529,14 @@ static compress_module_info get_cineform_module_info(){
         return module_info;
 }
 
-const struct video_compress_info cineform_info = {
-        cineform_compress_init,
-        cineform_compress_done,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        cineform_compress_push,
-        cineform_compress_pop,
-        get_cineform_module_info,
-};
+constexpr video_compress_info cineform_info = []{
+        video_compress_info info{};
+        info.init_func = cineform_compress_init;
+        info.done = cineform_compress_done;
+        info.compress_tile_async_push_func = cineform_compress_push;
+        info.compress_tile_async_pop_func = cineform_compress_pop;
+        info.get_module_info = get_cineform_module_info;
+        return info;
+}();
 
 REGISTER_MODULE(cineform, &cineform_info, LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION);
