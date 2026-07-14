@@ -1591,6 +1591,7 @@ AC_ARG_ENABLE(opencv,
               [opencv_req=$enableval],
               [opencv_req=$build_default])
 opencv_version=
+opencv_version_str=
 opencv=no
 
 if test "$opencv_req" != no; then
@@ -1643,6 +1644,7 @@ if test "$opencv" = yes; then
         AC_LANG_POP(C++)
         CXXFLAGS=$SAVED_CXXFLAGS
         FOUND_OPENCV_IMGPROC=${ac_cv_header_opencv2_imgproc_hpp?}
+        opencv_version_str=" (ver. ${opencv_version:?})"
 fi
 
 ENSURE_FEATURE_PRESENT([$opencv_req], [$opencv], [OpenCV dependencies not found!])
@@ -3938,8 +3940,8 @@ add_column "IPv6 support" "${ipv6?}"
 add_column "Library live555" "${livemedia?}"
 add_column "Libbacktrace" "${libbacktrace?}"
 add_column "Manual pages" "${man?}"
-add_column "OpenCV$opencv_version" "${opencv?}"
 add_column "OMT" "${omt?}"
+add_column "OpenCV${opencv_version_str?}" "${opencv?}"
 add_column "Profiling support" "${profile?}"
 add_column "Qt GUI" "${qt_gui?}"
 add_column "RT priority" "${use_rt?}"
