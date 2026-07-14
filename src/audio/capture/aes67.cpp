@@ -114,8 +114,6 @@ struct Allocated_audio_frame{
         std::vector<char> data;
 };
 
-} //anon namespace
-
 struct state_aes67_cap {
         std::string network_interface_name;
         std::string sap_address;
@@ -139,6 +137,8 @@ struct state_aes67_cap {
         Allocated_audio_frame back_frame;
 
 };
+
+} //anon namespace
 
 static audio_desc sdp_fmt_to_audio_desc(std::string_view fmt_sv){
         auto codec_sv = tokenize(fmt_sv, '/');
