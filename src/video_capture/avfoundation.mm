@@ -51,8 +51,8 @@
 #include "pixfmt_conv.h"
 #include "utils/color_out.h"
 #include "utils/unicode.h"   // for wcs_to_mbs_fallb
+#include "utils/video.h" // for video_desc_to_string
 #include "video_capture.h"
-#include "video.h" // for video_desc_to_string
 #include "video_codec.h"
 #include "video_frame.h"
 

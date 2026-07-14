@@ -85,7 +85,7 @@
 #include "host.h"
 #include "lib_common.h"
 #include "utils/color_out.h"             // for col, SBOLD, SRED
-#include "video.h"
+#include "utils/video.h"
 #include "video_codec.h"
 #include "video_display.h"
 #include "video_frame.h"
@@ -907,11 +907,9 @@ LINK_SPEC bool display_aja_reconfigure(void *state, struct video_desc desc)
                                 desc.height, desc.width, interlaced, false, true);
         }
         if (s->mVideoFormat == NTV2_FORMAT_UNKNOWN) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unsupported resolution"
-#ifndef _MSC_VER
-                        ": " << desc
-#endif
-                        << "\n";
+                char buf[STR_LEN];
+                MSG(ERROR, "Unsupported resolution: %s\n",
+                    video_desc_to_string(desc, sizeof buf, buf));
                 return false;
         }
         s->mPixelFormat = get_ntv2_from_ug_pixfmt(desc.color_spec);

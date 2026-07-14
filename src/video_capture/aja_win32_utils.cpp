@@ -48,6 +48,7 @@
 
 #include "audio/types.h"
 #include "audio/utils.h"
+#include "utils/video.h"
 #include "video_codec.h"
 #include "video_frame.h"
 
@@ -218,5 +219,27 @@ struct video_desc video_desc_from_frame(const struct video_frame *frame)
         desc.tile_count = frame->tile_count;
 
         return desc;
+}
+
+const char *
+video_desc_to_string(struct video_desc d, unsigned buflen, char *buf)
+{
+        char *ptr = buf;
+        if (d.tile_count > 1) {
+                int ret = snprintf(ptr, buflen, "%d*", d.tile_count);
+                assert(ret >= 0);
+                buflen -= ret;
+                ptr += ret;
+        }
+        // if (d.interlacing != PROGRESSIVE && d.interlacing != SEGMENTED_FRAME) {
+        //         d.fps *= 2;
+        // }
+        int ret = snprintf(ptr, buflen, "%ux%u @%.2f, codec %s", d.width,
+                           d.height, d.fps, get_codec_name(d.color_spec));
+        assert(ret >= 0);
+        if ((unsigned) ret >= buflen) {
+                fprintf(stderr, "%s: output truncated!\n", __func__);
+        }
+        return buf;
 }
 

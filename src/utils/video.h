@@ -1,5 +1,5 @@
 /**
- * @file   video.h
+ * @file   utils/video.h
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
  * @brief  miscellaneous video utilities
@@ -90,13 +90,6 @@ struct video_desc get_video_desc_from_mode(const char *);
 }
 #endif // __cplusplus
 
-#ifdef __cplusplus
-#include <istream>
-#include <ostream>
-std::istream& operator>>(std::istream& is, video_desc& desc);
-std::ostream& operator<<(std::ostream& os, const video_desc& desc);
-std::ostream& operator<<(std::ostream& os, const codec_t& color_spec);
-#endif
 
 #endif // VIDEO_H_
 

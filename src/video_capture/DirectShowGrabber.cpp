@@ -26,6 +26,7 @@
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/string.h"
+#include "utils/video.h"
 #include "utils/windows.h"
 #include "video_capture.h"
 #include "video_codec.h"
@@ -1089,10 +1090,12 @@ static int vidcap_dshow_init(const struct vidcap_params *params, void **state) {
 
         res = s->sampleGrabber->GetConnectedMediaType(&sampleGrabberMT);
         HANDLE_ERR("Cannot get current grabber format");
+        char buf[STR_LEN];
         MSG(INFO, "streaming type: %s, grabber type: %s, output: %s\n",
             GetSubtypeName(&mediaType->subtype),
             GetSubtypeName(&sampleGrabberMT.subtype),
-            ((string) vidcap_dshow_get_video_desc(&sampleGrabberMT)).c_str());
+            video_desc_to_string(vidcap_dshow_get_video_desc(&sampleGrabberMT),
+                                 sizeof buf, buf));
         s->convert = get_conversion(&sampleGrabberMT.subtype);
         DeleteMediaType(mediaType);
 

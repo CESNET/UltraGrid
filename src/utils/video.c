@@ -1,5 +1,5 @@
 /**
- * @file   video.cpp
+ * @file
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
  * @brief  This file defines some common video functions.
@@ -39,44 +39,38 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "video.h"
+#include "utils/video.h"
 
-#include <cassert>            // for assert
-#include <cctype>             // for isalnum
-#include <cstdio>             // for printf, fprintf, sscanf, stderr
-#include <cstdlib>            // for atoi, strtol
-#include <cstring>            // for strcasecmp, strncmp, strchr, strlen, strpbrk
-#include <iomanip>            // for operator<<, setiosflags, setprecision
-#include <map>                // for allocator, map, _Rb_tree_const_iterator
-#include <sstream>            // for basic_ostringstream
-#include <string>             // for basic_string, string
-#include <utility>            // for pair
+#include <assert.h>  // for assert
+#include <stdio.h>   // for printf, perror, snprintf, sscanf
+#include <stdlib.h>  // for atoi, strtod
+#include <string.h>  // for strncmp, strchr, strlen, strpbrk
+#include <strings.h> // for strcasecmp, strncasecmp
 
-#include "compat/strings.h" // for strlcpy
-#include "debug.h"
-#include "rtp/rtp_types.h" // FPS_MAX
-#include "utils/color_out.h"  // for color_printf, TBOLD
-#include "utils/macros.h"
-#include "video_codec.h"      // for get_codec_name, get_codec_from_name
-#include "video_frame.h"      // for get_interlacing_from_suffix, video_desc_eq
+#include "compat/c23.h"      // IWYU pragma: keep for countof
+#include "debug.h"           // for LOG_LEVEL_ERROR, MSG, LOG_LEVEL_WARNING
+#include "rtp/rtp_types.h"   // for FPS_MAX
+#include "types.h"           // for interlacing_t, UYVY, video_desc, video_...
+#include "utils/color_out.h" // for TBOLD, color_printf
+#include "utils/macros.h"    // for STARTS_WITH
+#include "video_codec.h"     // for get_codec_from_name, get_codec_name
+#include "video_frame.h"     // for get_interlacing_from_suffix, get_interl...
 
 #define MOD_NAME "[video] "
 
-using namespace std;
-
-typedef struct {
+typedef struct video_mode_info {
         const char *name;
-        int x;
+        int         x;
         int y;
-} video_mode_info_t;
+} video_mode_info;
 
-const static map<enum video_mode, video_mode_info_t> video_mode_info = {
-        { VIDEO_UNKNOWN, { "(unknown)", 0, 0 }},
-        { VIDEO_NORMAL, { "normal", 1, 1 }},
-        { VIDEO_DUAL, { "dual-link", 1, 2 }},
-        { VIDEO_STEREO, { "3D", 2, 1 }},
-        { VIDEO_4K, { "tiled-2x2", 2, 2 }},
-        { VIDEO_3X1, { "3x1", 3, 1 }},
+static const video_mode_info video_mode_info_map[] = {
+        [VIDEO_UNKNOWN] = (video_mode_info){ "(unknown)", 0, 0 },
+        [VIDEO_NORMAL]  = (video_mode_info){ "normal",    1, 1 },
+        [VIDEO_DUAL]    = (video_mode_info){ "dual-link", 1, 2 },
+        [VIDEO_STEREO]  = (video_mode_info){ "3D",        2, 1 },
+        [VIDEO_4K]      = (video_mode_info){ "tiled-2x2", 2, 2 },
+        [VIDEO_3X1]     = (video_mode_info){ "3x1",       3, 1 },
 };
 
 /**
@@ -86,44 +80,48 @@ const static map<enum video_mode, video_mode_info_t> video_mode_info = {
  * @param reuqested_mode textual representation of video mode
  * @return valid member of enum video mode
  */
-enum video_mode get_video_mode_from_str(const char *requested_mode) {
-        if(strcasecmp(requested_mode, "help") == 0) {
+enum video_mode
+get_video_mode_from_str(const char *requested_mode)
+{
+        if (strcasecmp(requested_mode, "help") == 0) {
                 printf("Video mode options:\n");
-                auto it = video_mode_info.begin();
-                while (it != video_mode_info.end()) {
-                        if (it == video_mode_info.begin()) { // omit unknown
-                                ++it;
+                for (unsigned i = 0; i < countof(video_mode_info_map); i++) {
+                        if (i == VIDEO_UNKNOWN) {
                                 continue;
                         }
-                        printf("\t%s\n", it->second.name);
-                        if (++it != video_mode_info.end()) {
-                        }
+                        printf("\t%s\n", video_mode_info_map[i].name);
                 }
-                return VIDEO_UNKNOWN;
-        } else {
-                for (auto const &it : video_mode_info) {
-                        if (strcasecmp(requested_mode, it.second.name) == 0) {
-                                return it.first;
-                        }
-                }
-                fprintf(stderr, "Unknown video mode (see -M help)\n");
                 return VIDEO_UNKNOWN;
         }
+        for (unsigned i = 0; i < countof(video_mode_info_map); i++) {
+                if (strcasecmp(requested_mode, video_mode_info_map[i].name) ==
+                    0) {
+                        return i;
+                }
+        }
+        MSG(ERROR, "Unknown video mode (see -M help)\n");
+        return VIDEO_UNKNOWN;
 }
 
-int get_video_mode_tiles_x(enum video_mode video_mode)
+int
+get_video_mode_tiles_x(enum video_mode video_mode)
 {
-        return video_mode_info.at(video_mode).x;
+        assert(video_mode < countof(video_mode_info_map));
+        return video_mode_info_map[video_mode].x;
 }
 
-int get_video_mode_tiles_y(enum video_mode video_mode)
+int
+get_video_mode_tiles_y(enum video_mode video_mode)
 {
-        return video_mode_info.at(video_mode).y;
+        assert(video_mode < countof(video_mode_info_map));
+        return video_mode_info_map[video_mode].y;
 }
 
-const char *get_video_mode_description(enum video_mode video_mode)
+const char *
+get_video_mode_description(enum video_mode video_mode)
 {
-        return video_mode_info.at(video_mode).name;
+        assert(video_mode < countof(video_mode_info_map));
+        return video_mode_info_map[video_mode].name;
 }
 
 enum video_mode guess_video_mode(int num_substreams)
@@ -144,127 +142,57 @@ enum video_mode guess_video_mode(int num_substreams)
         }
 }
 
-std::ostream& operator<<(std::ostream& os, const video_desc& desc)
-{
-        std::streamsize p = os.precision();
-        ios_base::fmtflags f = os.flags();
-        if (desc.tile_count > 1) {
-                os << desc.tile_count << "*";
-        }
-        os << desc.width << "x" << desc.height << " @" << setprecision(2) << setiosflags(ios_base::fixed)
-                << desc.fps * (desc.interlacing == PROGRESSIVE || desc.interlacing == SEGMENTED_FRAME ? 1 : 2)
-                << get_interlacing_suffix(desc.interlacing) << ", codec "
-                << get_codec_name(desc.color_spec);
-        os.precision(p);
-        os.flags(f);
-        return os;
-}
-
-std::ostream& operator<<(std::ostream& os, const codec_t& color_spec)
-{
-        os << get_codec_name(color_spec);
-        return os;
-}
-
-/**
- * currently unused (except of the unit test
- * misc_test_video_desc_io_op_symmetry())
- *
- * the removal can be considered
- */
-std::istream& operator>>(std::istream& is, video_desc& desc)
-{
-        video_desc out;
-        char buf[1024];
-        char *line = buf;
-
-        char interl_suffix[4] = "";
-        char codec_name[11] = "";
-
-        out.tile_count = 1;
-
-        unsigned int i = 0;
-        int num_spaces = 0;
-        while (is.good() && i < sizeof buf - 1) {
-                char c;
-                is.get(c);
-                if (!is.good()) {
-                        break;
-                }
-                if (num_spaces == 3 &&
-                                !(isalnum(c) || c == '.')) // allowed symbols in codec name
-                {
-                        is.unget();
-                        break;
-                } else {
-                        buf[i++] = c;
-                }
-                if (c == ' ') {
-                        num_spaces += 1;
-                }
-        }
-        buf[i] = '\0';
-
-        /// @todo regex matching would be better
-        if (strchr(line, '*')) {
-                out.tile_count = atoi(line);
-                line = strchr(line, '*') + 1;
-        }
-        int ret = sscanf(line, "%dx%d @%lf%3[a-z], codec %10s", &out.width, &out.height,
-                &out.fps, interl_suffix, codec_name);
-
-        if (ret != 5) {
-                is.setstate(std::ios::failbit);
-                log_msg(LOG_LEVEL_ERROR, "Malformed video_desc representation!\n");
-                return is;
-        }
-
-        out.color_spec = get_codec_from_name(codec_name);
-        out.interlacing = get_interlacing_from_suffix(interl_suffix);
-        out.fps = out.fps / (out.interlacing == PROGRESSIVE || out.interlacing == SEGMENTED_FRAME ? 1 : 2);
-        desc = out;
-        return is;
-}
-
-bool video_desc::operator==(video_desc const & other) const
-{
-        return video_desc_eq(*this, other);
-
-}
-
-bool video_desc::operator!=(video_desc const & other) const
-{
-        return !video_desc_eq(*this, other);
-
-}
-
-bool video_desc::operator!() const
-{
-        return color_spec == VIDEO_CODEC_NONE;
-}
-
-video_desc::operator string() const
-{
-        ostringstream oss;
-        oss << *this;
-        return oss.str();
-}
-
 const char *
 video_desc_to_string(struct video_desc d, unsigned buflen, char *buf)
 {
-        string desc_str = d;
-        strlcpy(buf, desc_str.c_str(), buflen);
+        char *ptr = buf;
+        if (d.tile_count > 1) {
+                int ret = snprintf(ptr, buflen, "%d*", d.tile_count);
+                assert(ret >= 0);
+                buflen -= ret;
+                ptr += ret;
+        }
+        if (d.interlacing != PROGRESSIVE && d.interlacing != SEGMENTED_FRAME) {
+                d.fps *= 2;
+        }
+        int ret =
+            snprintf(ptr, buflen, "%ux%u @%.2f%s, codec %s", d.width, d.height,
+                     d.fps, get_interlacing_suffix(d.interlacing),
+                     get_codec_name(d.color_spec));
+        assert(ret >= 0);
+        if ((unsigned) ret >= buflen) {
+                MSG(WARNING, "%s: output truncated!\n", __func__);
+        }
         return buf;
 }
 
 struct video_desc
 get_video_desc_from_string(const char *str)
 {
-        struct video_desc ret = {};
-        istringstream iss(str);
-        iss >> ret;
-        return ret;
+        struct video_desc out = { 0 };
+
+        char interl_suffix[4] = "";
+        char codec_name[11] = "";
+
+        out.tile_count = 1;
+
+        /// @todo regex matching would be better
+        if (strchr(str, '*')) {
+                out.tile_count = atoi(str);
+                str            = strchr(str, '*') + 1;
+        }
+        int ret = sscanf(str, "%dx%d @%lf%3[a-z], codec %10s", &out.width, &out.height,
+                &out.fps, interl_suffix, codec_name);
+
+        if (ret != 5) {
+                log_msg(LOG_LEVEL_ERROR, "Malformed video_desc representation!\n");
+                return (struct video_desc){ 0 };
+        }
+
+        out.color_spec = get_codec_from_name(codec_name);
+        out.interlacing = get_interlacing_from_suffix(interl_suffix);
+        out.fps = out.fps / (out.interlacing == PROGRESSIVE || out.interlacing == SEGMENTED_FRAME ? 1 : 2);
+        return out;
 }
 
 /**
@@ -272,7 +200,7 @@ get_video_desc_from_string(const char *str)
  * @retval <0.0 wrong FPS specification
  */
 static double
-parse_fps(const char *string, interlacing_t *interlacing)
+parse_fps_int(const char *string, enum interlacing_t *interlacing)
 {
         const char *fps_str = strpbrk(string, "DKdikp@");
         if (fps_str == nullptr) {
@@ -374,7 +302,7 @@ get_video_desc_from_mode(const char *string)
                 if (!full) {
                         color_printf("Use " TBOLD("fullhelp") " for further details.\n");
                 }
-                return {};
+                return (struct video_desc){ 0 };
         }
         for (unsigned i = 0; i < sizeof map / sizeof map[0]; ++i) {
                 if (strcasecmp(map[i].name, string) == 0 || (strlen(string) == 4 && string[3] == ' ' && strncasecmp(map[i].name, string, 3) == 0)) {
@@ -382,9 +310,7 @@ get_video_desc_from_mode(const char *string)
                 }
         }
         // BMD-like syntax (+ line-counted syntax like 1080p<FPS>)
-        struct video_desc ret{};
-        ret.color_spec = UYVY;
-        ret.tile_count  = 1;
+        struct video_desc ret = { .color_spec = UYVY, .tile_count = 1 };
         if (strncmp(string, "Hp", 2) == 0 || STARTS_WITH(string, "1080p")) {
                 ret.width = 1920;
                 ret.height = 1080;
@@ -413,12 +339,12 @@ get_video_desc_from_mode(const char *string)
                 // check if matches WIDTHxHEIGHT
                 if (sscanf(string, "%ux%u", &ret.width, &ret.height) != 2) {
                         MSG(ERROR, "Unrecognized video mode: %s\n", string);
-                        return {};
+                        return (struct video_desc){ 0 };
                 }
         }
-        ret.fps = parse_fps(string, &ret.interlacing);
+        ret.fps = parse_fps_int(string, &ret.interlacing);
         if (ret.fps < .0) {
-                return {};
+                return (struct video_desc){ 0 };
         }
 
         return ret;

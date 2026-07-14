@@ -74,8 +74,7 @@
 #include "utils/macros.h"
 #include "utils/misc.h"                   // for get_framerate_[dn]
 #include "utils/string.h" // replace_all
-#include "utils/text.h"
-#include "video.h"
+#include "utils/video.h"
 #include "video_codec.h"
 #include "video_compress.h"
 #include "video_frame.h"
@@ -1348,7 +1347,11 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         }
 
         s->saved_desc = desc;
-        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "Successfully reconfigured to " << desc << "\n";
+        if (log_level >= LOG_LEVEL_DEBUG) {
+                char buf[1024];
+                MSG(DEBUG, "Successfully reconfigured to %s\n",
+                    video_desc_to_string(desc, sizeof buf, buf));
+        }
 
         return true;
 }

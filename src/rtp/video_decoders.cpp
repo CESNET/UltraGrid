@@ -114,10 +114,10 @@
 #include <utility>                     // for pair, move
 #include <vector>                      // for vector
 
-#include "compat/net.h"                // for ntohl
-#include "crypto/openssl_decrypt.h"
-#include "crypto/openssl_encrypt.h"    // for openssl_mode
+#include "compat/net.h" // for ntohl
 #include "control_socket.h"
+#include "crypto/openssl_decrypt.h"
+#include "crypto/openssl_encrypt.h" // for openssl_mode
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -127,16 +127,16 @@
 #include "rtp/fec.h"
 #include "rtp/pbuf.h"
 #include "rtp/rtp.h"
-#include "rtp/rtp_types.h"             // for video_payload_hdr_t, PT_ENCRYP...
-#include "tv.h"                        // for NS_IN_SEC
+#include "rtp/rtp_types.h" // for video_payload_hdr_t, PT_ENCRYP...
+#include "tv.h"            // for NS_IN_SEC
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/misc.h"
 #include "utils/synchronized_queue.h"
 #include "utils/thread.h"
 #include "utils/timed_message.h"
+#include "utils/video.h" // for get_video_mode_tiles_x, get_vi...
 #include "utils/worker.h"
-#include "video.h"       // for get_video_mode_tiles_x, get_vi...
 #include "video_codec.h" // for vc_get_linesize, get_pf_block_...
 #include "video_decompress.h"
 #include "video_display.h" // for display_prop_vid_mode, display...
@@ -1505,13 +1505,13 @@ static void check_for_mode_change(struct state_video_decoder *decoder,
                                       PARAM_TILE_COUNT)) {
                 return;
         }
-        LOG(LOG_LEVEL_NOTICE)
-            << "[video dec.] New incoming video format detected: "
-            << network_desc << "\n";
+        char desc[STR_LEN];
+        MSG(NOTICE, "New incoming video format detected: %s\n",
+            video_desc_to_string(network_desc, sizeof desc, desc));
 
-        std::ostringstream oss;
-        oss << "new incoming video fmt: " << network_desc;
-        control_report_stats(decoder->control, oss.str().c_str());
+        char report[STR_LEN];
+        snprintf_ch(report, "new incoming video fmt: %s", desc);
+        control_report_stats(decoder->control, report);
 
         reconfigure_helper(decoder, network_desc, {});
 }
@@ -1888,9 +1888,10 @@ static void decoder_process_message(struct module *m)
                 struct msg_universal *m_univ = (struct msg_universal *) msg;
                 if (strcmp(m_univ->text, "get_format") == 0) {
                         s->lock.lock();
-                        string video_desc = s->received_vid_desc;
+                        char buf[STR_LEN];
+                        video_desc_to_string(s->received_vid_desc, sizeof buf, buf);
                         s->lock.unlock();
-                        r = new_response(RESPONSE_OK, video_desc.c_str());
+                        r = new_response(RESPONSE_OK, buf);
                 } else if (strcmp(m_univ->text, "get_fec") == 0) {
                         unique_lock<mutex> lk(s->lock);
                         char               buf[STR_LEN];

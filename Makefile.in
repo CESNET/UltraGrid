@@ -167,7 +167,7 @@ COMMON_OBJS     = \
 		src/utils/windows.o \
 		src/utils/worker.o \
 		src/utils/y4m.o \
-		src/video.o \
+		src/utils/video.o \
 		src/video_frame.o \
 		src/video_codec.o \
 		src/video_capture.o \

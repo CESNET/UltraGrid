@@ -82,7 +82,7 @@
 #include "utils/macros.h"
 #include "utils/misc.h"                  // for get_stat_color
 #include "utils/thread.h"
-#include "video.h"                       // for video_desc_to_string
+#include "utils/video.h"                 // for video_desc_to_string
 #include "video_codec.h"                 // for vc_get_linesize
 #include "video_display/splashscreen.h"  // for splash_height, splash_width
 #include "video_frame.h"                 // for vf_alloc_desc_data

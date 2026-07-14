@@ -74,8 +74,8 @@
 #include "host.h"
 #include "lib_common.h"
 #include "utils/video_frame_pool.h"
+#include "utils/video.h"
 #include "video_capture.h"
-#include "video.h"
 #include "video_codec.h"
 
 #include "ajatypes.h"
@@ -756,9 +756,9 @@ void vidcap_state_aja::SetupHostBuffers (void)
                 1};
         mPool.reconfigure(desc, mVideoBufferSize);
 
-#ifndef _MSC_VER
-        LOG(LOG_LEVEL_NOTICE) << "Detected input video mode: " << desc << "\n";
-#endif
+        char buf[STR_LEN];
+        MSG(ERROR, "Detected input video_mode: %s\n",
+            video_desc_to_string(desc, sizeof buf, buf));
 }       //      SetupHostBuffers
 
 AJAStatus vidcap_state_aja::Run()

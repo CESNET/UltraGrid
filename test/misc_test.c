@@ -26,7 +26,7 @@
 #include "utils/net.h"
 #include "utils/pthread.h"
 #include "utils/string.h"
-#include "video.h"
+#include "utils/video.h"
 #include "video_frame.h"
 
 #define MOD_NAME "[misc_test] "
@@ -290,20 +290,28 @@ int misc_test_unit_evaluate()
 
 int misc_test_video_desc_io_op_symmetry()
 {
-        struct video_desc test_desc[] = {
-                (struct video_desc){ 1920, 1080, DXT5, 60, PROGRESSIVE, 4 },
-                (struct video_desc){ 640,  480,  H264, 15, PROGRESSIVE, 1 }
+#define MK_ITEM(desc) (desc), #desc
+        struct {
+                struct video_desc desc;
+                const char       *str;
+        } test_desc[] = {
+                { MK_ITEM(((struct video_desc){ 1920, 1080, DXT5, 60,
+                                                PROGRESSIVE, 4 })) },
+                { MK_ITEM(((struct video_desc){ 640, 480, H264, 15, PROGRESSIVE,
+                                                1 })) },
         };
+#undef MK_ITEM
         for (unsigned i = 0; i < countof(test_desc); i++) {
                 char desc[1024];
-                video_desc_to_string(test_desc[i], sizeof desc, desc);
+                video_desc_to_string(test_desc[i].desc, sizeof desc, desc);
                 // Check
                 struct video_desc tmp = get_video_desc_from_string(desc);
                 char err_elem[1024];
                 char buf[1024];
-                snprintf_ch(err_elem, "%s vs %s", desc,
+                snprintf_ch(err_elem, "'%s' (%s) vs '%s' ", desc,
+                            test_desc[i].str,
                             video_desc_to_string(tmp, sizeof buf, buf));
-                ASSERT_MESSAGE(err_elem, video_desc_eq(tmp, test_desc[i]));
+                ASSERT_MESSAGE(err_elem, video_desc_eq(tmp, test_desc[i].desc));
                 // ASSERT_EQUAL_MESSAGE(err_elem, tmp, test_desc[i]);
         }
         return 0;

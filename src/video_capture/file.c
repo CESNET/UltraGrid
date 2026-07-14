@@ -84,7 +84,7 @@
 #include "utils/ring_buffer.h"
 #include "utils/thread.h"
 #include "utils/time.h"
-#include "video.h"
+#include "utils/video.h"
 #include "video_capture.h"
 #include "video_codec.h"
 #include "video_frame.h"

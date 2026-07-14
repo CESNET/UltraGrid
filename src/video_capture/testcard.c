@@ -81,9 +81,9 @@
 #include "utils/string.h"
 #include "utils/text.h"                     // for color_printf_wrapped
 #include "utils/vf_split.h"
+#include "utils/video.h"
 #include "utils/video_pattern_generator.h"
 #include "utils/y4m.h"
-#include "video.h"                          // for get_video_desc_from_mode
 #include "video_capture.h"                  // for VIDCAP_INIT_FAIL, VIDCAP_...
 #include "video_capture/testcard_common.h"  // for testcard_has_conversion
 #include "video_capture_params.h"           // for vidcap_params_get_fmt

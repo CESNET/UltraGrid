@@ -60,7 +60,7 @@
 #include "debug.h"
 #include "utils/color_out.h"
 #include "utils/debug.h"                 // for DEBUG_TIMER_*
-#include "video.h"
+#include "utils/video.h"
 #include "video_codec.h"
 
 #define DEFAULT_ALGO INTER_LINEAR

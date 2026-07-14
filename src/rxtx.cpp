@@ -58,7 +58,7 @@
 #include "utils/macros.h"    // for snprintf_ch, to_fourcc
 #include "utils/pthread.h"   // for CHK_PTHR, PTHREAD_NULL
 #include "utils/thread.h"
-#include "video.h"
+#include "utils/video.h"
 #include "video_codec.h"     // for get_codec_name
 #include "video_compress.h"
 #include "video_frame.h"     // for video_desc_from_frame
@@ -203,15 +203,16 @@ void rxtx::check_sender_messages() {
                 struct response *r = nullptr;
                 auto *msg = (struct msg_sender *) msg_external;
                 if (msg->type == SENDER_MSG_QUERY_VIDEO_MODE) {
-                        if (!m_video_desc) {
+                        if (!m_video_desc.color_spec) {
                                 r = new_response(RESPONSE_NO_CONTENT, nullptr);
                         } else {
-                                ostringstream oss;
-                                oss << m_video_desc
-                                    << " (input " << get_codec_name(m_input_video_codec)
-                                    << ")";
-                                r = new_response(RESPONSE_OK,
-                                                 oss.str().c_str());
+                                char buf[STR_LEN];
+                                snprintf_ch(
+                                    buf, "%s (input %s)",
+                                    video_desc_to_string(m_video_desc,
+                                                         sizeof buf, buf),
+                                    get_codec_name(m_input_video_codec));
+                                r = new_response(RESPONSE_OK, buf);
                         }
                 } else {
                         char buf[200];

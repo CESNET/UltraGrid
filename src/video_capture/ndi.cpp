@@ -65,7 +65,7 @@
 #include "ndi_common.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"          // OPTIMIZED_FOR, STR_LEN, snprintf_ch
-#include "video.h"
+#include "utils/video.h"
 #include "video_codec.h"
 #include "video_frame.h"
 #include "video_capture.h"
@@ -534,8 +534,10 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                                         return {};
                                 }
                 }
-                if (s->last_desc != out_desc) {
-                        LOG(LOG_LEVEL_NOTICE) << MOD_NAME << "Received video changed: " << out_desc << "\n";
+                if (!video_desc_eq(s->last_desc, out_desc)) {
+                        char buf[STR_LEN];
+                        MSG(NOTICE, "Received video changed: %s\n",
+                            video_desc_to_string(out_desc, sizeof buf, buf));
                         s->last_desc = out_desc;
                         if (s->field_0.p_data != nullptr) {
                                 s->NDIlib->recv_free_video_v2(s->pNDI_recv, &s->field_0);

@@ -55,7 +55,7 @@
 #include "utils/list.h"
 #include "utils/pthread.h"    // for CHK_PTHR
 #include "utils/text.h"
-#include "video.h"
+#include "utils/video.h"
 #include "video_codec.h"
 #include "video_display.h"
 #include "video_frame.h"

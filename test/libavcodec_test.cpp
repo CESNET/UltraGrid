@@ -11,8 +11,10 @@ extern "C" int libavcodec_test_get_decoder_from_uv_to_uv();
 #include <tuple>
 
 #include "libavcodec/lavc_common.h"
+#include "pixfmt_conv.h"
 #include "unit_common.h"
 #include "video_codec.h"
+#include "video_frame.h"
 
 using std::get;
 using std::list;
@@ -21,7 +23,6 @@ using std::string;
 using std::tuple;
 
 extern "C" decoder_t (*testable_get_decoder_from_uv_to_uv)(codec_t in, enum AVPixelFormat av, codec_t *out);
-
 
 int libavcodec_test_get_decoder_from_uv_to_uv()
 {

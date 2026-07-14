@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "../src/pixfmt_conv.h"
 #include "../src/video_codec.h"
 #include "../src/video_frame.h"
 

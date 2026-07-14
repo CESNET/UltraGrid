@@ -85,7 +85,7 @@
 #include "utils/random.h"               // for ug_rand
 #include "utils/text.h"                 // for get_font_candidates
 #include "utils/thread.h"               // for set_thread_name
-#include "video.h"                      // for get_video_desc_from_mode
+#include "utils/video.h"                // for get_video_desc_from_mode
 #include "video_capture.h"              // for VIDCAP_INIT_FAIL, VIDCAP_INIT...
 #include "video_capture_params.h"       // for vidcap_params_get_fmt, vidcap...
 #include "video_codec.h"                // for vc_get_linesize, vc_get_datalen

@@ -112,8 +112,8 @@
 #include "utils/string_view_utils.hpp"
 #include "utils/thread.h"
 #include "utils/udp_holepunch.h"
+#include "utils/video.h"
 #include "utils/wait_obj.h"             // for wait_obj_done, wait_obj_init
-#include "video.h"
 #include "video_capture.h"
 #include "video_capture_params.h"       // for vidcap_params_get_driver, vid...
 #include "video_display.h"
