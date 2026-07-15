@@ -94,7 +94,7 @@ static void show_help()
 
 struct vidcap_screen_osx_state {
         struct video_desc desc;
-        void *video_frame_pool;
+        struct video_frame_pool *video_frame_pool;
         int frames;
         struct       timeval t, t0;
         CGDirectDisplayID display;

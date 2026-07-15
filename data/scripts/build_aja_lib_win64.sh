@@ -47,15 +47,13 @@ MSVS_PATH=$(/c/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/Installer/vswhe
 eval vssetup=\""$MSVS_PATH"\"'\\VC\\Auxiliary\\Build\\vcvars64.bat'
 cmd //Q //C call "$vssetup" "&&" cl //std:c++latest //EHsc //LD //D_XKEYCHECK_H \
       //DAJA_WINDOWS //DMSWindows //DAJA_NTV2SDK_VERSION_MAJOR=13 \
-      src/aja_common.cpp  aja_capture.cpp aja_display.cpp \
-      src/video_capture/aja_win32_utils.cpp  src/video_capture_params.c \
-      src/utils/config_file.cpp \
-      src/utils/string.c \
-      src/utils/video_frame_pool.cpp \
-      "$AJA_PREF"/libajantv2/build/ajantv2/Release/ajantv2*.lib \
-      advapi32.lib Netapi32.lib \
-      Shell32.lib Shlwapi.lib user32.lib winmm.lib //Feaja
+      aja_capture.cpp aja_display.cpp src/aja_common.cpp \
+      //c //MD //d2FH4-
+# d2FH4- -> https://stackoverflow.com/a/70448867, otherwise linking
+# with -lvcruntime would be required; it is distributed inside MSVS so
+# also paths would need to be set then
 
-cp aja.lib /usr/local/lib
-cp aja.dll /usr/local/bin
+cp aja_common.obj aja_capture.obj aja_display.obj /usr/local/lib
+cp "$AJA_PREF"/libajantv2/build/ajantv2/Release/ajantv2*.lib /usr/local/lib
+cp "$AJA_PREF"/libajantv2/build/ajantv2/Release/ajantv2*.dll /usr/local/bin
 

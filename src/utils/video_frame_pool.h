@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2020-2025 CESNET, zájmoveé sdružení právnických osob
+ * Copyright (c) 2020-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -107,9 +107,15 @@ struct video_frame_pool {
 };
 #endif //  __cplusplus
 
-EXTERN_C void *video_frame_pool_init(struct video_desc desc, int len);
-EXTERN_C struct video_frame *video_frame_pool_get_disposable_frame(void *);
-EXTERN_C void video_frame_pool_destroy(void *);
+struct video_frame_pool_allocator;
+
+EXTERN_C struct video_frame_pool *video_frame_pool_init(struct video_desc desc,
+                                                        int               len);
+EXTERN_C struct video_frame_pool *video_frame_pool_init_with_allocator(
+    struct video_desc desc, int len,
+    struct video_frame_pool_allocator *allocator);
+EXTERN_C struct video_frame *
+video_frame_pool_get_disposable_frame(struct video_frame_pool *);
+EXTERN_C void video_frame_pool_destroy(struct video_frame_pool *);
 
 #endif // VIDEO_FRAME_POOL_H_
-

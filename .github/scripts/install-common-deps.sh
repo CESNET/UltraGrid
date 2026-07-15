@@ -53,6 +53,7 @@ download_build_aja() (
                 -DAJANTV2_DISABLE_TOOLS=ON  -DAJANTV2_DISABLE_TESTS=ON \
                 -DAJANTV2_DISABLE_PLUGIN_LOAD=ON -DAJANTV2_BUILD_SHARED=ON \
                 -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_SYSROOT=macosx \
+                -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL \
                 -Bbuild -S.
         cmake --build build --config Release -j "$(nproc)"
 )

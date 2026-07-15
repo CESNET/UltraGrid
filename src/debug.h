@@ -46,6 +46,10 @@
 #include <stdint.h>
 #endif // defined __cplusplus
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 #define UNUSED(x)	(x=x)
 
@@ -69,10 +73,6 @@ enum log_timestamp_mode{
 	LOG_TIMESTAMP_ENABLED = 1,
 	LOG_TIMESTAMP_AUTO = -1
 };
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 void debug_dump(const void*lp, int len);
 

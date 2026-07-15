@@ -107,13 +107,6 @@
 #define MOD_NAME "[AJA cap.] "
 
 #ifdef _MSC_VER
-extern "C" __declspec(dllexport) unsigned int *aja_audio_capture_channels = NULL;
-volatile int log_level = 5;
-#else
-unsigned int *aja_audio_capture_channels = &audio_capture_channels;
-#endif
-
-#ifdef _MSC_VER
 #define LINK_SPEC extern "C" __declspec(dllexport)
 #else
 #define LINK_SPEC static
@@ -179,7 +172,7 @@ class vidcap_state_aja {
                 uint32_t               mVideoBufferSize{};            ///     My video buffer size, in bytes
                 uint32_t               mAudioBufferSize{};            ///     My audio buffer size, in bytes
                 thread                 mProducerThread;               ///     My producer thread object -- does the frame capturing
-                video_frame_pool       mPool{0, aligned_data_allocator()};
+                video_frame_pool      *mPool = nullptr;
                 shared_ptr<video_frame> mOutputFrame;
                 shared_ptr<uint32_t>   mOutputAudioFrame;
                 size_t                 mOutputAudioFrameSize{};
@@ -389,6 +382,7 @@ vidcap_state_aja::~vidcap_state_aja() {
 
         mOutputFrame = NULL;
         free(mAudio.data);
+        video_frame_pool_destroy(mPool);
 }
 
 NTV2VideoFormat vidcap_state_aja::GetVideoFormatFromInputSource()
@@ -696,7 +690,7 @@ AJAStatus vidcap_state_aja::SetupAudio (void)
         CHECK_OK(mDevice.SetAudioSystemInputSource(mAudioSystem, mAudioSource, ::NTV2InputSourceToEmbeddedAudioInput(mInputSource)), string("Cannot set audio input source: ") + NTV2AudioSourceToString(mAudioSource), NOOP);
 
         mMaxAudioChannels = ::NTV2DeviceGetMaxAudioChannels (mDeviceID);
-        mAudio.ch_count = *aja_audio_capture_channels > 0 ? *aja_audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
+        mAudio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
         if (mMaxAudioChannels < mAudio.ch_count) {
                 LOG(LOG_LEVEL_ERROR) << MOD_NAME "Invalid number of capture channels requested. Requested " <<
                         mAudio.ch_count << ", maximum " << mMaxAudioChannels << "\n";
@@ -754,7 +748,10 @@ void vidcap_state_aja::SetupHostBuffers (void)
                 GetFramesPerSecond(GetNTV2FrameRateFromVideoFormat(mVideoFormat)),
                 interlacing,
                 1};
-        mPool.reconfigure(desc, mVideoBufferSize);
+        video_frame_pool_destroy(mPool);
+        aligned_data_allocator allocator{};
+        mPool = video_frame_pool_init_with_allocator(desc, mVideoBufferSize,
+                                                     &allocator);
 
         char buf[STR_LEN];
         MSG(ERROR, "Detected input video_mode: %s\n",
@@ -878,13 +875,19 @@ void vidcap_state_aja::CaptureFrames (void)
                 //      Flip sense of the buffers again to refer to the buffers that the hardware isn't using (i.e. the off-screen buffers)...
                 currentInFrame  ^= 1;
 
-                shared_ptr<video_frame> out = mPool.get_frame();
+                struct video_frame *disposable =
+                    video_frame_pool_get_disposable_frame(mPool);
+                shared_ptr<video_frame> out{ disposable,
+                                             disposable->callbacks.dispose };
                 //      DMA the new frame to system memory...
                 CHECK(mDevice.DMAReadFrame (currentInFrame, reinterpret_cast<uint32_t *>(out->tiles[0].data), mVideoBufferSize));
                 if (out->color_spec == R12L) {
-                        shared_ptr<video_frame> converted = mPool.get_frame();
+                        struct video_frame *converted =
+                            video_frame_pool_get_disposable_frame(mPool);
                         vc_copylineR12AtoR12L((unsigned char *) converted->tiles[0].data, (unsigned char *) out->tiles[0].data, out->tiles[0].data_len, 0, 0, 0);
-                        out = std::move(converted);
+                        out = shared_ptr<video_frame>{
+                                disposable, disposable->callbacks.dispose
+                        };
                 }
 
                 if (log_level >= LOG_LEVEL_DEBUG) {

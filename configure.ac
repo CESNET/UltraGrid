@@ -1082,11 +1082,20 @@ if test "$aja_req" != no; then
                         AJA_LIB=-l$AJA_LIB
                 fi
         else # Windows
-                AC_CHECK_LIB(aja, display_aja_probe, [aja=yes], [aja=no])
+                AJA_LIB=$(echo /usr/local/lib/ajantv2*.lib)
+                AJA_LIB="$AJA_LIB /usr/local/lib/aja_capture.obj \
+                                  /usr/local/lib/aja_common.obj \
+                                  /usr/local/lib/aja_display.obj"
+                aja=yes
+                for n in $AJA_LIB; do
+                        if ! test -f $n; then
+                                aja=no
+                        fi
+                done
         fi
 
         if test "${aja?}" = yes && test "${system?}" = Windows; then
-                add_module aja src/aja_win32_stub.o -laja
+                add_module aja "src/aja_win32_stub.o" "$AJA_LIB"
         elif test $aja = yes; then # Linux and macOS
                 AJA_INC="$AJA_INC -I$AJA_PATH -I$AJA_PATH/ajantv2/\
 includes -I$AJA_PATH/ajantv2/src/$platform"

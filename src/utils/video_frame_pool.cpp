@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2020-2025 CESNET, zájmoveé sdružení právnických osob
+ * Copyright (c) 2020-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -260,18 +260,32 @@ void video_frame_pool::impl::deallocate_frame(struct video_frame *frame) {
 // /      /\  |__) |
 // \__   /--\ |    |
 //
-void *video_frame_pool_init(struct video_desc desc, int len) {
-        auto *out = new video_frame_pool(len, default_data_allocator());
+
+struct video_frame_pool*
+video_frame_pool_init_with_allocator(
+    struct video_desc desc, int len,
+    struct video_frame_pool_allocator *allocator)
+{
+        auto *out = new video_frame_pool(len, *allocator);
         out->reconfigure(desc);
-        return (void *) out;
+        return out;
 }
 
-struct video_frame *video_frame_pool_get_disposable_frame(void *state) {
-        auto *s = static_cast<video_frame_pool* >(state);
+struct video_frame_pool *
+video_frame_pool_init(struct video_desc desc, int len)
+{
+        default_data_allocator allocator{};
+        return video_frame_pool_init_with_allocator(desc, len, &allocator);
+}
+
+struct video_frame *
+video_frame_pool_get_disposable_frame(struct video_frame_pool *s)
+{
         return s->get_disposable_frame();
 }
 
-void video_frame_pool_destroy(void *state) {
-        auto *s = static_cast<video_frame_pool* >(state);
+void
+video_frame_pool_destroy(struct video_frame_pool *s)
+{
         delete s;
 }
