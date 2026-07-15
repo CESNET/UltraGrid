@@ -42,16 +42,6 @@
 class CNTV2Card;
 
 #ifdef _MSC_VER
-#define color_printf printf
-#undef LOG
-#include <iostream>
-#define LOG(level) if (level > log_level) ; else std::cerr
-#define col() std::cout
-#undef TUNDERLINE
-#define TUNDERLINE(x) x
-#undef SUNDERLINE
-#define SUNDERLINE(x) x
-
 #include <stdlib.h>
 #include <string.h>
 

@@ -1,5 +1,5 @@
 /**
- * @file aja_win32_stub.cpp
+ * @file
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
  * This is a stub file importing actual dll. It sets some variables that
@@ -42,13 +42,11 @@
 #include "video_capture.h"
 #include "video_display.h"
 
-extern "C" {
 int  vidcap_aja_init(const struct vidcap_params *params, void **state);
 void vidcap_aja_done(void *state);
 struct video_frame *vidcap_aja_grab(void *state, struct audio_frame **audio);
 void          vidcap_aja_probe(struct device_info **available_cards, int *count,
                                void (**deleter)(void *));
-}
 
 static int vidcap_aja_init_proxy(const struct vidcap_params *params, void **state) {
         return vidcap_aja_init(params, state);
@@ -64,7 +62,6 @@ static const struct video_capture_info vidcap_aja_info = {
 
 REGISTER_MODULE(aja, &vidcap_aja_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 
-extern "C" {
 bool  display_aja_get_property(void *state, int property, void *val,
                                size_t *len);
 void  display_aja_probe(struct device_info **available_cards, int *count,
@@ -79,7 +76,6 @@ bool                display_aja_putf(void *state, struct video_frame *frame,
 void display_aja_put_audio_frame(void *state, const struct audio_frame *frame);
 bool display_aja_reconfigure_audio(void *state, int quant_samples, int channels,
                                    int sample_rate);
-}
 
 static const struct video_display_info display_aja_info = {
         display_aja_probe,

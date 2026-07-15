@@ -47,6 +47,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cinttypes>
 #include <condition_variable>
 #include <cstdint>                   // for uint32_t, uint8_t
 #include <cstdio>                    // for snprintf, printf
@@ -110,7 +111,7 @@
 #endif
 
 #define CHECK_OK(cmd, msg, action_failed) do { bool ret = cmd; if (!ret) {\
-        LOG(LOG_LEVEL_WARNING) << MOD_NAME << (msg) << "\n";\
+        MSG(WARNING, "%s\n", (msg));\
         action_failed;\
 }\
 } while(0)
@@ -273,8 +274,9 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
         }
 
         if (!NTV2_INPUT_SOURCE_IS_SDI(mInputSource) && mInputChannel == NTV2_CHANNEL_INVALID) {
-                LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Non-SDI source detected - we will use "
-                        "probably channel 1. Consider passing \"channel\" option (see help).\n";
+                MSG(NOTICE,
+                    "Non-SDI source detected - we will use probably channel 1. "
+                    "Consider passing \"channel\" option (see help).\n");
         }
 
         if (mPixelFormat == NTV2_FBF_INVALID) {
@@ -415,11 +417,18 @@ NTV2VideoFormat vidcap_state_aja::GetVideoFormatFromInputSource()
                                 }
                                 if (allSDISameInput)
                                         videoFormat = GetQuadSizedVideoFormat(videoFormat);
-                                else
-                                        LOG(LOG_LEVEL_WARNING) << "Input " << NTV2InputSourceToString(::GetNTV2InputSourceForIndex(ndx + i), true) << " has input format " << NTV2VideoFormatToString(videoFormatNext) << " which differs from " << NTV2VideoFormatToString(videoFormat) << " on " << NTV2InputSourceToString(::GetNTV2InputSourceForIndex(ndx), true) << "!\n";
+                                else {
+                                        MSG(WARNING,
+                                            "Input %s has input format %s "
+                                            "which differs from %s on %s!\n",
+                                            NTV2InputSourceToString(::GetNTV2InputSourceForIndex( ndx + i), true).c_str(),
+                                            NTV2VideoFormatToString(videoFormatNext).c_str(),
+                                            NTV2VideoFormatToString(videoFormat).c_str(),
+                                            NTV2InputSourceToString(::GetNTV2InputSourceForIndex(ndx), true).c_str());
+                                }
                         }
                         if (mCheckFor4K && (videoStandard != NTV2_STANDARD_1080p)) {
-                                log_msg(LOG_LEVEL_WARNING, "Video format on first SDI is not 1080p!\n");
+                                MSG(WARNING, "Video format on first SDI is not 1080p!\n");
                         }
                         break;
                 }
@@ -584,10 +593,11 @@ AJAStatus vidcap_state_aja::SetupVideo()
                 mVideoFormat =  GetVideoFormatFromInputSource();
                 if (mVideoFormat == NTV2_FORMAT_UNKNOWN)
                 {
-                        LOG(LOG_LEVEL_ERROR) << "## ERROR:  No input signal or unknown format\n";
+                        MSG(ERROR,"## ERROR:  No input signal or unknown format\n");
                         return AJA_STATUS_NOINPUT;      //      Sorry, can't handle this format
                 }
-                LOG(LOG_LEVEL_INFO) << MOD_NAME "Detected input signal: " << NTV2VideoFormatToString(mVideoFormat) << "\n";
+                MSG(INFO, "Detected input signal: %s\n",
+                    NTV2VideoFormatToString(mVideoFormat).c_str());
         }
 
         mAudioSystem = ::NTV2ChannelToAudioSystem(mInputChannel);
@@ -659,7 +669,10 @@ AJAStatus vidcap_state_aja::SetupVideo()
         } else if (NTV2_IS_VALID_VIDEO_FORMAT (mVideoFormat)) {
                 SetupHDMI();
         } else {
-                LOG(LOG_LEVEL_WARNING) << "## DEBUG:  NTV2FrameGrabber::SetupInput:  Bad mInputSource switch value " << ::NTV2InputSourceToChannelSpec (mInputSource);
+                MSG(WARNING,
+                    "## DEBUG:  NTV2FrameGrabber::SetupInput:  Bad "
+                    "mInputSource switch value %d",
+                    ::NTV2InputSourceToChannelSpec(mInputSource));
         }
 
         //      Enable and subscribe to the interrupts for the channel to be used...
@@ -678,21 +691,29 @@ AJAStatus vidcap_state_aja::SetupVideo()
 AJAStatus vidcap_state_aja::SetupAudio (void)
 {
         if (mAudioSource == NTV2_AUDIO_SOURCE_INVALID) {
-                LOG(LOG_LEVEL_INFO) << MOD_NAME "Audio capture disabled.\n";
+                MSG(INFO, "Audio capture disabled.\n");
                 return AJA_STATUS_SUCCESS;
         }
         //      Have the audio system capture audio from the designated device input...
-        CHECK_OK(mDevice.SetAudioSystemInputSource(mAudioSystem, mAudioSource, ::NTV2InputSourceToEmbeddedAudioInput(mInputSource)), string("Cannot set audio input source: ") + NTV2AudioSourceToString(mAudioSource), NOOP);
+        CHECK_OK(mDevice.SetAudioSystemInputSource(
+                     mAudioSystem, mAudioSource,
+                     ::NTV2InputSourceToEmbeddedAudioInput(mInputSource)),
+                 (string("Cannot set audio input source: ") +
+                  NTV2AudioSourceToString(mAudioSource))
+                     .c_str(),
+                 NOOP);
 
         mMaxAudioChannels = ::NTV2DeviceGetMaxAudioChannels (mDeviceID);
         mAudio.ch_count = audio_capture_channels > 0 ? audio_capture_channels : DEFAULT_AUDIO_CAPTURE_CHANNELS;
         if (mMaxAudioChannels < mAudio.ch_count) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Invalid number of capture channels requested. Requested " <<
-                        mAudio.ch_count << ", maximum " << mMaxAudioChannels << "\n";
+                MSG(ERROR,
+                    "Invalid number of capture channels requested. Requested "
+                    "%d, maximum %d\n",
+                    mAudio.ch_count, mMaxAudioChannels);
                 return AJA_STATUS_FAIL;
         }
         if (!mDevice.SetNumberAudioChannels (mMaxAudioChannels, NTV2InputSourceToAudioSystem(mInputSource))) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unable to set channel count!\n";
+                MSG(ERROR, MOD_NAME "Unable to set channel count!\n");
                 return AJA_STATUS_FAIL;
         }
         CHECK(mDevice.SetAudioRate (NTV2_AUDIO_48K, NTV2InputSourceToAudioSystem(mInputSource)));
@@ -840,7 +861,7 @@ void vidcap_state_aja::CaptureFrames (void)
 
                         if (((currentAudioInAddress + (audioInWrapAddress - audioReadOffset) - mAudioInLastAddress)
                                                 % (audioInWrapAddress - audioReadOffset)) > NTV2_AUDIOSIZE_MAX) {
-                                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Discarding audio samples!\n";
+                                MSG(WARNING, "Discarding audio samples!\n");
                                 mAudioInLastAddress = (currentAudioInAddress + audioInWrapAddress - NTV2_AUDIOSIZE_MAX) % audioInWrapAddress;
                         }
 
@@ -891,7 +912,10 @@ void vidcap_state_aja::CaptureFrames (void)
                         CHECK(mDevice.GetRP188Data (mInputChannel, timecodeValue));
                         CRP188  inputRP188Info  (timecodeValue);
                         CHECK(inputRP188Info.GetRP188Str (timeCodeString));
-                        LOG(LOG_LEVEL_DEBUG) << "AJA: Captured frame with timecode: " << timeCodeString << '\n';
+                        MSG(DEBUG,
+                            "AJA: Captured frame with timecode: "
+                            "%s\n",
+                            timeCodeString.c_str());
                 }
 
                 //      Check for dropped frames by ensuring the hardware has not started to process
@@ -900,11 +924,10 @@ void vidcap_state_aja::CaptureFrames (void)
                 CHECK(mDevice.GetInputFrame   (mInputChannel,         readBackIn));
 
                 if (readBackIn == currentInFrame) {
-                        LOG(LOG_LEVEL_WARNING)
-                            << MOD_NAME
-                            << "## WARNING:  Drop detected:  current in "
-                            << currentInFrame << ", readback in " << readBackIn
-                            << "\n";
+                        MSG(WARNING,
+                            "## WARNING:  Drop detected:  current in %" PRIu32
+                            ", readback in %" PRIu32 "\n",
+                            currentInFrame, readBackIn);
                 }
 
                 //      Tell the hardware which buffers to start using at the beginning of the next frame...
@@ -958,9 +981,9 @@ struct video_frame *vidcap_state_aja::grab(struct audio_frame **audio)
         double seconds = chrono::duration_cast<chrono::microseconds>(now - mT0).count() / 1000000.0;
 
         if (seconds >= 5) {
-                LOG(LOG_LEVEL_INFO) << MOD_NAME "" << mFrames << " frames in "
-                        << seconds << " seconds = " <<  mFrames / seconds << " FPS\n";
-                mT0 = now;
+                MSG(INFO, "%d frames in %g seconds = %g FPS\n", mFrames,
+                    seconds, mFrames / seconds);
+                mT0     = now;
                 mFrames = 0;
         }
 
@@ -1105,7 +1128,7 @@ LINK_SPEC int vidcap_aja_init(const struct vidcap_params *params, void **state)
                 ret = new vidcap_state_aja(parameters_map, vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_ANY);
                 ret->Run();
         } catch (string const & s) {
-                LOG(LOG_LEVEL_ERROR) << "[AJA cap.] " << s << "\n";
+                MSG(ERROR, "%s\n", s.c_str());
                 delete ret;
                 return VIDCAP_INIT_FAIL;
         } catch (...) {

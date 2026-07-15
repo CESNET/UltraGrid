@@ -57,6 +57,7 @@
 #include <algorithm>                     // for copy, max, min
 #include <cassert>
 #include <chrono>
+#include <cinttypes>
 #include <cmath>                         // for fab
 #include <condition_variable>
 #include <cstdint>
@@ -127,7 +128,7 @@ using std::unordered_map;
 using std::vector;
 
 #define CHECK_EX(cmd, msg, action_failed) do { bool ret = cmd; if (!ret) {\
-        LOG(LOG_LEVEL_WARNING) << MOD_NAME << (msg) << "\n";\
+        MSG(WARNING, "%s\n", (msg));\
         action_failed;\
 }\
 } while(0)
@@ -225,7 +226,10 @@ display::display(struct configuration &conf)
         bool canDoMultiChannel = NTV2DeviceCanDoMultiFormat(mDeviceID);
         if (!canDoMultiChannel) {
                 if (conf.doMultiChannel != 0) {
-                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Device " << conf.deviceId << " cannot simultaneously handle different video formats.\n";
+                        MSG(WARNING,
+                            "Device %s cannot simultaneously handle different "
+                            "video formats.\n",
+                            conf.deviceId.c_str());
                 }
                 mDoMultiChannel = false;
         } else {
@@ -248,8 +252,9 @@ display::display(struct configuration &conf)
 
         if (mOutputChannel == NTV2_CHANNEL_INVALID) {
                 if (!NTV2_OUTPUT_DEST_IS_SDI(mConf.outputDestination)) {
-                        LOG(LOG_LEVEL_NOTICE) << MOD_NAME "Non-SDI destination detected - we will use "
-                                "probably channel 1. Consider passing \"channel\" option (see help).\n";
+                        MSG(NOTICE, "Non-SDI destination detected - we will "
+                                    "use probably channel 1. Consider passing "
+                                    "\"channel\" option (see help).\n");
                 }
 
                 mOutputChannel = ::NTV2OutputDestinationToChannel(mConf.outputDestination);
@@ -319,9 +324,11 @@ AJAStatus display::SetUpVideo ()
         for (unsigned int i = 0; i < desc.tile_count; ++i) {
                 NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
                 if (!mDevice.SetVideoFormat (mVideoFormat, false, false, chan)) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot set format "
-                                << NTV2VideoFormatToString(mVideoFormat)
-                                << " for output " << chan << "\n";
+                        MSG(ERROR,
+                            "Cannot set format %s for output "
+                            "%u\n",
+                            NTV2VideoFormatToString(mVideoFormat).c_str(),
+                            chan);
                         return AJA_STATUS_FAIL;
                 }
         }
@@ -331,8 +338,11 @@ AJAStatus display::SetUpVideo ()
         for (unsigned int i = 0; i < desc.tile_count; ++i) {
                 if (UWord (mOutputChannel) + UWord(i) > ::NTV2DeviceGetNumCSCs (mDeviceID)) {
                         if (mConf.forceOutputColorSpace && mOutIsRGB != ::IsRGBFormat(mPixelFormat)) {
-                                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Not enough CSCs found, found " << ::NTV2DeviceGetNumCSCs (mDeviceID) << " CSCs, "
-                                        "overriding output color spec preference.\n";
+                                MSG(WARNING,
+                                    "Not enough CSCs found, found %u CSCs, "
+                                    "overriding output color spec "
+                                    "preference.\n",
+                                    ::NTV2DeviceGetNumCSCs(mDeviceID));
                         }
                         mOutIsRGB = ::IsRGBFormat(mPixelFormat);
                 }
@@ -349,16 +359,17 @@ AJAStatus display::SetUpVideo ()
         //      If the device doesn't support it, fall back to 8-bit YCbCr...
         if (!::NTV2DeviceCanDoFrameBufferFormat (mDeviceID, mPixelFormat))
         {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Device cannot handle '" << ::NTV2FrameBufferFormatString (mPixelFormat) << "'\n";
+                MSG(ERROR, "Device cannot handle '%s'\n",
+                    ::NTV2FrameBufferFormatString(mPixelFormat));
                 return AJA_STATUS_FAIL;
         }
 
         for (unsigned int i = 0; i < desc.tile_count; ++i) {
                 NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
                 if (!mDevice.SetFrameBufferFormat (chan, mPixelFormat)) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot set format "
-                                << NTV2FrameBufferFormatString(mPixelFormat)
-                                << " for output " << mOutputChannel + i << "\n";
+                        MSG(ERROR, "Cannot set format %s for output %d\n",
+                            NTV2FrameBufferFormatString(mPixelFormat),
+                            mOutputChannel + i);
                         return AJA_STATUS_FAIL;
                 }
         }
@@ -371,8 +382,7 @@ AJAStatus display::SetUpVideo ()
         for (unsigned int i = 0; i < desc.tile_count; ++i) {
                 NTV2Channel chan = (NTV2Channel)((unsigned int) mOutputChannel + i);
                 if (!mDevice.EnableChannel(chan)) {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Cannot enable channel "
-                                <<  chan << "\n";
+                        MSG(ERROR, "Cannot enable channel %u\n", chan);
                         return AJA_STATUS_FAIL;
                 }
         }
@@ -639,7 +649,10 @@ void display::process_frames()
                         CHECK(mDevice.GetOutputFrame((NTV2Channel)((unsigned int) mOutputChannel + i), readBackOut));
 
                         if (readBackOut == mCurrentOutFrame + 2 * i) {
-                                LOG(LOG_LEVEL_WARNING)    << "## WARNING:  Drop detected: current out " << mCurrentOutFrame + 2 * i << ", readback out " << readBackOut << endl;
+                                MSG(WARNING,
+                                    "## WARNING:  Drop detected: current out "
+                                    "%" PRIu32 ", readback out %" PRIu32 "\n",
+                                    mCurrentOutFrame + 2 * i, readBackOut);
                                 mFramesDropped++;
                         } else {
                                 mFramesProcessed++;
@@ -662,10 +675,14 @@ void display::process_frames()
                                 int channels = ::NTV2DeviceGetMaxAudioChannels (mDeviceID);
                                 int latency_ms = ((mAudioOutLastAddress + mAudioOutWrapAddress - val) % mAudioOutWrapAddress) / (SAMPLE_RATE / 1000) / BPS / channels;
                                 if (latency_ms > 135) {
-                                        LOG(LOG_LEVEL_WARNING) << MOD_NAME "Buffer length: " << latency_ms << " ms, possible wrap-around.\n";
+                                        MSG(WARNING,
+                                            "Buffer length: %d ms, possible "
+                                            "wrap-around.\n",
+                                            latency_ms);
                                         mAudioOutLastAddress = ((val + (SAMPLE_RATE / 1000) * 70 /* ms */ * BPS * channels) % mAudioOutWrapAddress) / 128 * 128;
                                 } else {
-                                        LOG(LOG_LEVEL_DEBUG) << MOD_NAME "Audio latency: " << latency_ms << "\n";
+                                        MSG(DEBUG, "Audio latency: %d\n",
+                                            latency_ms);
                                 }
 
                                 int len = min<int>(mAudioLen, mAudioOutWrapAddress - mAudioOutLastAddress); // length to the wrap-around
@@ -700,9 +717,13 @@ bool display::Putf(struct video_frame *frame, long long flags) {
         unique_lock<mutex> lk(frames_lock);
         // PUTF_BLOCKING is not currently honored
         if (frames.size() > max_frame_queue_len) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME "Frame dropped!\n";
+                MSG(WARNING, "Frame dropped!\n");;
                 if (++mFramesDiscarded % 20 == 0) {
-                        LOG(LOG_LEVEL_NOTICE) << MOD_NAME << mFramesDiscarded << " frames discarded - try to increase buffer count or set \"novsync\" (see \"-d aja:help\" for details).\n";
+                        MSG(NOTICE,
+                            "%" PRIu32 " frames discarded - try to increase buffer "
+                            "count or set \"novsync\" (see \"-d aja:help\" for "
+                            "details).\n",
+                            mFramesDiscarded);
                 }
                 vf_free(frame);
                 return false;
@@ -718,8 +739,8 @@ void aja::display::print_stats() {
         auto now = steady_clock::now();
         double seconds = duration<double>(now - mT0).count();
         if (seconds > 5) {
-                LOG(LOG_LEVEL_INFO) << MOD_NAME << mFrames << " frames in "
-                        << seconds << " seconds = " <<  mFrames / seconds << " FPS\n";
+                MSG(INFO, "%d frames in %g seconds = %g FPS\n", mFrames,
+                    seconds, mFrames / seconds);
                 mFrames = 0;
                 mT0 = now;
         }
@@ -889,7 +910,7 @@ LINK_SPEC bool display_aja_reconfigure(void *state, struct video_desc desc)
         }
 
         if (desc.tile_count != 1 && desc.tile_count != 4) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unsupported tile count: " << desc.tile_count << "\n";
+                MSG(ERROR, "Unsupported tile count: %u\n", desc.tile_count);
                 return false;
         }
 
@@ -916,7 +937,7 @@ LINK_SPEC bool display_aja_reconfigure(void *state, struct video_desc desc)
         try {
                 s->Init();
         } catch (runtime_error &e) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Reconfiguration failed: " << e.what() << "\n";
+                MSG(ERROR, "Reconfiguration failed: %s\n", e.what());
                 s->desc = {};
                 return false;
         }
@@ -940,7 +961,7 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
                 } else if (strstr(item, "buffers=") == item) {
                         conf.bufLen = atoi(item + strlen("buffers="));
                         if (conf.bufLen <= 0) {
-                                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Buffers must be positive!\n";
+                                MSG(ERROR, "Buffers must be positive!\n");
                                 return nullptr;
                         }
                 } else if (strcmp("clear-routing", item) == 0) {
@@ -958,7 +979,8 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
                                 dest = (NTV2OutputDestination) ((int) dest + 1);
                         }
                         if (dest == NTV2_OUTPUTDESTINATION_INVALID) {
-                                LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unknown destination: " << connection << "!\n";
+                                MSG(ERROR, "Unknown destination: %s!\n",
+                                    connection.c_str());
                                 return nullptr;
                         }
                 } else if (strstr(item, "channel=") != nullptr) {
@@ -979,7 +1001,7 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
                 } else if (strcasecmp(item, "smpte-range") == 0 || strcasecmp(item, "full-range") == 0) {
                         conf.smpteRange = strcasecmp(item, "smpte-range") == 0;
                 } else {
-                        LOG(LOG_LEVEL_ERROR) << MOD_NAME "Unknown option: " << item << "\n";
+                        MSG(ERROR, "Unknown option: %s\n", item);
                         return nullptr;
                 }
                 tmp = nullptr;
@@ -990,7 +1012,7 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
                 auto *s = new ugaja::display(conf);
                 return s;
         } catch (runtime_error &e) {
-                LOG(LOG_LEVEL_ERROR) << MOD_NAME << e.what() << "\n";
+                MSG(ERROR, "%s\n", e.what());
         }
 
         return nullptr;
@@ -1095,7 +1117,7 @@ LINK_SPEC void display_aja_put_audio_frame(void *state, const struct audio_frame
         lock_guard<mutex> lk(s->mAudioLock);
         int len = NTV2_AUDIOSIZE_MAX - s->mAudioLen;
         if (frame->data_len > len) {
-                LOG(LOG_LEVEL_WARNING) << MOD_NAME << "Audio buffer overrun!\n";
+                MSG(WARNING, "Audio buffer overrun!\n");
         } else {
                 len = frame->data_len;
         }
