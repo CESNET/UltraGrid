@@ -1029,32 +1029,40 @@ LINK_SPEC bool display_aja_putf(void *state, struct video_frame *frame, long lon
         return s->Putf(frame, nonblock);
 }
 
+static bool
+get_supported_codecs(struct ugaja::display *s, void *val, size_t *len)
+{
+        codec_t               codecs[UG_NTV2_FMT_MAX_COUNT];
+        NTV2FrameBufferFormat pixfmts[UG_NTV2_FMT_MAX_COUNT];
+        unsigned              fbf_count = get_ntv2_pixfmts(pixfmts);
+        int                   count     = 0;
+
+        for (unsigned i = 0; i < fbf_count; ++i) {
+                bool supp = ::NTV2DeviceCanDoFrameBufferFormat(
+                    s->mDeviceID, pixfmts[i]);
+                codec_t c = get_ug_from_ntv2_pixfmt(pixfmts[i]);
+                debug_msg(MOD_NAME "%sadding supported codec: %s\n",
+                          supp ? "" : "Not ", get_codec_name(c));
+                if (supp) {
+                        codecs[count++] = c;
+                }
+        }
+        if (count * sizeof(codec_t) > *len) {
+                MSG(WARNING, "Not enough space for codecs!\n");
+                return false;
+        }
+        *len = count * sizeof(codec_t);
+        memcpy(val, codecs, *len);
+        return true;
+}
+
 LINK_SPEC bool display_aja_get_property(void *state, int property, void *val, size_t *len)
 {
         auto *s = static_cast<struct ugaja::display *>(state);
 
-        codec_t codecs[UG_NTV2_FMT_MAX_COUNT];
-        NTV2FrameBufferFormat pixfmts[UG_NTV2_FMT_MAX_COUNT];
-        unsigned fbf_count = get_ntv2_pixfmts(pixfmts);
-        int count = 0;
-
-        for (unsigned i = 0; i < fbf_count; ++i) {
-                if (::NTV2DeviceCanDoFrameBufferFormat(s->mDeviceID,
-                                                       pixfmts[i])) {
-                        codecs[count++] =
-                            get_ug_from_ntv2_pixfmt(pixfmts[i]);
-                }
-        }
-
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
-                        if (count * sizeof(codec_t) <= *len) {
-                                *len = count * sizeof(codec_t);
-                                memcpy(val, codecs, *len);
-                        } else {
-                                return false;
-                        }
-                        break;
+                        return get_supported_codecs(s, val, len);
                 case DISPLAY_PROPERTY_AUDIO_FORMAT:
                         {
                                 assert(*len >= sizeof(struct audio_desc));
