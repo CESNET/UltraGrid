@@ -106,8 +106,6 @@
 
 #define MOD_NAME "[AJA cap.] "
 
-namespace ugaja = ultragrid::aja;
-
 #ifdef _MSC_VER
 extern "C" __declspec(dllexport) unsigned int *aja_audio_capture_channels = NULL;
 volatile int log_level = 5;
@@ -236,13 +234,8 @@ vidcap_state_aja::vidcap_state_aja(unordered_map<string, string> const & paramet
                         if (get_codec_from_name(it.second.c_str()) == VIDEO_CODEC_NONE) {
                                 throw string("Unknown codec " + it.second + "!");
                         }
-                        mPixelFormat = NTV2_FBF_INVALID;
-                        for (auto const &c : ugaja::codec_map) {
-                                if (c.second == get_codec_from_name(it.second.c_str())) {
-                                        mPixelFormat = c.first;
-                                        break;
-                                }
-                        }
+                        mPixelFormat = get_ntv2_from_ug_pixfmt(
+                            get_codec_from_name(it.second.c_str()));
                         if (mPixelFormat == NTV2_FBF_INVALID) {
                                 throw string("Cannoc map " + it.second + " to AJA codec!");
                         }
@@ -684,7 +677,7 @@ AJAStatus vidcap_state_aja::SetupVideo()
         CHECK(mDevice.EnableInputInterrupt (mInputChannel));
         CHECK(mDevice.SubscribeInputVerticalEvent (mInputChannel));
 
-        if (ugaja::codec_map.find(mPixelFormat) == ugaja::codec_map.end()) {
+        if (get_ug_from_ntv2_pixfmt(mPixelFormat) == VC_NONE) {
                 MSG(ERROR, "Cannot find valid mapping from AJA pixel format to "
                            "UltraGrid\n");
                 return AJA_STATUS_NOINPUT;
@@ -757,7 +750,7 @@ void vidcap_state_aja::SetupHostBuffers (void)
 
         interlacing_t interlacing = NTV2_VIDEO_FORMAT_HAS_PROGRESSIVE_PICTURE(mVideoFormat) ? PROGRESSIVE : INTERLACED_MERGED;
         video_desc desc{GetDisplayWidth(mVideoFormat), GetDisplayHeight(mVideoFormat),
-                ugaja::codec_map.at(mPixelFormat),
+                get_ug_from_ntv2_pixfmt(mPixelFormat),
                 GetFramesPerSecond(GetNTV2FrameRateFromVideoFormat(mVideoFormat)),
                 interlacing,
                 1};
@@ -1060,21 +1053,22 @@ static void show_help() {
                                 pix_fmts.insert(NTV2_FBF_10BIT_YCBCR); // workaround NTV2 bug
                         }
                         col() << SUNDERLINE("\tAvailable pixel formats:");
-                        for (auto fmt : pix_fmts) {
-                                if (fmt != *pix_fmts.begin()) {
+                        NTV2FrameBufferFormat formats[UG_NTV2_FMT_MAX_COUNT];
+                        unsigned fmt_count = get_ntv2_pixfmts(formats);
+                        for (unsigned i = 0; i < fmt_count; ++i) {
+                                if (i != 0) {
                                         col() << ",";
                                 }
-                                if (ugaja::codec_map.find(fmt) ==
-                                    ugaja::codec_map.end()) {
-                                        col() << " "
-                                              << NTV2FrameBufferFormatToString(
-                                                     fmt)
-                                              << " (unsupported)";
-                                } else {
-                                        col() << " "
-                                              << get_codec_name(
-                                                     ugaja::codec_map.at(fmt));
-                                }
+                                // if (ugaja::codec_map.find(fmt) ==
+                                //     ugaja::codec_map.end()) {
+                                //         col() << " "
+                                //               << NTV2FrameBufferFormatToString(
+                                //                      fmt)
+                                //               << " (unsupported)";
+                                // } else {
+                                color_printf(" %s", get_codec_name(
+                                                        get_ug_from_ntv2_pixfmt(
+                                                            formats[i])));
                         }
                         col() << "\n";
                 }

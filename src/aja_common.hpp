@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2018-2025 CESNET, zájmové sdružení právnických osob
+ * Copyright (c) 2018-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,7 +35,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <map>
 #include <ntv2enums.h>
 
 #include "types.h"
@@ -59,25 +58,14 @@ class CNTV2Card;
 #define NTV2_AUDIOSIZE_MAX      (401 * 1024)
 #endif
 
-namespace ultragrid {
-namespace aja {
-static const std::map<NTV2FrameBufferFormat, codec_t> codec_map = {
-        { NTV2_FBF_10BIT_YCBCR, v210 },
-        { NTV2_FBF_8BIT_YCBCR, UYVY },
-        { NTV2_FBF_ABGR, RGBA },
-        { NTV2_FBF_10BIT_DPX, R10k },
-        { NTV2_FBF_8BIT_YCBCR_YUY2, YUYV },
-        { NTV2_FBF_24BIT_RGB, RGB },
-        { NTV2_FBF_24BIT_BGR, BGR },
-        { NTV2_FBF_48BIT_RGB, RG48 },
-        { NTV2_FBF_12BIT_RGB_PACKED, R12L },
-};
-} // end of namespace aja
-} // end of namespace ultragrid
-
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+NTV2FrameBufferFormat get_ntv2_from_ug_pixfmt(codec_t ug_pixfmt);
+codec_t               get_ug_from_ntv2_pixfmt(NTV2FrameBufferFormat ntv2_format);
+enum { UG_NTV2_FMT_MAX_COUNT = 20 };
+unsigned get_ntv2_pixfmts(NTV2FrameBufferFormat *formats);
 
 void
 vc_copylineR12AtoR12L(unsigned char * __restrict dst, const unsigned char * __restrict src, int dstlen, int rshift,

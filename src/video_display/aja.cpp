@@ -914,12 +914,7 @@ LINK_SPEC bool display_aja_reconfigure(void *state, struct video_desc desc)
                         << "\n";
                 return false;
         }
-        s->mPixelFormat = NTV2_FBF_INVALID;
-        for (auto & c : ugaja::codec_map) {
-                if (c.second == desc.color_spec) {
-                        s->mPixelFormat = c.first;
-                }
-        }
+        s->mPixelFormat = get_ntv2_from_ug_pixfmt(desc.color_spec);
         assert(s->mPixelFormat != NTV2_FBF_INVALID);
 
         // deinit?
@@ -1044,12 +1039,16 @@ LINK_SPEC bool display_aja_get_property(void *state, int property, void *val, si
 {
         auto *s = static_cast<struct ugaja::display *>(state);
 
-        vector<codec_t> codecs(ugaja::codec_map.size());
+        codec_t codecs[UG_NTV2_FMT_MAX_COUNT];
+        NTV2FrameBufferFormat pixfmts[UG_NTV2_FMT_MAX_COUNT];
+        unsigned fbf_count = get_ntv2_pixfmts(pixfmts);
         int count = 0;
 
-        for (auto & c : ugaja::codec_map) {
-                if (::NTV2DeviceCanDoFrameBufferFormat(s->mDeviceID, c.first)) {
-                        codecs[count++] = c.second;
+        for (unsigned i = 0; i < fbf_count; ++i) {
+                if (::NTV2DeviceCanDoFrameBufferFormat(s->mDeviceID,
+                                                       pixfmts[i])) {
+                        codecs[count++] =
+                            get_ug_from_ntv2_pixfmt(pixfmts[i]);
                 }
         }
 
@@ -1057,7 +1056,7 @@ LINK_SPEC bool display_aja_get_property(void *state, int property, void *val, si
                 case DISPLAY_PROPERTY_CODECS:
                         if (count * sizeof(codec_t) <= *len) {
                                 *len = count * sizeof(codec_t);
-                                memcpy(val, codecs.data(), *len);
+                                memcpy(val, codecs, *len);
                         } else {
                                 return false;
                         }

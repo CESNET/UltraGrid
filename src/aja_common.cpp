@@ -49,11 +49,61 @@
 #include "utils/color_out.h"         // for color_printf, TUNDERLINE
 #include "aja_common.hpp" // include after color_out to override its stuff for MSVC
 
+#include "types.h"
 #include "utils/macros.h" // OPTIMIZED_FOR
 
 #ifndef UNUSED
 # define UNUSED(x) ((void) x)
 #endif
+
+static const struct {
+        NTV2FrameBufferFormat ntv2_format;
+        codec_t               ug_pixfmt;
+} codec_map[] = {
+        { .ntv2_format = NTV2_FBF_10BIT_YCBCR,      .ug_pixfmt = v210 },
+        { .ntv2_format = NTV2_FBF_8BIT_YCBCR,       .ug_pixfmt = UYVY },
+        { .ntv2_format = NTV2_FBF_ABGR,             .ug_pixfmt = RGBA },
+        { .ntv2_format = NTV2_FBF_10BIT_DPX,        .ug_pixfmt = R10k },
+        { .ntv2_format = NTV2_FBF_8BIT_YCBCR_YUY2,  .ug_pixfmt = YUYV },
+        { .ntv2_format = NTV2_FBF_24BIT_RGB,        .ug_pixfmt = RGB  },
+        { .ntv2_format = NTV2_FBF_24BIT_BGR,        .ug_pixfmt = BGR  },
+        { .ntv2_format = NTV2_FBF_48BIT_RGB,        .ug_pixfmt = RG48 },
+        { .ntv2_format = NTV2_FBF_12BIT_RGB_PACKED, .ug_pixfmt = R12L },
+};
+
+NTV2FrameBufferFormat
+get_ntv2_from_ug_pixfmt(codec_t ug_pixfmt)
+{
+        for (unsigned i = 0; i < sizeof codec_map / sizeof codec_map[0]; ++i) {
+                if (codec_map[i].ug_pixfmt == ug_pixfmt) {
+                        return codec_map[i].ntv2_format;
+                }
+        }
+        return NTV2_FBF_INVALID;
+}
+
+codec_t
+get_ug_from_ntv2_pixfmt(NTV2FrameBufferFormat ntv2_format)
+{
+        for (unsigned i = 0; i < sizeof codec_map / sizeof codec_map[0]; ++i) {
+                if (codec_map[i].ntv2_format == ntv2_format) {
+                        return codec_map[i].ug_pixfmt;
+                }
+        }
+        return VC_NONE;
+}
+
+/// @param formats  array of at least UG_NTV2_FMT_MAX_COUNT elements
+unsigned
+get_ntv2_pixfmts(NTV2FrameBufferFormat *formats)
+{
+        constexpr unsigned count = sizeof codec_map / sizeof codec_map[0];
+        static_assert(count <= UG_NTV2_FMT_MAX_COUNT);
+        for (unsigned i = 0; i < count; ++i) {
+                formats[i] = codec_map[i].ntv2_format;
+        }
+        return count;
+}
 
 void
 vc_copylineR12LtoR12A(unsigned char * __restrict dst, const unsigned char * __restrict src, int dstlen, int rshift,
