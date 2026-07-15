@@ -44,6 +44,7 @@
 #include "lib_common.h"
 #include "pyrowave_common.hpp"
 #include "to_planar.h"
+#include "video_codec.h"
 #include "video_frame.h"
 #include "utils/misc.h"
 #include "utils/video_frame_pool.h"
@@ -109,7 +110,10 @@ bool create_pyro_encoder(pyrowave_compress_state *s, const video_desc& desc){
 }
 
 bool configure_with(pyrowave_compress_state *s, const video_desc& desc){
-        assert(desc.color_spec == UYVY); //TODO
+        if(desc.color_spec != UYVY){
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported color spec (%s)\n", get_codec_name(desc.color_spec));
+                return false;
+        }
         s->saved_desc = desc;
         configure_pyro_frame(s->pyro_frame, desc);
         bool res = create_pyro_encoder(s, desc);
@@ -140,7 +144,9 @@ std::shared_ptr<video_frame> pyrowave_compress_tile(void *state, std::shared_ptr
         }
 
         if(const auto frame_desc = video_desc_from_frame(video_frame.get()); !video_desc_eq(s->saved_desc, frame_desc)){
-                configure_with(s, frame_desc);
+                if(!configure_with(s, frame_desc)){
+                        return {};
+                }
         }
 
         ug_to_pyro_frame(s, video_frame);
