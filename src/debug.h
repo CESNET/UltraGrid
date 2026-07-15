@@ -120,7 +120,9 @@ bool parse_log_cfg(const char *conf_str,
 #if defined __MINGW32__
         __MINGW_GNU_PRINTF(2, 3)
         void bug_msg(int level, const char *format, ...);
-#elif !defined _MSC_VER
+#elif defined _MSC_VER
+        void bug_msg(int level, const char *format, ...);
+#else
         void bug_msg(int level, const char *format, ...)
             __attribute__((format(printf, 2, 3)));
 #endif

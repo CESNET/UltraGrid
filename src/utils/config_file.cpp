@@ -47,7 +47,6 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "config_msvc.h"
 #include "debug.h"
 #include "compat/strings.h" // for strlcpy
 

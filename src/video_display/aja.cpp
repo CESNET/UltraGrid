@@ -39,11 +39,6 @@
  * The use of ping-pong buffer technique is based on NTV2LLBurn.
  */
 
-#include "config_msvc.h"
-
-#include "debug.h"
-#undef UNUSED // collides with same-named macro defined by libajantv2
-
 #ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual"
@@ -82,6 +77,7 @@
 #include <vector>
 
 #include "audio/types.h"
+#include "debug.h"
 #include "host.h"
 #include "lib_common.h"
 #include "utils/color_out.h"             // for col, SBOLD, SRED

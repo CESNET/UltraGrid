@@ -35,8 +35,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config_msvc.h"
-
 #include "video_frame_pool.h"
 
 #include <cassert>

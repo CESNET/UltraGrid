@@ -42,9 +42,6 @@
  * Capture what is on the wire (RGB if RGB, YCbCr otherwise)
  */
 
-#include "config_msvc.h"
-// aligned_alloc/aligned_free
-
 #include "debug.h"
 #undef UNUSED // collides with same-named macro defined by libajantv2
 
@@ -376,9 +373,7 @@ vidcap_state_aja::~vidcap_state_aja() {
         CHECK(mDevice.UnsubscribeInputVerticalEvent (mInputChannel));
 
         CHECK(mDevice.SetEveryFrameServices (mSavedTaskMode));                               //      Restore previous service level
-#ifndef _MSC_VER
         CHECK(mDevice.ReleaseStreamForApplication (app, static_cast <uint32_t> (getpid()))); //      Release the device
-#endif
 
         mOutputFrame = NULL;
         free(mAudio.data);
@@ -727,9 +722,8 @@ AJAStatus vidcap_state_aja::SetupAudio (void)
         mAudio.data = (char *) malloc(NTV2_AUDIOSIZE_MAX);
         mAudio.max_size = NTV2_AUDIOSIZE_MAX;
 
-#ifndef _MSC_VER
-        LOG(LOG_LEVEL_NOTICE) << "AJA audio capture initialized successfully: " << audio_desc_from_frame(&mAudio) << "\n";
-#endif
+        MSG(NOTICE, "AJA audio capture initialized successfully: %s\n",
+            audio_desc_to_cstring(audio_desc_from_frame(&mAudio)));
 
         return AJA_STATUS_SUCCESS;
 }       //      SetupAudio

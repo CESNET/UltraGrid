@@ -49,18 +49,10 @@
 #include <unistd.h>
 #endif
 
-#ifdef _MSC_VER
-#define _Thread_local __declspec( thread )
-#include <BaseTsd.h>         // for SSIZE_T
-typedef SSIZE_T ssize_t;
-#endif
-
 #include "compat/c23.h"
 #include "compat/strings.h"
 #include "utils/macros.h"    // for MIN
 #include "utils/string.h"
-
-#include "config_msvc.h"     // IWYU pragma: keep for strcasecmp replacement
 
 /**
  * @brief Replaces all occurencies of 'from' to 'to' in string 'in'

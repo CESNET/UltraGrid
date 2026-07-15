@@ -51,6 +51,23 @@ class CNTV2Card;
 #define TUNDERLINE(x) x
 #undef SUNDERLINE
 #define SUNDERLINE(x) x
+
+#include <stdlib.h>
+#include <string.h>
+
+#if _MSC_VER <= 1800
+#define constexpr
+#define noexcept
+#define snprintf _snprintf
+#endif
+
+#define strtok_r strtok_s
+#ifndef strcasecmp
+#define strcasecmp  _stricmp
+#endif
+#ifndef strncasecmp
+#define strncasecmp _strnicmp
+#endif
 #endif
 
 // compat

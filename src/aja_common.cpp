@@ -35,11 +35,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-#include "config_msvc.h" // coompat - __attribute__ etc.
-
 #include <cinttypes>                 // for PRIx64
 #include <cstdint>                   // for uint64_t
 #include <cstdio>                    // for printf
@@ -51,10 +46,6 @@
 
 #include "types.h"
 #include "utils/macros.h" // OPTIMIZED_FOR
-
-#ifndef UNUSED
-# define UNUSED(x) ((void) x)
-#endif
 
 static const struct {
         NTV2FrameBufferFormat ntv2_format;
@@ -106,12 +97,10 @@ get_ntv2_pixfmts(NTV2FrameBufferFormat *formats)
 }
 
 void
-vc_copylineR12LtoR12A(unsigned char * __restrict dst, const unsigned char * __restrict src, int dstlen, int rshift,
-                int gshift, int bshift)
+vc_copylineR12LtoR12A(unsigned char *__restrict dst,
+                      const unsigned char *__restrict src, int dstlen,
+                      int /* rshift */, int /* gshift */, int /* bshift */)
 {
-        UNUSED(rshift);
-        UNUSED(gshift);
-        UNUSED(bshift);
 
         OPTIMIZED_FOR (int x = 0; x <= dstlen - 36; x += 36) {
                 *dst++ = src[1] << 4 | src[0] >> 4; // r0
@@ -158,12 +147,10 @@ vc_copylineR12LtoR12A(unsigned char * __restrict dst, const unsigned char * __re
  * Converts AJA NTV2_FBF_12BIT_RGB_PACKED to R12L
  */
 void
-vc_copylineR12AtoR12L(unsigned char * __restrict dst, const unsigned char * __restrict src, int dstlen, int rshift,
-                int gshift, int bshift)
+vc_copylineR12AtoR12L(unsigned char *__restrict dst,
+                      const unsigned char *__restrict src, int dstlen,
+                      int /* rshift */, int /* gshift */, int /* bshift */)
 {
-        UNUSED(rshift);
-        UNUSED(gshift);
-        UNUSED(bshift);
 
         OPTIMIZED_FOR (int x = 0; x <= dstlen - 36; x += 36) {
                 *dst++ = src[0] << 4 |  src[1] >> 4; // r0
