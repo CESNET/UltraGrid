@@ -202,6 +202,8 @@ static const struct codec_info_t codec_info[] = {
                 to_fourcc('a','p','c','s'), 1, 1, 0, 8, VCF_NONE, VC_OPAQUE, "apcs"},
         [APV] =  {"APV", "Advanceed Professional Video",
                 to_fourcc('a','p','v','1'), 1, 1, 0, 0, VCF_NONE, VC_OPAQUE, "apv"},
+        [PYROWAVE] =  {"PYROWAVE", "Pyrowave",
+                to_fourcc('P','R','W','V'), 1, 1, 0, 8, VCF_NONE, VC_OPAQUE, "pyro"},
         [DRM_PRIME] = {"DRM_PRIME", "DRM Prime buffer",
                 to_fourcc('D', 'R', 'M', 'P'), sizeof(struct drm_prime_frame), 1, 0, 8, VCF_CONST_SIZE, VC_OPAQUE, "drm_prime"},
 };
