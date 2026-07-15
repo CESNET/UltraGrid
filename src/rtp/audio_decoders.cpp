@@ -261,7 +261,12 @@ audio_fec_decode(struct state_audio_decoder                *decoder,
                  vector<pair<vector<char>, map<int, int>>> &fec_data,
                  uint32_t fec_params, audio_frame2 &received_frame)
 {
-        fec_desc fec_desc { FEC_RS, fec_params >> 19U, (fec_params >> 6U) & 0x1FFFU, fec_params & 0x3F };
+        fec_desc fec_desc{ .type        = FEC_RS,
+                           .k           = fec_params >> 19U,
+                           .m           = (fec_params >> 6U) & 0x1FFFU,
+                           .c           = fec_params & 0x3F,
+                           .seed        = 0,
+                           .symbol_size = 0 };
 
         if (decoder->fec_state == NULL || decoder->fec_state_desc.k != fec_desc.k || decoder->fec_state_desc.m != fec_desc.m || decoder->fec_state_desc.c != fec_desc.c) {
                 delete decoder->fec_state;

@@ -59,7 +59,6 @@ struct rs : public fec {
                 const std::map<int, int> &) override;
 
 private:
-        int get_ss(int hdr_len, int len);
         uint32_t get_buf_len(const char *buf, std::map<int, int> const & c_m);
         void *state = nullptr;
         unsigned int m_k, m_n;

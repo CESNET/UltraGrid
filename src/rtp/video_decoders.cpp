@@ -426,7 +426,7 @@ static void *fec_thread(void *args) {
                 (struct state_video_decoder *) args;
 
         fec *fec_state = NULL;
-        struct fec_desc desc(FEC_NONE);
+        struct fec_desc desc{};
 
         while(1) {
                 unique_ptr<frame_msg> data = decoder->fec_queue.pop();
@@ -1577,12 +1577,16 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
         if (PT_VIDEO_HAS_FEC(pt)) {
                 const uint32_t *hdr = (uint32_t *)(void *)cdata->data->data;
                 const uint32_t tmp = ntohl(hdr[3]);
-                const int k = tmp >> 19;
-                const int m = 0x1fff & (tmp >> 6);
-                const int c = 0x3f & tmp;
-                const int seed = ntohl(hdr[4]);
-                frame->fec_params =
-                    fec_desc(fec::fec_type_from_pt(pt), k, m, c, seed);
+                const unsigned k = tmp >> 19;
+                const unsigned m = 0x1fff & (tmp >> 6);
+                const unsigned c = 0x3f & tmp;
+                const unsigned seed = ntohl(hdr[4]);
+                frame->fec_params = fec_desc{ .type = fec::fec_type_from_pt(pt),
+                                              .k    = k,
+                                              .m    = m,
+                                              .c    = c,
+                                              .seed = seed,
+                                              .symbol_size = 0 };
         }
 
         while (cdata != NULL) {

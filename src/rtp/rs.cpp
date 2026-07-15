@@ -142,6 +142,15 @@ rs::~rs()
 #endif
 }
 
+/**
+ * Returns symbol size (?) for given headers len and with configured m_k
+ */
+[[maybe_unused]] static unsigned
+get_ss(int hdr_len, int len, int k)
+{
+        return ((sizeof(uint32_t) + hdr_len + len) + k - 1) / k;
+}
+
 struct video_frame *
 rs::encode_video_frame(const struct video_frame *in)
 {
@@ -159,7 +168,7 @@ rs::encode_video_frame(const struct video_frame *in)
                 size_t len = in->tiles[i].data_len;
                 char *data = in->tiles[i].data;
                 //int encode(char *hdr, int hdr_len, char *in, int len, char **out) {
-                int ss = get_ss(hdr_len, len);
+                unsigned ss = get_ss(hdr_len, len, m_k);
                 int buffer_len = ss * m_n;
                 char *out_data;
                 out_data = out->tiles[i].data = (char *) malloc(buffer_len);
@@ -195,7 +204,12 @@ rs::encode_video_frame(const struct video_frame *in)
 #endif
 
                 out->tiles[i].data_len = buffer_len;
-                out->fec_params = fec_desc(FEC_RS, m_k, m_n - m_k, 0, 0, ss);
+                out->fec_params        = fec_desc{ .type        = FEC_RS,
+                                                   .k           = m_k,
+                                                   .m           = m_n - m_k,
+                                                   .c           = 0,
+                                                   .seed        = 0,
+                                                   .symbol_size = 0 };
         }
 
         return out;
@@ -223,12 +237,17 @@ audio_frame2 rs::encode(const audio_frame2 &in)
                 out.append(i, (char *) &hdr, sizeof hdr);
                 out.append(i, in.get_data(i), in.get_data_len(i));
 
-                int ss = get_ss(hdr_len, len);
+                unsigned ss = get_ss(hdr_len, len, m_k);
                 int buffer_len = ss * m_n;
                 out.resize(i, buffer_len);
                 memset(out.get_data(i) + sizeof(len32) + hdr_len + len, 0, ss * m_k - (sizeof(len32) + hdr_len + len));
 
-                out.set_fec_params(i, fec_desc(FEC_RS, m_k, m_n - m_k, 0, 0, ss));
+                out.set_fec_params(i, fec_desc{ .type        = FEC_RS,
+                                                .k           = m_k,
+                                                .m           = m_n - m_k,
+                                                .c           = 0,
+                                                .seed        = 0,
+                                                .symbol_size = ss });
 
                 void *src[MAX_K];
                 for (unsigned int k = 0; k < m_k; ++k) {
@@ -251,13 +270,6 @@ audio_frame2 rs::encode(const audio_frame2 &in)
         (void) in;
         return {};
 #endif // defined HAVE_ZFEC
-}
-
-/**
- * Returns symbol size (?) for given headers len and with configured m_k
- */
-int rs::get_ss(int hdr_len, int len) {
-        return ((sizeof(uint32_t) + hdr_len + len) + m_k - 1) / m_k;
 }
 
 /**
