@@ -54,6 +54,10 @@ namespace{
 using pyrowave_encoder_unique = std::unique_ptr<pyrowave_encoder_opaque, deleter_from_fcn<pyrowave_encoder_destroy>>;
 using pyrowave_device_unique = std::unique_ptr<pyrowave_device_opaque, deleter_from_fcn<pyrowave_device_destroy>>;
 
+struct pyro_header{
+        size_t packet_size;
+};
+
 struct pyrowave_compress_state{
         pyrowave_device_unique device;
         pyrowave_encoder_unique encoder;
@@ -188,20 +192,29 @@ std::shared_ptr<video_frame> pyrowave_compress_tile(void *state, std::shared_ptr
         }
 
         size_t num_packets = 0;
-        constexpr int packet_size = 1000;
+        int packet_size = s->max_frame_size;
         res = pyrowave_encoder_compute_num_packets(s->encoder.get(), packet_size, &num_packets);
         if(res != PYROWAVE_SUCCESS){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get num_packets (%d)\n", res);
                 return {};
         }
+        if(num_packets > 1){
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Too many packets %d\n", num_packets);
+        }
 
         std::vector<pyrowave_packet> packets(num_packets);
         auto out_frame = s->compressed_frame_pool.get_frame();
-        res = pyrowave_encoder_packetize(s->encoder.get(), packets.data(), packet_size, &num_packets, out_frame->tiles[0].data, out_frame->tiles[0].data_len);
+
+        char *bitstream_dst = out_frame->tiles[0].data + sizeof(pyro_header);
+        unsigned int bitstream_size = out_frame->tiles[0].data_len - sizeof(pyro_header);
+        res = pyrowave_encoder_packetize(s->encoder.get(), packets.data(), packet_size, &num_packets, bitstream_dst, bitstream_size);
         if(res != PYROWAVE_SUCCESS){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get encoded frame (%d)\n", res);
                 return {};
         }
+        pyro_header hdr{.packet_size = packets[0].size};
+        memcpy(out_frame->tiles[0].data, &hdr, sizeof(hdr));
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Packet %lu, %lu\n", packets[0].offset, packets[0].size);
 
         return out_frame;
 }
