@@ -152,22 +152,22 @@ std::shared_ptr<video_frame> pyrowave_compress_tile(void *state, std::shared_ptr
         ug_to_pyro_frame(s, video_frame);
 
         pyrowave_rate_control rate_control{};
-        rate_control.maximum_bitstream_size = s->max_frame_size;
-        auto res= pyrowave_encoder_encode_cpu_synchronous(s->encoder.get(), &s->pyro_frame, &rate_control);
+        rate_control.maximum_bitstream_size = s->max_frame_size - sizeof(pyrowave_frame_header);
+        auto res= pyrowave_encoder_encode_cpu_synchronous(s->encoder.get(), &s->pyro_frame.f, &rate_control);
         if(res != PYROWAVE_SUCCESS){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "pyrowave_encoder_encode_cpu_synchronous failed\n");
                 return {};
         }
 
         size_t num_packets = 0;
-        int packet_size = s->max_frame_size;
+        size_t packet_size = rate_control.maximum_bitstream_size;
         res = pyrowave_encoder_compute_num_packets(s->encoder.get(), packet_size, &num_packets);
         if(res != PYROWAVE_SUCCESS){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get num_packets (%d)\n", res);
                 return {};
         }
         if(num_packets > 1){
-                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Too many packets %d\n", num_packets);
+                log_msg(LOG_LEVEL_WARNING, MOD_NAME "Too many packets %lu\n", num_packets);
         }
 
         std::vector<pyrowave_packet> packets(num_packets);
@@ -185,7 +185,6 @@ std::shared_ptr<video_frame> pyrowave_compress_tile(void *state, std::shared_ptr
                 .subs = SUBS_420, //TODO
         };
         memcpy(out_frame->tiles[0].data, &hdr, sizeof(hdr));
-        log_msg(LOG_LEVEL_INFO, MOD_NAME "Packet %lu, %lu\n", packets[0].offset, packets[0].size);
 
         return out_frame;
 }
