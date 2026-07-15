@@ -2607,7 +2607,7 @@ if test "${FOUND_PYROWAVE_DEP-}" = yes; then
         PYROWAVE_COMPRESS_OBJ="$PYROWAVE_COMMON_OBJS src/video_compress/pyrowave.o"
         PYROWAVE_DECOMPRESS_OBJ="$PYROWAVE_COMMON_OBJS src/video_decompress/pyrowave.o"
         add_module vcompress_pyrowave "$PYROWAVE_COMPRESS_OBJ" "$PYROWAVE_LIBS"
-        #add_module vdecompress_pyrowave "$PYROWAVE_DECOMPRESS_OBJ" "$PYROWAVE_LIBS"
+        add_module vdecompress_pyrowave "$PYROWAVE_DECOMPRESS_OBJ" "$PYROWAVE_LIBS"
         pyrowave=yes
 fi
 
