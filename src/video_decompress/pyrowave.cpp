@@ -84,7 +84,7 @@ void pyrowave_done(void *state){
         delete s;
 }
 
-int pyrowave_reconfigure(void *state, video_desc desc, int rshift, int gshift, int bshift, int pitch, codec_t out_codec){
+int pyrowave_reconfigure(void *state, video_desc desc, int /*rshift*/, int /*gshift*/, int /*bshift*/, int pitch, codec_t out_codec){
         auto s = static_cast<pyrowave_decompress_state *>(state);
         s->saved_desc = desc;
 
@@ -135,10 +135,12 @@ decompress_status pyrowave_decompress(void *state, unsigned char *dst, unsigned 
         assert(hdr.packet_size < src_len);
 
         if(s->out_codec == VIDEO_CODEC_NONE){
-                *internal_prop = {};
-                internal_prop->depth = 8;
-                internal_prop->rgb = false;
-                internal_prop->subsampling = SUBS_420;
+                *internal_prop = {
+                        .depth = 8,
+                        .subsampling = hdr.subs,
+                        .rgb = false,
+                        .accel_type = HWACCEL_NONE,
+                };
                 return DECODER_GOT_CODEC;
         }
 
@@ -159,7 +161,6 @@ decompress_status pyrowave_decompress(void *state, unsigned char *dst, unsigned 
 
         pyro_to_ug_frame(s, dst);
 
-        log_msg(LOG_LEVEL_INFO, MOD_NAME "Decoded frame (%d)\n", res);
         return DECODER_GOT_FRAME;
 }
 
@@ -181,7 +182,7 @@ int pyrowave_decompress_get_property(void */*state*/, int property, void *val, s
         return ret;
 }
 
-int pyrowave_get_decompress_priority(codec_t codec, pixfmt_desc internal, codec_t ugc){
+int pyrowave_get_decompress_priority(codec_t codec, pixfmt_desc /*internal*/, codec_t ugc){
         if (codec != PYROWAVE) {
                 return VDEC_PRIO_NA;
         }
