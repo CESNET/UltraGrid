@@ -42,6 +42,7 @@
 #include "debug.h"
 #include "video_compress.h"
 #include "lib_common.h"
+#include "pyrowave_common.hpp"
 #include "to_planar.h"
 #include "video_frame.h"
 #include "utils/misc.h"
@@ -54,10 +55,6 @@ namespace{
 using pyrowave_encoder_unique = std::unique_ptr<pyrowave_encoder_opaque, deleter_from_fcn<pyrowave_encoder_destroy>>;
 using pyrowave_device_unique = std::unique_ptr<pyrowave_device_opaque, deleter_from_fcn<pyrowave_device_destroy>>;
 
-struct pyro_header{
-        size_t packet_size;
-};
-
 struct pyrowave_compress_state{
         pyrowave_device_unique device;
         pyrowave_encoder_unique encoder;
@@ -65,8 +62,7 @@ struct pyrowave_compress_state{
         video_desc saved_desc{};
         size_t max_frame_size = 0;
 
-        std::vector<std::vector<std::byte>> plane_datas;
-        pyrowave_cpu_buffer pyro_frame{};
+        pyrowave_cpu_frame pyro_frame;
 
         video_frame_pool compressed_frame_pool;
         video_desc compressed_desc{};
@@ -112,44 +108,10 @@ bool create_pyro_encoder(pyrowave_compress_state *s, const video_desc& desc){
         return res == PYROWAVE_SUCCESS;
 }
 
-void create_cpu_pyro_frame(pyrowave_compress_state *s, const video_desc &desc){
-        s->pyro_frame = {};
-        s->pyro_frame.format = PYROWAVE_CPU_BUFFER_FORMAT_YUV420P;
-        s->pyro_frame.width = static_cast<int>(desc.width);
-        s->pyro_frame.height = static_cast<int>(desc.height);
-
-        constexpr size_t alignment = 256;
-
-        s->plane_datas.resize(3);
-
-        size_t luma_stride = ((desc.width + alignment - 1) / alignment) * alignment;
-        size_t luma_size = luma_stride * desc.height;
-        s->plane_datas[0].resize(luma_size + alignment - 1);
-        s->pyro_frame.data[0] = s->plane_datas[0].data();
-        s->pyro_frame.row_stride_in_bytes[0] = luma_stride;
-        s->pyro_frame.plane_size_in_bytes[0] = s->plane_datas[0].size();
-        assert(std::align(alignment, luma_size, s->pyro_frame.data[0], s->pyro_frame.plane_size_in_bytes[0]));
-
-        size_t chroma_stride = ((desc.width / 2 + alignment - 1) / alignment) * alignment;
-        size_t chroma_size = chroma_stride * desc.height;
-
-        s->plane_datas[1].resize(chroma_size + alignment - 1);
-        s->pyro_frame.data[1] = s->plane_datas[1].data();
-        s->pyro_frame.row_stride_in_bytes[1] = chroma_stride;
-        s->pyro_frame.plane_size_in_bytes[1] = s->plane_datas[1].size();
-        assert(std::align(alignment, chroma_size, s->pyro_frame.data[1], s->pyro_frame.plane_size_in_bytes[1]));
-
-        s->plane_datas[2].resize(chroma_size + alignment - 1);
-        s->pyro_frame.data[2] = s->plane_datas[2].data();
-        s->pyro_frame.row_stride_in_bytes[2] = chroma_stride;
-        s->pyro_frame.plane_size_in_bytes[2] = s->plane_datas[2].size();
-        assert(std::align(alignment, chroma_size, s->pyro_frame.data[2], s->pyro_frame.plane_size_in_bytes[2]));
-}
-
 bool configure_with(pyrowave_compress_state *s, const video_desc& desc){
         assert(desc.color_spec == UYVY); //TODO
         s->saved_desc = desc;
-        create_cpu_pyro_frame(s, desc);
+        configure_pyro_frame(s->pyro_frame, desc);
         bool res = create_pyro_encoder(s, desc);
         s->compressed_desc = desc;
         s->compressed_desc.color_spec = PYROWAVE;
@@ -163,8 +125,8 @@ void ug_to_pyro_frame(pyrowave_compress_state *s, const std::shared_ptr<video_fr
         conv_data.height = f->tiles[0].height;
         conv_data.in_data = reinterpret_cast<const unsigned char *>(f->tiles[0].data);
         for(int i = 0; i < 3; i++){
-                conv_data.out_data[i] = static_cast<unsigned char *>(s->pyro_frame.data[i]);
-                conv_data.out_linesize[i] = s->pyro_frame.row_stride_in_bytes[i];
+                conv_data.out_data[i] = static_cast<unsigned char *>(s->pyro_frame.f.data[i]);
+                conv_data.out_linesize[i] = s->pyro_frame.f.row_stride_in_bytes[i];
         }
 
         uyvy_to_i420(conv_data);
@@ -205,14 +167,17 @@ std::shared_ptr<video_frame> pyrowave_compress_tile(void *state, std::shared_ptr
         std::vector<pyrowave_packet> packets(num_packets);
         auto out_frame = s->compressed_frame_pool.get_frame();
 
-        char *bitstream_dst = out_frame->tiles[0].data + sizeof(pyro_header);
-        unsigned int bitstream_size = out_frame->tiles[0].data_len - sizeof(pyro_header);
+        char *bitstream_dst = out_frame->tiles[0].data + sizeof(pyrowave_frame_header);
+        unsigned int bitstream_size = out_frame->tiles[0].data_len - sizeof(pyrowave_frame_header);
         res = pyrowave_encoder_packetize(s->encoder.get(), packets.data(), packet_size, &num_packets, bitstream_dst, bitstream_size);
         if(res != PYROWAVE_SUCCESS){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get encoded frame (%d)\n", res);
                 return {};
         }
-        pyro_header hdr{.packet_size = packets[0].size};
+        pyrowave_frame_header hdr{
+                .packet_size = packets[0].size,
+                .subs = SUBS_420, //TODO
+        };
         memcpy(out_frame->tiles[0].data, &hdr, sizeof(hdr));
         log_msg(LOG_LEVEL_INFO, MOD_NAME "Packet %lu, %lu\n", packets[0].offset, packets[0].size);
 
