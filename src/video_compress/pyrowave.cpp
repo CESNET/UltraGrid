@@ -73,7 +73,10 @@ struct pyrowave_compress_state{
 };
 
 void pyrowave_print_help(){
-        //TODO
+        color_printf(TBOLD("Pyrowave") " compression usage:\n");
+        color_printf("\t" TBOLD(
+                TRED("-c pyrowave") "[:bitrate=<br>]") "\n");
+        color_printf("\t" TBOLD(TRED("-c pyrowave") ":help") "\n");
 }
 
 bool parse_params(pyrowave_compress_state& s, std::string_view cfg){
