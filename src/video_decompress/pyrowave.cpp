@@ -132,7 +132,6 @@ decompress_status pyrowave_decompress(void *state, unsigned char *dst, unsigned 
         pyrowave_frame_header hdr{};
         assert(src_len >= sizeof(hdr));
         memcpy(&hdr, buffer, sizeof(hdr));
-        assert(hdr.packet_size < src_len);
 
         if(s->out_codec == VIDEO_CODEC_NONE){
                 *internal_prop = {
@@ -144,7 +143,7 @@ decompress_status pyrowave_decompress(void *state, unsigned char *dst, unsigned 
                 return DECODER_GOT_CODEC;
         }
 
-        auto res = pyrowave_decoder_push_packet(s->decoder.get(), buffer + sizeof(hdr), hdr.packet_size);
+        auto res = pyrowave_decoder_push_packet(s->decoder.get(), buffer + sizeof(hdr), src_len - sizeof(hdr));
         if(res != PYROWAVE_SUCCESS){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to push packet (%d)\n", res);
                 return DECODER_NO_FRAME;

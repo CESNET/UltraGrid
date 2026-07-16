@@ -45,7 +45,6 @@
 #include "types.h"
 
 struct pyrowave_frame_header{
-        size_t packet_size;
         subsampling subs;
 };
 
