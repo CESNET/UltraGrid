@@ -130,11 +130,12 @@ bool create_pyro_encoder(pyrowave_compress_state *s, const video_desc& desc){
         s->encoder.reset();
 
         assert(desc.width % 2 == 0);
-        pyrowave_encoder_create_info info{};
-        info.device = s->device.get();
-        info.width = static_cast<int>(desc.width);
-        info.height = static_cast<int>(desc.height);
-        info.chroma = PYROWAVE_CHROMA_SUBSAMPLING_420;
+        const pyrowave_encoder_create_info info{
+                .device = s->device.get(),
+                .width = static_cast<int>(desc.width),
+                .height = static_cast<int>(desc.height),
+                .chroma = PYROWAVE_CHROMA_SUBSAMPLING_420,
+        };
 
         const auto res = pyrowave_encoder_create(&info, out_ptr(s->encoder));
         return res == PYROWAVE_SUCCESS;
@@ -158,8 +159,8 @@ bool configure_with(pyrowave_compress_state *s, const video_desc& desc){
 
 void ug_to_pyro_frame(pyrowave_compress_state *s, const std::shared_ptr<video_frame>& f){
         to_planar_data conv_data{};
-        conv_data.width = f->tiles[0].width;
-        conv_data.height = f->tiles[0].height;
+        conv_data.width = static_cast<int>(f->tiles[0].width);
+        conv_data.height = static_cast<int>(f->tiles[0].height);
         conv_data.in_data = reinterpret_cast<const unsigned char *>(f->tiles[0].data);
         for(int i = 0; i < 3; i++){
                 conv_data.out_data[i] = static_cast<unsigned char *>(s->pyro_frame.f.data[i]);
