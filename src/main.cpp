@@ -1174,7 +1174,7 @@ validate_params(struct ug_options *opt)
 {
         struct rxtx_medium_params *video = &opt->rxtx.medium[TX_MEDIA_VIDEO];
         if (opt->vidcap_params_head == opt->vidcap_params_tail) {
-                if (strlen(opt->rxtx.video_compression) == 0) {
+                if (strlen(opt->rxtx.video_compression) != 0) {
                         MSG(WARNING,
                             "Video compression set but no vidcap given!\n");
                 }
