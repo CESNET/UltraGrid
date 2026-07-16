@@ -37,59 +37,14 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "host.h"
 #include "lib_common.h"
 #include "video_capture.h"
 #include "video_display.h"
 
-int  vidcap_aja_init(const struct vidcap_params *params, void **state);
-void vidcap_aja_done(void *state);
-struct video_frame *vidcap_aja_grab(void *state, struct audio_frame **audio);
-void          vidcap_aja_probe(struct device_info **available_cards, int *count,
-                               void (**deleter)(void *));
+const struct video_capture_info *vidcap_aja_get_info();
+REGISTER_MODULE(aja, vidcap_aja_get_info(), LIBRARY_CLASS_VIDEO_CAPTURE,
+                VIDEO_CAPTURE_ABI_VERSION);
 
-static int vidcap_aja_init_proxy(const struct vidcap_params *params, void **state) {
-        return vidcap_aja_init(params, state);
-}
-
-static const struct video_capture_info vidcap_aja_info = {
-        vidcap_aja_probe,
-        vidcap_aja_init_proxy,
-        vidcap_aja_done,
-        vidcap_aja_grab,
-        VIDCAP_NO_GENERIC_FPS_INDICATOR,
-};
-
-REGISTER_MODULE(aja, &vidcap_aja_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
-
-bool  display_aja_get_property(void *state, int property, void *val,
-                               size_t *len);
-void  display_aja_probe(struct device_info **available_cards, int *count,
-                        void (**deleter)(void *));
-bool  display_aja_reconfigure(void *state, struct video_desc desc);
-void *display_aja_init(struct module * /* parent */, const char *fmt,
-                       unsigned int flags);
-void  display_aja_done(void *state);
-struct video_frame *display_aja_getf(void *state);
-bool                display_aja_putf(void *state, struct video_frame *frame,
-                                     long long nonblock);
-void display_aja_put_audio_frame(void *state, const struct audio_frame *frame);
-bool display_aja_reconfigure_audio(void *state, int quant_samples, int channels,
-                                   int sample_rate);
-
-static const struct video_display_info display_aja_info = {
-        display_aja_probe,
-        display_aja_init,
-        NULL, // _run
-        display_aja_done,
-        display_aja_getf,
-        display_aja_putf,
-        display_aja_reconfigure,
-        display_aja_get_property,
-        display_aja_put_audio_frame,
-        display_aja_reconfigure_audio,
-        DISPLAY_NO_GENERIC_FPS_INDICATOR,
-};
-
-REGISTER_MODULE(aja, &display_aja_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
-
+const struct video_display_info *display_aja_get_info();
+REGISTER_MODULE(aja, display_aja_get_info(), LIBRARY_CLASS_VIDEO_DISPLAY,
+                VIDEO_DISPLAY_ABI_VERSION);

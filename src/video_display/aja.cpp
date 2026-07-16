@@ -101,12 +101,6 @@
 #define BPS                     4
 #define SAMPLE_RATE             48000
 
-#ifdef _MSC_VER
-#define LINK_SPEC extern "C" __declspec(dllexport)
-#else
-#define LINK_SPEC static
-#endif
-
 using std::cerr;
 using std::condition_variable;
 using std::endl;
@@ -826,7 +820,9 @@ NTV2FrameRate aja::display::getFrameRate(double fps)
 
 namespace ugaja = ultragrid::aja;
 
-LINK_SPEC void display_aja_probe(struct device_info **available_cards, int *count, void (**deleter)(void *))
+static void
+display_aja_probe(struct device_info **available_cards, int *count,
+                  void (**deleter)(void *))
 {
         *deleter = free;
         CNTV2DeviceScanner      deviceScanner;
@@ -879,8 +875,8 @@ static NTV2VideoFormat display_aja_get_first_matching_video_format(const NTV2Fra
         return NTV2_FORMAT_UNKNOWN;
 }
 
-
-LINK_SPEC bool display_aja_reconfigure(void *state, struct video_desc desc)
+static bool
+display_aja_reconfigure(void *state, struct video_desc desc)
 {
         auto *s = static_cast<struct ugaja::display *>(state);
         if (s->desc.color_spec != VIDEO_CODEC_NONE) {
@@ -926,7 +922,9 @@ LINK_SPEC bool display_aja_reconfigure(void *state, struct video_desc desc)
         return true;
 }
 
-LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, unsigned int flags)
+static void *
+display_aja_init(struct module * /* parent */, const char *fmt,
+                 unsigned int flags)
 {
         struct ugaja::display::configuration conf;
         auto tmp = static_cast<char *>(alloca(strlen(fmt) + 1));
@@ -997,7 +995,8 @@ LINK_SPEC void *display_aja_init(struct module * /* parent */, const char *fmt, 
         return nullptr;
 }
 
-LINK_SPEC void display_aja_done(void *state)
+static void
+display_aja_done(void *state)
 {
         auto *s = static_cast<struct ugaja::display *>(state);
 
@@ -1009,14 +1008,16 @@ LINK_SPEC void display_aja_done(void *state)
         delete s;
 }
 
-LINK_SPEC struct video_frame *display_aja_getf(void *state)
+static struct video_frame *
+display_aja_getf(void *state)
 {
         auto *s = static_cast<struct ugaja::display *>(state);
 
         return vf_alloc_desc_data(s->desc);
 }
 
-LINK_SPEC bool display_aja_putf(void *state, struct video_frame *frame, long long nonblock)
+static bool
+display_aja_putf(void *state, struct video_frame *frame, long long nonblock)
 {
         auto *s = static_cast<struct ugaja::display *>(state);
 
@@ -1057,7 +1058,8 @@ get_supported_codecs(struct ugaja::display *s, void *val, size_t *len)
         return true;
 }
 
-LINK_SPEC bool display_aja_get_property(void *state, int property, void *val, size_t *len)
+static bool
+display_aja_get_property(void *state, int property, void *val, size_t *len)
 {
         auto *s = static_cast<struct ugaja::display *>(state);
 
@@ -1089,7 +1091,8 @@ LINK_SPEC bool display_aja_get_property(void *state, int property, void *val, si
         return true;
 }
 
-LINK_SPEC void display_aja_put_audio_frame(void *state, const struct audio_frame *frame)
+static void
+display_aja_put_audio_frame(void *state, const struct audio_frame *frame)
 {
         auto *s = static_cast<struct ugaja::display *>(state);
 
@@ -1104,8 +1107,9 @@ LINK_SPEC void display_aja_put_audio_frame(void *state, const struct audio_frame
         s->mAudioLen += len;
 }
 
-LINK_SPEC bool display_aja_reconfigure_audio(void *state, int quant_samples, int channels,
-                int sample_rate)
+static bool
+display_aja_reconfigure_audio(void *state, int quant_samples, int channels,
+                              int sample_rate)
 {
         auto *s = static_cast<struct ugaja::display *>(state);
         assert(quant_samples == BPS * 8 && sample_rate == SAMPLE_RATE && ::NTV2DeviceGetMaxAudioChannels (s->mDeviceID) == channels);
@@ -1120,7 +1124,6 @@ LINK_SPEC bool display_aja_reconfigure_audio(void *state, int quant_samples, int
         return true;
 }
 
-#ifndef _MSC_VER
 static const struct video_display_info display_aja_info = {
         display_aja_probe,
         display_aja_init,
@@ -1135,6 +1138,13 @@ static const struct video_display_info display_aja_info = {
         MOD_NAME,
 };
 
+#ifdef _MSC_VER
+extern "C" const struct video_display_info *
+display_aja_get_info()
+{
+        return &display_aja_info;
+}
+#else
 REGISTER_MODULE(aja, &display_aja_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
 #endif
 

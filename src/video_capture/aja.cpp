@@ -104,12 +104,6 @@
 
 #define MOD_NAME "[AJA cap.] "
 
-#ifdef _MSC_VER
-#define LINK_SPEC extern "C" __declspec(dllexport)
-#else
-#define LINK_SPEC static
-#endif
-
 #define CHECK_OK(cmd, msg, action_failed) do { bool ret = cmd; if (!ret) {\
         MSG(WARNING, "%s\n", (msg));\
         action_failed;\
@@ -1086,7 +1080,8 @@ static void show_help() {
         col() << "\n";
 }
 
-LINK_SPEC int vidcap_aja_init(const struct vidcap_params *params, void **state)
+static int
+vidcap_aja_init(const struct vidcap_params *params, void **state)
 {
         unordered_map<string, string> parameters_map;
         char *tmp = strdup(vidcap_params_get_fmt(params));
@@ -1125,19 +1120,23 @@ LINK_SPEC int vidcap_aja_init(const struct vidcap_params *params, void **state)
         return VIDCAP_INIT_OK;
 }
 
-LINK_SPEC void vidcap_aja_done(void *state)
+static void
+vidcap_aja_done(void *state)
 {
         auto s = static_cast<vidcap_state_aja *>(state);
         s->Quit();
         delete s;
 }
 
-LINK_SPEC struct video_frame *vidcap_aja_grab(void *state, struct audio_frame **audio)
+static struct video_frame *
+vidcap_aja_grab(void *state, struct audio_frame **audio)
 {
         return ((vidcap_state_aja *) state)->grab(audio);
 }
 
-LINK_SPEC void vidcap_aja_probe(device_info **available_cards, int *count, void (**deleter)(void *))
+static void
+vidcap_aja_probe(device_info **available_cards, int *count,
+                 void (**deleter)(void *))
 {
         *deleter = free;
 
@@ -1167,7 +1166,6 @@ LINK_SPEC void vidcap_aja_probe(device_info **available_cards, int *count, void 
         *count = card_count;
 }
 
-#ifndef _MSC_VER
 static const struct video_capture_info vidcap_aja_info = {
         vidcap_aja_probe,
         vidcap_aja_init,
@@ -1176,6 +1174,13 @@ static const struct video_capture_info vidcap_aja_info = {
         MOD_NAME,
 };
 
+#ifdef _MSC_VER
+extern "C" const struct video_capture_info *
+vidcap_aja_get_info()
+{
+        return &vidcap_aja_info;
+}
+#else
 REGISTER_MODULE(aja, &vidcap_aja_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
 #endif
 
