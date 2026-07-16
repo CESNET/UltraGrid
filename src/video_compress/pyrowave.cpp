@@ -36,6 +36,7 @@
  */
 
 #include <cassert>
+#include <climits>
 #include <vulkan/vulkan.h>
 #include <pyrowave/pyrowave.h>
 
@@ -47,6 +48,7 @@
 #include "video_codec.h"
 #include "video_frame.h"
 #include "utils/misc.h"
+#include "utils/string_view_utils.hpp"
 #include "utils/video_frame_pool.h"
 
 #define MOD_NAME "[Pyrowave enc] "
@@ -67,19 +69,45 @@ struct pyrowave_compress_state{
 
         video_frame_pool compressed_frame_pool;
         video_desc compressed_desc{};
+        uint32_t bitrate = 20'000'000;
 };
 
 void pyrowave_print_help(){
         //TODO
 }
 
-void *pyrowave_compress_init(module */*module*/, const char *arg){
-        std::string_view cfg = arg ? arg : "";
+bool parse_params(pyrowave_compress_state& s, std::string_view cfg){
+        while(!cfg.empty()){
+                auto tok = tokenize(cfg, ':', '"');
+                auto key = tokenize(tok, '=');
+                auto val = tokenize(tok, '=');
+
+                if(key == "bitrate"){
+                        std::string valstr(val);
+                        const char *endptr = nullptr;
+                        const auto rate_bps = unit_evaluate(valstr.c_str(), &endptr);
+                        if (rate_bps == LLONG_MIN || *endptr != '\0') {
+                                MSG(ERROR, "Invalid bitrate value '%s'.\n", valstr.c_str());
+                                return false;
+                        }
+                        s.bitrate = rate_bps;
+                }
+        }
+
+        return true;
+}
+
+void *pyrowave_compress_init(module */*module*/, const char *conf){
+        std::string_view cfg = conf ? conf : "";
         if(cfg == "help"){
                 pyrowave_print_help();
                 return INIT_NOERR;
         }
         auto s = std::make_unique<pyrowave_compress_state>();
+
+        if(!parse_params(*s, cfg)){
+                return nullptr;
+        }
 
         auto res = pyrowave_create_default_device(out_ptr(s->device));
         if(res != PYROWAVE_SUCCESS){
@@ -115,6 +143,8 @@ bool configure_with(pyrowave_compress_state *s, const video_desc& desc){
                 return false;
         }
         s->saved_desc = desc;
+        s->max_frame_size = static_cast<size_t>(s->bitrate / desc.fps);
+        log_msg(LOG_LEVEL_INFO, MOD_NAME "Computed max frame size to be %lu\n", s->max_frame_size);
         configure_pyro_frame(s->pyro_frame, desc);
         bool res = create_pyro_encoder(s, desc);
         s->compressed_desc = desc;
