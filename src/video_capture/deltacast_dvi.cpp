@@ -97,7 +97,7 @@ struct vidcap_deltacast_dvi_state {
 #define BADEEDID 1
 
 // compat
-#if !defined VHD_MIN_6_13
+#if !defined VHD_MIN_6_08
 #define VHD_DV_EEDID_PRESET VHD_DVI_EEDID_PRESET
 #define VHD_DV_EEDID_EMPTY VHD_EEDID_EMPTY
 #define VHD_DV_EEDID_DVIA VHD_EEDID_DVIA

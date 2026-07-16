@@ -100,7 +100,11 @@
 
 #include "types.h"
 
-#if defined ENUMBASE_DV
+#if ! __has_include(<VideoMasterHD_Sfp.h>)
+#define VHD_MIN_6_08 1
+#endif
+
+#if defined ENUMBASE_ST2110_20
 #define VHD_MIN_6_13 1
 #endif
 
@@ -160,9 +164,11 @@
         #define VHD_CHNTYPE_12GSDI_ASI VHD_CHNTYPE_DISABLE
 #endif // not defined VHD_MIN_6_20
 
-#if defined VHD_MIN_6_13
+#if defined VHD_MIN_6_08
         #define VHD_BOARDTYPE_FLEX VHD_BOARDTYPE_FLEX_DEPRECATED
-#else
+#endif
+
+#if !defined VHD_MIN_6_13
         #define VHD_CHNTYPE_12GSDI VHD_CHNTYPE_DISABLE
 #endif
 
