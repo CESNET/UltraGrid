@@ -205,7 +205,7 @@ std::shared_ptr<video_frame> pyrowave_compress_tile(void *state, std::shared_ptr
         auto out_frame = s->compressed_frame_pool.get_frame();
 
         char *bitstream_dst = out_frame->tiles[0].data + sizeof(pyrowave_frame_header);
-        unsigned int bitstream_size = out_frame->tiles[0].data_len - sizeof(pyrowave_frame_header);
+        unsigned int bitstream_size = rate_control.maximum_bitstream_size;
         res = pyrowave_encoder_packetize(s->encoder.get(), packets.data(), packet_size, &num_packets, bitstream_dst, bitstream_size);
         if(res != PYROWAVE_SUCCESS){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to get encoded frame (%d)\n", res);
