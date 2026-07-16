@@ -45,7 +45,6 @@
 #include <algorithm>
 #include <cassert>                 // for assert
 #include <cctype>                  // for isdigit
-#include <chrono>
 #include <climits>                 // for INT_MAX
 #include <cmath>                   // for log, pow
 #include <cstdint>                 // for uint32_t, int32_t, uint8_t, uint16_t
@@ -56,7 +55,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
-#include <type_traits> // static_assert
+#include <type_traits> // remove_pointer
 
 #include "audio/types.h"
 #include "audio/utils.h"
@@ -77,8 +76,6 @@ using std::cout;
 using std::max;
 using std::min;
 using std::string;
-using std::chrono::duration_cast;
-using std::chrono::steady_clock;
 
 static void vidcap_ndi_done(void *state);
 
@@ -101,22 +98,8 @@ struct vidcap_state_ndi {
         NDIlib_find_create_t find_create_settings{true, nullptr, nullptr};
         NDIlib_recv_create_v3_t create_settings{NDIlib_source_t(), NDIlib_recv_color_format_best, NDIlib_recv_bandwidth_highest, true, NULL};
 
-        std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
-        int frames = 0;
-
         /// sample divisor derived from audio reference level - 1 for 0 dB, 10 for 20 dB
         double audio_divisor = DEFAULT_AUDIO_DIVISOR; // NOLINT
-
-        void print_stats() {
-                auto now = steady_clock::now();
-                double seconds = duration_cast<std::chrono::microseconds>(now - t0).count() / 1000000.0;
-                if (seconds > 5) {
-                        LOG(LOG_LEVEL_INFO) << MOD_NAME << frames << " frames in "
-                                << seconds << " seconds = " <<  frames / seconds << " FPS\n";
-                        frames = 0;
-                        t0 = now;
-                }
-        }
 };
 
 static void show_help(struct vidcap_state_ndi *s) {
@@ -596,8 +579,6 @@ static struct video_frame *vidcap_ndi_grab(void *state, struct audio_frame **aud
                         };
                         out->callbacks.dispose = dispose;
                 }
-                s->frames += 1;
-                s->print_stats();
                 return out;
                 break;
         }
@@ -691,7 +672,7 @@ static const struct video_capture_info vidcap_ndi_info = {
         vidcap_ndi_init,
         vidcap_ndi_done,
         vidcap_ndi_grab,
-        VIDCAP_NO_GENERIC_FPS_INDICATOR,
+        MOD_NAME,
 };
 
 REGISTER_MODULE(ndi, &vidcap_ndi_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);
