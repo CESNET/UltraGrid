@@ -177,8 +177,6 @@ class vidcap_state_aja {
                 mutex                  mOutputFrameLock;
                 condition_variable     mOutputFrameReady;
                 bool                   mProgressive{false};
-                chrono::system_clock::time_point mT0{chrono::system_clock::now()};
-                int                    mFrames{0};
                 struct audio_frame     mAudio{};
                 int                    mMaxAudioChannels{0};
                 NTV2AudioSource        mAudioSource{};
@@ -975,18 +973,6 @@ struct video_frame *vidcap_state_aja::grab(struct audio_frame **audio)
 
         lk.unlock();
 
-        mFrames += 1;
-
-        chrono::system_clock::time_point now = chrono::system_clock::now();
-        double seconds = chrono::duration_cast<chrono::microseconds>(now - mT0).count() / 1000000.0;
-
-        if (seconds >= 5) {
-                MSG(INFO, "%d frames in %g seconds = %g FPS\n", mFrames,
-                    seconds, mFrames / seconds);
-                mT0     = now;
-                mFrames = 0;
-        }
-
         return ret;
 }
 
@@ -1187,7 +1173,7 @@ static const struct video_capture_info vidcap_aja_info = {
         vidcap_aja_init,
         vidcap_aja_done,
         vidcap_aja_grab,
-        VIDCAP_NO_GENERIC_FPS_INDICATOR,
+        MOD_NAME,
 };
 
 REGISTER_MODULE(aja, &vidcap_aja_info, LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION);

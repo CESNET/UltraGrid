@@ -108,10 +108,7 @@
 #endif
 
 using std::cerr;
-using std::chrono::duration;
-using std::chrono::steady_clock;
 using std::condition_variable;
-using std::cout;
 using std::endl;
 using std::hash;
 using std::lock_guard;
@@ -189,9 +186,6 @@ struct display {
         uint32_t mFramesDropped = 0u;
         uint32_t mFramesDiscarded = 0u;
 
-        steady_clock::time_point mT0 = steady_clock::now();
-        int mFrames = 0;
-
 public:
         display(struct configuration &configuration);
         ~display();
@@ -202,7 +196,6 @@ public:
         bool Putf(struct video_frame *frame, long long flags);
 
         static NTV2FrameRate getFrameRate(double fps);
-        void print_stats();
         static void show_help();
 };
 
@@ -697,9 +690,6 @@ void display::process_frames()
                         }
                 }
 
-                mFrames += 1;
-                print_stats();
-
                 vf_free(frame);
         }
 }
@@ -733,17 +723,6 @@ bool display::Putf(struct video_frame *frame, long long flags) {
         frame_ready.notify_one();
 
         return true;
-}
-
-void aja::display::print_stats() {
-        auto now = steady_clock::now();
-        double seconds = duration<double>(now - mT0).count();
-        if (seconds > 5) {
-                MSG(INFO, "%d frames in %g seconds = %g FPS\n", mFrames,
-                    seconds, mFrames / seconds);
-                mFrames = 0;
-                mT0 = now;
-        }
 }
 
 void aja::display::show_help() {
@@ -1153,7 +1132,7 @@ static const struct video_display_info display_aja_info = {
         display_aja_get_property,
         display_aja_put_audio_frame,
         display_aja_reconfigure_audio,
-        DISPLAY_NO_GENERIC_FPS_INDICATOR,
+        MOD_NAME,
 };
 
 REGISTER_MODULE(aja, &display_aja_info, LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION);
