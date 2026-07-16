@@ -171,7 +171,7 @@ int pyrowave_decompress_get_property(void */*state*/, int property, void *val, s
                 if(*len >= sizeof(int)) {
                         *(int *) val = false;
                         *len = sizeof(int);
-                        ret = true;
+                        ret = false;
                 }
                 break;
         default:
