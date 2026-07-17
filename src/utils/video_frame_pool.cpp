@@ -41,7 +41,6 @@
 #include <cstdlib>             // for free, malloc
 #include <condition_variable>
 #include <exception>           // for exception
-#include <functional>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -195,19 +194,19 @@ std::shared_ptr<video_frame> video_frame_pool::impl::get_frame() {
                 }
         }
         m_unreturned_frames += 1;
-        return std::shared_ptr<video_frame>(ret, std::bind([this](struct video_frame *frame, int generation) {
-                                std::unique_lock<std::mutex> lk(m_lock);
+        return std::shared_ptr<video_frame>(ret, [this, generation = m_generation](video_frame *frame) {
+                std::scoped_lock lk(m_lock);
 
-                                assert(m_unreturned_frames > 0);
-                                m_unreturned_frames -= 1;
-                                m_frame_returned.notify_one();
+                assert(m_unreturned_frames > 0);
+                m_unreturned_frames -= 1;
+                m_frame_returned.notify_one();
 
-                                if (this->m_generation != generation) {
-                                this->deallocate_frame(frame);
-                                } else {
-                                m_free_frames.push(frame);
-                                }
-                                }, std::placeholders::_1, m_generation));
+                if(this->m_generation != generation){
+                        this->deallocate_frame(frame);
+                } else{
+                        m_free_frames.push(frame);
+                }
+        });
 }
 
 struct video_frame *video_frame_pool::impl::get_disposable_frame() {
