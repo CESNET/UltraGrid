@@ -69,7 +69,7 @@ struct video_frame_pool::impl {
         void remove_free_frames();
         void deallocate_frame(struct video_frame *frame);
 
-        std::unique_ptr<video_frame_pool_allocator> m_allocator = std::unique_ptr<video_frame_pool_allocator>(new default_data_allocator);
+        std::unique_ptr<video_frame_pool_allocator> m_allocator = std::make_unique<default_data_allocator>();
         bool                                        m_quiet;
         std::queue<struct video_frame *>            m_free_frames;
         std::mutex                                  m_lock;
