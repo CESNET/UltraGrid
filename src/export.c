@@ -42,14 +42,13 @@
 #include <stdlib.h>           // for NULL, free, calloc, strtol
 #include <string.h>           // for strdup
 #include <sys/types.h>
-#include <time.h>
+#include <time.h>             // for localtime_r, strftime, time, time_t, tm
 
 #include "export.h"
 
 #include "audio/export.h"
 #define WANT_MKDIR
 #include "compat/misc.h"      // for mkdir
-#include "compat/time.h"      // for localtime_s
 #include "debug.h"
 #include "host.h"
 #include "messaging.h"
@@ -223,7 +222,7 @@ create_implicit_dir(const char *prefix)
                 char       name[MAX_PATH_SIZE];
                 time_t     t      = time(NULL);
                 struct tm  tm_buf = { 0 };
-                localtime_s(&t, &tm_buf);
+                localtime_r(&t, &tm_buf);
                 snprintf(name, sizeof name, "%s/", prefix);
                 strftime(name + strlen(name), sizeof name - strlen(name),
                          "export.%Y%m%d", &tm_buf);

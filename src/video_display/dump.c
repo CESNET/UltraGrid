@@ -43,9 +43,8 @@
 #include <stdbool.h>          // for true, bool, false
 #include <stdlib.h>           // for NULL, free, calloc, malloc, size_t
 #include <string.h>           // for memcpy, strcmp, strlen
-#include <time.h>             // for strftime, time, time_t, tm
+#include <time.h>             // for localtime_r, strftime, time, time_t, tm
 
-#include "compat/time.h"
 #include "debug.h"
 #include "export.h"
 #include "host.h"
@@ -90,7 +89,7 @@ static void *display_dump_init(struct module *parent, const char *cfg, unsigned 
         if (strlen(cfg) == 0) {
                 time_t     t      = time(NULL);
                 struct tm  tm_buf = { 0 };
-                localtime_s(&t, &tm_buf);
+                localtime_r(&t, &tm_buf);
                 strftime(dirname, sizeof dirname, "dump.%Y%m%dT%H%M%S",
                          &tm_buf);
                 cfg = dirname;

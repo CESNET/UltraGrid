@@ -52,6 +52,7 @@
 #include <sys/types.h>             // for ssize_t
 #include <unistd.h>                // for write
 #endif
+#include <sys/time.h>              // for timeval, gettimeofday
 
 #include <cstdint>             // for uint32_t
 #include <mutex>
@@ -62,7 +63,6 @@
 #include "debug.h"
 #include "compat/net.h"            // for net related
 #include "compat/platform_pipe.h"
-#include "compat/time.h"           // for timeval, gettimeofday
 #include "host.h"
 #include "messaging.h"
 #include "module.h"

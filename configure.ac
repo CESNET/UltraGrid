@@ -146,6 +146,8 @@ else
         cross_compile=no
 fi
 
+COMMON_FLAGS="${COMMON_FLAGS:+$COMMON_FLAGS }-D_POSIX_C_SOURCE=202405L"
+
 if test $system = Linux; then
 	LDFLAGS="$LDFLAGS -Wl,--dynamic-list-data"
         COMMON_FLAGS="${COMMON_FLAGS:+$COMMON_FLAGS }-D_GNU_SOURCE"

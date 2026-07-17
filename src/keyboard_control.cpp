@@ -79,7 +79,6 @@
 #include <sys/select.h>        // for FD_ISSET, FD_SET, select, FD_ZERO, fd_set
 #endif
 
-#include "compat/time.h"       // for gmtime_s, localtime_s
 #include "debug.h"
 #include "host.h"
 #include "keyboard_control.h"
@@ -735,12 +734,12 @@ print_start_elapsed_time(time_t start_time)
         };
         struct tm tm_buf = {};
 
-        localtime_s(&start_time, &tm_buf);
+        localtime_r(&start_time, &tm_buf);
         char start[START_LEN] = "";
         strftime(start, sizeof start, "%c", &tm_buf);
 
         const time_t diff = time(nullptr) - start_time;
-        gmtime_s(&diff, &tm_buf);
+        gmtime_r(&diff, &tm_buf);
         char elapsed[ELAPS_LEN] = "";
         strftime(elapsed, sizeof elapsed, "%T", &tm_buf);
 
