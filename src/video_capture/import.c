@@ -319,8 +319,10 @@ static struct video_desc parse_video_desc_info(FILE *info, long *video_frame_cou
                         }
                         items_found |= 1U<<4U;
                 } else if(strncmp(line, "interlacing ", strlen("interlacing ")) == 0) {
-                        if ((val = strtol_checked(line, "interlacing ", 0, INTERLACING_MAX)) == LONG_MIN) {
-                                return (struct video_desc) { 0 };
+                        val = strtol_checked(line, "interlacing ", 0,
+                                                  INTERLACING_COUNT - 1);
+                        if (val == LONG_MIN) {
+                                return (struct video_desc){ 0 };
                         }
                         desc.interlacing = (enum interlacing_t) val;
                         items_found |= 1U<<5U;

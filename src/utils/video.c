@@ -218,7 +218,7 @@ parse_fps_int(const char *string, enum interlacing_t *interlacing)
         }
         if (*endptr != '\0') {
                 *interlacing =  get_interlacing_from_suffix(endptr);
-                if (*interlacing == INTERLACING_MAX + 1) {
+                if (*interlacing == INTERLACING_COUNT) {
                         MSG(ERROR, "Wrong mode FPS suffix (interlacing): %s\n", string);
                         return -1;
                 }

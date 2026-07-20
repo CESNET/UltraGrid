@@ -62,9 +62,11 @@
 #endif
 
 #include "compat/aligned_malloc.h"
-#include "compat/endian.h"          // for htobe16
+#include "compat/c23.h"    // IWYU pragma: keep
+#include "compat/endian.h" // for htobe16
 #include "debug.h"
 #include "pixfmt_conv.h"
+#include "types.h"
 #include "utils/pam.h"
 #include "utils/y4m.h"
 #include "video_codec.h"
@@ -238,6 +240,8 @@ const char *get_interlacing_description(enum interlacing_t interlacing)
                         return "interlaced merged";
                 case SEGMENTED_FRAME:
                         return "progressive segmented";
+                case INTERLACING_COUNT:
+                        return nullptr;
         }
 
         return NULL;
@@ -260,7 +264,7 @@ const char *get_interlacing_suffix(enum interlacing_t interlacing)
 
 /**
  * @returns interlacing_t member
- * @retval INTERLACING_MAX+1 on error
+ * @retval INTERLACING_COUNT on error
  */
 enum interlacing_t get_interlacing_from_suffix(const char *suffix)
 {
@@ -270,7 +274,7 @@ enum interlacing_t get_interlacing_from_suffix(const char *suffix)
                 }
         }
 
-        return INTERLACING_MAX + 1;
+        return INTERLACING_COUNT;
 }
 
 /**
