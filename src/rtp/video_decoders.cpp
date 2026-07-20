@@ -1254,7 +1254,6 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
         struct video_desc display_desc = desc;
 
         int display_mode = DISPLAY_PROPERTY_VIDEO_MERGED; // default
-        enum video_mode display_video_mode = decoder->video_mode;
         size_t len = sizeof(int);
 
         if (!display_ctl_property(decoder->display, DISPLAY_PROPERTY_VIDEO_MODE,
@@ -1271,7 +1270,6 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                 display_desc.width *= get_video_mode_tiles_x(decoder->video_mode);
                 display_desc.height *= get_video_mode_tiles_y(decoder->video_mode);
                 display_desc.tile_count = 1;
-                display_video_mode = VIDEO_NORMAL;
         }
 
         decoder->change_il = select_il_func(desc.interlacing, decoder->disp_supported_il,
@@ -1281,8 +1279,7 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
         display_desc.color_spec  = out_codec;
         if (out_codec != VIDEO_CODEC_END && !video_desc_eq(decoder->display_desc, display_desc)) {
                 /* reconfigure VO and give it opportunity to pass us pitch */
-                bool ret = display_reconfigure(decoder->display, display_desc,
-                                               display_video_mode);
+                bool ret = display_reconfigure(decoder->display, display_desc);
                 if(!ret) {
                         return false;
                 }

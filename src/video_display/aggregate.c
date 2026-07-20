@@ -246,7 +246,7 @@ static bool display_aggregate_reconfigure(void *state, struct video_desc desc)
 
 	desc.tile_count = 1;
         for(i = 0; i < s->devices_cnt; ++i) {
-                ret = display_reconfigure(s->devices[i], desc, VIDEO_NORMAL);
+                ret = display_reconfigure(s->devices[i], desc);
                 if(!ret)
                         break;
         }

@@ -104,7 +104,6 @@ struct display {
         struct vo_postprocess_state *postprocess;
         int display_pitch;
         struct video_desc saved_desc;
-        enum video_mode saved_mode;
 
         time_ns_t t0;
         int frames;
@@ -323,7 +322,7 @@ static struct response *process_message(struct display *d, struct msg_universal 
 
         vo_postprocess_done(postprocess_old);
 
-        display_reconfigure(d, d->saved_desc, d->saved_mode);
+        display_reconfigure(d, d->saved_desc);
 
         return new_response(RESPONSE_OK, NULL);
 }
@@ -459,13 +458,12 @@ bool display_put_frame(struct display *d, struct video_frame *frame, long long t
  * @param d    display to be reconfigured
  * @param desc new video description to be reconfigured to
  */
-bool display_reconfigure(struct display *d, struct video_desc desc, enum video_mode video_mode)
+bool display_reconfigure(struct display *d, struct video_desc desc)
 {
 
         assert(d->magic == DISPLAY_MAGIC);
 
         d->saved_desc = desc;
-        d->saved_mode = video_mode;
         bool rc = false;
         struct video_desc display_desc = desc;
 

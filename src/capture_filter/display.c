@@ -125,7 +125,7 @@ static void *worker(void *arg) {
                         char buf[1024];
                         struct video_desc display_desc = new_desc;
                         display_desc.color_spec = select_display_codec(display_codecs, new_desc.color_spec);
-                        if (!display_desc.color_spec || !display_reconfigure(s->d, display_desc, VIDEO_NORMAL)) {
+                        if (!display_desc.color_spec || !display_reconfigure(s->d, display_desc)) {
                                 MSG(ERROR, "Unable to reconfigure to %s!\n",
                                     video_desc_to_string(display_desc,
                                                          sizeof buf, buf));

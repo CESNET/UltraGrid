@@ -184,7 +184,7 @@ void *omt_rxtx_recv_worker(void *state){
                 video_desc incoming_desc = video_desc_from_omt_frame(omt_frame);
 
                 if(!video_desc_eq(incoming_desc, s->recv_desc)){
-                        display_reconfigure(s->display_device, incoming_desc, VIDEO_NORMAL);
+                        display_reconfigure(s->display_device, incoming_desc);
                         s->recv_desc = incoming_desc;
                 }
 

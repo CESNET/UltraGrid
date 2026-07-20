@@ -538,7 +538,7 @@ static void check_reconf(struct state_conference_common *s, struct video_desc de
         if (!video_desc_eq(desc, s->display_desc)) {
                 s->display_desc = desc;
                 log_msg(LOG_LEVEL_VERBOSE, MOD_NAME "reconfiguring real display\n");
-                display_reconfigure(s->real_display.get(), s->display_desc, VIDEO_NORMAL);
+                display_reconfigure(s->real_display.get(), s->display_desc);
         }
 }
 

@@ -164,7 +164,7 @@ static void check_reconf(struct state_blend_common *s, struct video_desc desc)
         if (!video_desc_eq(desc, s->display_desc)) {
                 s->display_desc = desc;
                 fprintf(stderr, "RECONFIGURED\n");
-                display_reconfigure(s->real_display, s->display_desc, VIDEO_NORMAL);
+                display_reconfigure(s->real_display, s->display_desc);
         }
 }
 

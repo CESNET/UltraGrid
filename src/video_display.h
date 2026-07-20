@@ -13,7 +13,7 @@
  * @ingroup display
  */
 /* Copyright (c) 2001-2003 University of Southern California
- * Copyright (c) 2005-2025 CESNET, zájmové sdružení právnických osob
+ * Copyright (c) 2005-2026 CESNET, zájmové sdružení právnických osob
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -193,7 +193,7 @@ struct video_frame      *display_get_frame(struct display *d);
 
 // documented at definition
 bool                     display_put_frame(struct display *d, struct video_frame *frame, long long timeout_ns);
-bool                     display_reconfigure(struct display *d, struct video_desc desc, enum video_mode mode);
+bool                     display_reconfigure(struct display *d, struct video_desc desc);
 /** @brief Get/set property (similar to ioctl)
  */
 bool                     display_ctl_property(struct display *d, int property, void *val, size_t *len);

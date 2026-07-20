@@ -220,7 +220,7 @@ video_receiver_thread(void *arg)
                 struct video_desc new_desc = video_desc_from_frame(frame);
                 if (!video_desc_eq(video->configured_desc, new_desc)) {
                         bool reconfigured = display_reconfigure(
-                            video->display_device, new_desc, VIDEO_NORMAL);
+                            video->display_device, new_desc);
                         if (!reconfigured) {
                                 MSG(ERROR, "Unable to reconfigure display!\n");
                                 frame->callbacks.dispose(frame);

@@ -131,7 +131,7 @@ static void check_reconf(struct state_multiplier *s, struct video_desc *current_
         *current_desc = desc;
         fprintf(stderr, "RECONFIGURED\n");
         for (auto &disp : s->displays) {
-                display_reconfigure(disp.get(), desc, VIDEO_NORMAL);
+                display_reconfigure(disp.get(), desc);
         }
 }
 
@@ -257,7 +257,7 @@ static bool display_multiplier_reconfigure(void *state, struct video_desc desc)
         s->desc = desc;
 
         for (auto &disp : s->displays) {
-                display_reconfigure(disp.get(), desc, VIDEO_NORMAL);
+                display_reconfigure(disp.get(), desc);
         }
 
         return true;
