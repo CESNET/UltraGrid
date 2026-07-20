@@ -209,7 +209,7 @@ rs::encode_video_frame(const struct video_frame *in)
                                                    .m           = m_n - m_k,
                                                    .c           = 0,
                                                    .seed        = 0,
-                                                   .symbol_size = 0 };
+                                                   .symbol_size = ss };
         }
 
         return out;
