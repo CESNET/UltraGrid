@@ -46,7 +46,6 @@
 #include <thread>
 #include <string_view>
 
-#include "config.h"    // for HAVE_OPENCV2_OPENCV_HPP
 #include "debug.h"
 #include "host.h"
 #include "lib_common.h"
@@ -61,12 +60,8 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-align"
 #pragma GCC diagnostic ignored "-Wcast-qual"
-#ifdef HAVE_OPENCV2_OPENCV_HPP
-#include <opencv2/opencv.hpp>
-#else
 #include <opencv2/core/mat.hpp>
 #include <opencv2/imgproc.hpp>
-#endif
 #pragma GCC diagnostic pop
 
 #ifdef __SSSE3__

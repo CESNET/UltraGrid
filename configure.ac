@@ -1524,37 +1524,28 @@ ENSURE_FEATURE_PRESENT([$caca_req], [$caca], [libcaca not found])
 # -------------------------------------------------------------------------------------------------
 [remove_all_libs_but_opencv_core() { echo "$1" | sed -e 's/-lopencv_[a-z0-9_]*//g' -e 's/$/ -lopencv_core/' | compact_spaces_pipe ; } ]
 AC_ARG_ENABLE(opencv,
-              AS_HELP_STRING([--disable-opencv], [disable all OpenCV code]),
+              AS_HELP_STRING([--disable-opencv], [disable all OpenCV code]
+                [(default is auto), requires OpenCV >= 3.0]),
               [opencv_req=$enableval],
               [opencv_req=$build_default])
-found_opencv=no
+opencv_version=
+opencv_version_str=
 opencv=no
 
 if test "$opencv_req" != no; then
-        PKG_CHECK_MODULES([OPENCV_4], [opencv4], [
-                           found_opencv=yes
-                           OPENCV_LIBS=$OPENCV_4_LIBS
-                           OPENCV_CFLAGS=$OPENCV_4_CFLAGS
-                           ], [found_opencv=no])
-        if test "$found_opencv" = no; then
-                PKG_CHECK_MODULES([OPENCV_3], [opencv > 3.0], [
-                                   found_opencv=yes
-                                   OPENCV_LIBS=$OPENCV_3_LIBS
-                                   OPENCV_CFLAGS=$OPENCV_3_CFLAGS
-                                   ], [found_opencv=no])
+        PKG_CHECK_MODULES([OPENCV], [opencv5], [opencv_version=5], [ ])
+        if ! test "${opencv_version?}"; then
+                PKG_CHECK_MODULES([OPENCV], [opencv4], [opencv_version=4], [ ])
         fi
-        if test "$found_opencv" = no; then
-                PKG_CHECK_MODULES([OPENCV_2], [opencv > 2.3], [
-                                   found_opencv=yes
-                                   OPENCV_LIBS=$OPENCV_2_LIBS
-                                   OPENCV_CFLAGS=$OPENCV_2_CFLAGS
-                                   ], [found_opencv=no])
+        if ! test "${opencv_version?}"; then
+                PKG_CHECK_MODULES([OPENCV], [opencv > 3.0], [opencv_version=3],
+                                   [ ])
         fi
-        if test "$found_opencv" = yes; then
+        if test "${opencv_version?}"; then
                 OPENCV_LIBS=$(remove_all_libs_but_opencv_core $OPENCV_LIBS)
                 opencv=yes
-        fi
-        if test "$found_opencv" = no; then
+        else # .pc file not available, when eg. just subset of OpenCV installed
+             # like in CI worker ubuntu-22.04 where installing just needed pkgs
                 AC_CHECK_LIB(opencv_core, cvCreateMat)
                 AC_LANG_PUSH(C++)
                 AC_CHECK_HEADERS([opencv2/core/mat.hpp])
@@ -1579,15 +1570,17 @@ if test "$opencv_req" != no; then
 fi
 
 if test "$opencv" = yes; then
-        AC_LANG_PUSH(C++)
-        AC_CHECK_HEADERS([opencv2/opencv.hpp])
-        AC_LANG_POP(C++)
         # opencv_imgproc is commonly needed so make the check here
-        SAVED_LIBS=$LIBS
-        LIBS="$LIBS $OPENCV_LIBS"
-        AC_CHECK_LIB(opencv_imgproc, cvAcc)
-        FOUND_OPENCV_IMGPROC=$ac_cv_lib_opencv_imgproc_cvAcc
-        LIBS=$SAVED_LIBS
+        SAVED_CXXFLAGS=$CXXFLAGS
+        CXXFLAGS="$CXXFLAGS $OPENCV_CFLAGS"
+        AC_LANG_PUSH(C++)
+        AC_CHECK_HEADERS([opencv2/imgproc.hpp])
+        AC_LANG_POP(C++)
+        CXXFLAGS=$SAVED_CXXFLAGS
+        FOUND_OPENCV_IMGPROC=${ac_cv_header_opencv2_imgproc_hpp?}
+        if test "${opencv_version?}"; then
+                opencv_version_str=" (ver. ${opencv_version:?})"
+        fi
 fi
 
 ENSURE_FEATURE_PRESENT([$opencv_req], [$opencv], [OpenCV dependencies not found!])
@@ -3633,7 +3626,7 @@ RESULT=`add_column "$RESULT" "IPv6 support" $ipv6 $?`
 RESULT=`add_column "$RESULT" "Library live555" $livemedia $?`
 RESULT=`add_column "$RESULT" "Libbacktrace" $libbacktrace $?`
 RESULT=`add_column "$RESULT" "Manual pages" $man $?`
-RESULT=`add_column "$RESULT" "OpenCV" $opencv $?`
+RESULT=`add_column "$RESULT" "OpenCV${opencv_version_str?}" ${opencv?} $?`
 RESULT=`add_column "$RESULT" "Profiling support" $profile $?`
 RESULT=`add_column "$RESULT" "Qt GUI" $qt_gui $?`
 RESULT=`add_column "$RESULT" "RT priority" $use_rt $?`
