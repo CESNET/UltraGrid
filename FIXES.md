@@ -1,3 +1,10 @@
+#### 1.10.7
+
+* decklink - fix 2 opts parsing - :profile=1dfd (parsed to a wrong val)
+  and :Use1080PsF=false (actually inverted the flag)
+* OpenCV 5 compat
+* few small fixes (macOS sha2 CI tool changed, unimportant leak)
+
 #### 1.10.6
 
 * use latest AJA SDK
