@@ -155,6 +155,7 @@ static void audio_cap_sdi_done(void *state)
         for(int i = 0; i < 2; ++i) {
                 free(s->audio_frame[i].data);
         }
+        free(s);
 }
 
 static void audio_cap_sdi_help(const char *driver_name)
