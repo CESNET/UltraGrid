@@ -135,9 +135,6 @@
 /* Define to 1 if you have the 'opencv_core' library (-lopencv_core). */
 #undef HAVE_LIBOPENCV_CORE
 
-/* Define to 1 if you have the 'opencv_imgproc' library (-lopencv_imgproc). */
-#undef HAVE_LIBOPENCV_IMGPROC
-
 /* Define to 1 if you have the 'portaudio' library (-lportaudio). */
 #undef HAVE_LIBPORTAUDIO
 
@@ -183,8 +180,8 @@
 /* Define to 1 if you have the <opencv2/core/mat.hpp> header file. */
 #undef HAVE_OPENCV2_CORE_MAT_HPP
 
-/* Define to 1 if you have the <opencv2/opencv.hpp> header file. */
-#undef HAVE_OPENCV2_OPENCV_HPP
+/* Define to 1 if you have the <opencv2/imgproc.hpp> header file. */
+#undef HAVE_OPENCV2_IMGPROC_HPP
 
 /* Portaudio has Pa_GetVersionInfo */
 #undef HAVE_PA_GETVERSIONINFO
