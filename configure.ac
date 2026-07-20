@@ -1598,7 +1598,8 @@ ENSURE_FEATURE_PRESENT([$caca_req], [$caca], [libcaca not found])
 # -------------------------------------------------------------------------------------------------
 [remove_all_libs_but_opencv_core() { echo "$1" | sed -e 's/-lopencv_[a-z0-9_]*//g' -e 's/$/ -lopencv_core/' | compact_spaces_pipe ; } ]
 AC_ARG_ENABLE(opencv,
-              AS_HELP_STRING([--disable-opencv], [disable all OpenCV code]),
+              AS_HELP_STRING([--disable-opencv], [disable all OpenCV code]
+                [(default is auto), requires OpenCV >= 3.0]),
               [opencv_req=$enableval],
               [opencv_req=$build_default])
 opencv_version=
@@ -1612,10 +1613,6 @@ if test "$opencv_req" != no; then
         fi
         if ! test "${opencv_version?}"; then
                 PKG_CHECK_MODULES([OPENCV], [opencv > 3.0], [opencv_version=3],
-                                   [ ])
-        fi
-        if ! test "${opencv_version?}"; then
-                PKG_CHECK_MODULES([OPENCV], [opencv > 2.3], [opencv_version=2],
                                    [ ])
         fi
         if test "${opencv_version?}"; then
