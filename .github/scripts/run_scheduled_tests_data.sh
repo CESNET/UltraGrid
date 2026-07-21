@@ -13,13 +13,13 @@ add_test "-d gl"                               should_timeout,Linux_only
 add_test "-d gl:unknown_param"                 should_fail
 add_test "-d sdl"                              should_timeout
 add_test "-t testcard -c lavc:e=libx265 -f rs -d dummy" should_timeout
-add_test "-t spout:check_lib"                  Windows_only
+add_test "-t spout:check_lib"                  Windows_only,continuous_only
 
 # rxtx/compress help + incorrect options
 add_test "-c help -t testcard"
 add_test "-c lavc:help -t testcard"
 add_test "-x help"
-add_test "-x sdp:help"
+add_test "-x sdp:help"                         continuous_only
 add_test "-c nonexistent"                      should_fail
 add_test "-c lavc:wrongopt -t testcard"        should_fail
 add_test "-x nonexistent"                      should_fail

@@ -2,51 +2,53 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
 #
-# THis scripts is called by .github/workflows/semi-weeekly_tests.yml
-# The idea is to do some further functional UltraGrid tests
+# This scripts is called by .github/workflows/semi-weeekly_tests.yml.
+# The idea is to do some further functional UltraGrid tests.
 
-# see also (taken from) .github/scripts/Linux/utils/Dockerfile.ubuntu
-ubuntu_packages="
-    libasound2t64\
-    libegl1\
-    libfontconfig1\
-    libglx-mesa0\
-    libgmp10\
-    libharfbuzz0b\
-    libopengl0\
-    libp11-kit0\
-    libx11-6\
-    openbox\
-    xvfb"
+release=
+if [ "${1-}" = release ]; then
+        release=1
+fi
+
+origdir=$(pwd)
+# use empty dir to avoid need to clean between continuous and release
+cd "$(mktemp -d)"
 
 case "${RUNNER_OS-}" in
         Linux)
                 sudo apt update
-                sudo apt -y install $ubuntu_packages
+                ## @sa (taken from) .github/scripts/Linux/utils/Dockerfile.ubuntu
+                sudo apt -y install libasound2t64 libegl1 libfontconfig1 \
+                    libglx-mesa0 libgmp10 libharfbuzz0b libopengl0 libp11-kit0 \
+                    libx11-6 openbox xvfb
                 Xvfb :99 -screen 0 1920x1080x24 &
                 export DISPLAY=:99
                 openbox &
 
-                ug_build=UltraGrid-continuous-x86_64.AppImage
+                continuous_build_file=UltraGrid-continuous-x86_64.AppImage
+                release_pattern=AppImage
                 prepare() {
-                        chmod +x "$ug_build"
-                        ./"$ug_build" --appimage-extract
+                        ai=$(echo UltraGrid-*.AppImage)
+                        chmod +x "$ai"
+                        ./"$ai" --appimage-extract
                 }
                 run_uv=squashfs-root/AppRun
                 run_reflector="squashfs-root/AppRun -o hd-rum-transcode"
                 ;;
         Windows)
-                ug_build=UltraGrid-continuous-win64.zip
+                continuous_build_file=UltraGrid-continuous-win64.zip
+                release_pattern=win64
                 prepare() {
-                        unzip "$ug_build"
+                        unzip UltraGrid-*-win64.zip
                 }
-                run_uv=UltraGrid-continuous-win64/uv.exe
-                run_reflector=UltraGrid-continuous-win64/hd-rum-transcode.exe
+                run_uv=$(echo UltraGrid-*-win64/uv.exe)
+                run_reflector=$(echo UltraGrid-*-win64/hd-rum-transcode.exe)
                 ;;
         macOS)
-                ug_build=UltraGrid-continuous-arm64.dmg
+                continuous_build_file=UltraGrid-continuous-arm64.dmg
+                release_pattern=arm64
                 prepare() {
-                        hdiutil mount "$ug_build"
+                        hdiutil mount UltraGrid-*arm64.dmg
                 }
                 brew install coreutils
                 alias timeout=gtimeout
@@ -56,8 +58,13 @@ hd-rum-transcode
 esac
 
 if [ "${RUNNER_OS-}" ]; then
-        curl -LOf https://github.com/CESNET/UltraGrid/releases/download/continuous/\
-"$ug_build"
+        if [ "$release" ]; then
+                "$origdir"/.github/scripts/download-gh-asset.sh \
+                        CESNET/UltraGrid '.*'"${release_pattern?}"'.*'
+        else
+                curl -LOf https://github.com/CESNET/UltraGrid/releases/\
+download/continuous/"${continuous_build_file?}"
+        fi
         prepare
 else # for INTERACTIVE use only (debugging)
         if [ "${1-}" = help ] || [ "${1-}" = "-h" ] || [ "${1-}" = "--help" ]
@@ -105,6 +112,7 @@ validate_opts() {
                 if [ "$1" != run_reflector ] &&
                    [ "$1" != should_fail ] &&
                    [ "$1" != should_timeout ] &&
+                   [ "$1" != continuous_only ] &&
                    [ "$1" != Linux_only ] &&
                    [ "$1" != Windows_only ] &&
                    [ "$1" != macOS_only ]; then
@@ -116,7 +124,7 @@ validate_opts() {
 }
 
 test_count=0
-. "$(dirname "$0")"/run_scheduled_tests_data.sh
+. "$origdir"/.github/scripts/run_scheduled_tests_data.sh
 
 set +e
 i=0
@@ -140,6 +148,9 @@ while [ $i -lt $test_count ]; do
                 if ! expr -- "$opts" : ".*$RUNNER_OS" >/dev/null; then
                         continue
                 fi
+        fi
+        if [ "$release" ] && expr -- "$opts" : '.*continuous_only' >/dev/null; then
+                continue
         fi
 
         timeout=10
