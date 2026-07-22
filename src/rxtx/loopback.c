@@ -50,6 +50,7 @@
 #include "utils/list.h"    // for simple_linked_list_size, simple_linked_li...
 #include "utils/pthread.h" // for CHK_PTHR, ug_pthread_cond_init, ug_pthrea...
 #include "utils/thread.h"  // for set_thread_name
+#include "video_codec.h"   // for get_codec_name
 #include "video_display.h" // for PUTF_BLOCKING, display_put_frame, display...
 #include "video_frame.h"   // for video_desc_eq, video_desc_from_frame
 
@@ -191,6 +192,52 @@ should_exit_video_recv_thr(void *arg)
         CHK_PTHR(pthread_cond_signal(&video->frame_ready));
 }
 
+static bool
+check_display_supports_codec(struct loopback_rxtx_video *video, codec_t codec)
+{
+        codec_t display_codecs[VIDEO_CODEC_COUNT];
+        size_t  len = sizeof display_codecs;
+        if (!display_ctl_property(video->display_device,
+                                  DISPLAY_PROPERTY_CODECS, display_codecs,
+                                  &len)) {
+                MSG(ERROR, "Failed to query codecs from video display.\n");
+                return false;
+        }
+        for (unsigned i = 0; i < len / sizeof(codec_t); ++i) {
+                if (display_codecs[i] == codec) {
+                        return true;
+                }
+        }
+
+        char  buf[STR_LEN] = "";
+        char *codec_list   = buf;
+        for (unsigned i = 0; i < len / sizeof(codec_t); ++i) {
+                codec_list += snprintf(
+                    codec_list, buf + sizeof buf - codec_list, "%s%s",
+                    i != 0 ? ", " : "", get_codec_name(display_codecs[i]));
+        }
+        MSG(ERROR,
+            "Display doesn't support video codec %s! Supported codecs: %s\n",
+            get_codec_name(codec), buf);
+        return false;
+}
+
+static bool
+loopback_reconfigure_display(struct loopback_rxtx_video *video,
+                             struct video_desc           desc)
+{
+        if (!check_display_supports_codec(video, desc.color_spec)) {
+                return false;
+        }
+
+        if (!display_reconfigure(video->display_device, desc)) {
+                MSG(ERROR, "Unable to reconfigure display!\n");
+                return false;
+        }
+        video->configured_desc = desc;
+        return true;
+}
+
 static void *
 video_receiver_thread(void *arg)
 {
@@ -219,14 +266,10 @@ video_receiver_thread(void *arg)
 
                 struct video_desc new_desc = video_desc_from_frame(frame);
                 if (!video_desc_eq(video->configured_desc, new_desc)) {
-                        bool reconfigured = display_reconfigure(
-                            video->display_device, new_desc);
-                        if (!reconfigured) {
-                                MSG(ERROR, "Unable to reconfigure display!\n");
+                        if (!loopback_reconfigure_display(video, new_desc)) {
                                 frame->callbacks.dispose(frame);
                                 continue;
                         }
-                        s->video.configured_desc = new_desc;
                 }
                 struct video_frame *display_f =
                     display_get_frame(video->display_device);
