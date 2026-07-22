@@ -83,7 +83,10 @@ struct rtp_rxtx_common {
         struct rtp_rxtx_medium medium[NUM_TX_MEDIA];
         struct rtp_rxtx_common_priv_state *priv;
         char                              *encryption;
-        bool playback_supports_multiple_streams; // set by impl
+        // set by RTP RXTX implementation - if set to true, frames from all
+        // sources will be returned (normally all sources are dismissed except
+        // of the latest one)
+        bool aplayback_supports_multiple_streams;
 };
 
 struct rxtx_params;

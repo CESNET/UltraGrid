@@ -598,7 +598,7 @@ ctl_property(void *state, enum rxtx_property p,
         }
         case SET_ULTRAGRID_RTP_MUTLI_OUT: {
                 assert(*len >= sizeof(bool));
-                memcpy(&s->rtp_common->playback_supports_multiple_streams, val,
+                memcpy(&s->rtp_common->aplayback_supports_multiple_streams, val,
                        sizeof(bool));
                 return true;
         }

@@ -692,7 +692,7 @@ rtp_recv_audio_frame(struct rtp_rxtx_common *s, decode_audio_frame_fn decode)
                                                // display to participant that
                                                // really sends data
                         // disable all previous sources
-                        if (!s->playback_supports_multiple_streams) {
+                        if (!s->aplayback_supports_multiple_streams) {
                                 pdb_iter_t    it;
                                 struct pdb_e *cp =
                                     pdb_iter_init(audio->participants, &it);
