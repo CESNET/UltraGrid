@@ -388,15 +388,6 @@ receiver_thread(void *arg)
         int fr;
         int last_buf_size = rtp_get_recv_buf(video->network_device);
 
-#ifdef SHARED_DECODER
-        struct vcodec_state *shared_decoder = new_video_decoder(m_display_device);
-        if(shared_decoder == NULL) {
-                fprintf(stderr, "Unable to create decoder!\n");
-                exit_uv(1);
-                return NULL;
-        }
-#endif // SHARED_DECODER
-
         fr = 1;
 
         time_ns_t last_not_timeout = 0;
@@ -451,9 +442,6 @@ receiver_thread(void *arg)
 
                         if(cp->decoder_state == NULL &&
                                         !pbuf_is_empty(cp->playout_buffer)) { // the second check is needed because we want to assign display to participant that really sends data
-#ifdef SHARED_DECODER
-                                cp->decoder_state = shared_decoder;
-#else
                                 // we are assigning our display so we make sure it is removed from other display
 
                                 struct multi_sources_supp_info supp_for_mult_sources;
@@ -487,7 +475,6 @@ receiver_thread(void *arg)
                                         exit_uv(1);
                                         break;
                                 }
-#endif // SHARED_DECODER
                         }
 
                         struct vcodec_state *vdecoder_state = (struct vcodec_state *) cp->decoder_state;
@@ -518,13 +505,9 @@ receiver_thread(void *arg)
 
         unregister_should_exit_callback(s->parent, should_exit, s);
 
-#ifdef SHARED_DECODER
-        destroy_video_decoder(shared_decoder);
-#else
         /* Because decoders work asynchronously we need to make sure
          * that display won't be called */
         remove_display_from_decoders(s);
-#endif //  SHARED_DECODER
 
         // pass poisoned pill to display
         display_put_frame(s->display_device, nullptr, PUTF_BLOCKING);
