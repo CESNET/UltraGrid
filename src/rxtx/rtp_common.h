@@ -101,8 +101,8 @@ struct coded_data;
 struct pbuf_stats;
 typedef int decode_audio_frame_fn(struct coded_data *cdata, void *pbuf_data,
                                   struct pbuf_stats *);
-struct rx_audio_frames *rtp_recv_audio_frame(void                 *state,
-                                             decode_audio_frame_fn decode);
+struct rx_audio_frames *rtp_recv_audio_frame(struct rtp_rxtx_common *s,
+                                             decode_audio_frame_fn   decode);
 
 #ifdef __cplusplus
 }

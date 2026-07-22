@@ -655,11 +655,10 @@ static void audio_decoder_state_deleter(void *state)
 }
 
 struct rx_audio_frames *
-rtp_recv_audio_frame(void *state, decode_audio_frame_fn decode)
+rtp_recv_audio_frame(struct rtp_rxtx_common *s, decode_audio_frame_fn decode)
 {
-        struct rtp_rxtx_common            *pub   = state;
-        struct rtp_rxtx_common_priv_state *priv  = pub->priv;
-        struct rtp_rxtx_medium            *audio = &pub->medium[TX_MEDIA_AUDIO];
+        struct rtp_rxtx_common_priv_state *priv  = s->priv;
+        struct rtp_rxtx_medium            *audio = &s->medium[TX_MEDIA_AUDIO];
 
         time_ns_t curr_time = get_time_in_ns();
         uint32_t  ts =
@@ -693,7 +692,7 @@ rtp_recv_audio_frame(void *state, decode_audio_frame_fn decode)
                                                // display to participant that
                                                // really sends data
                         // disable all previous sources
-                        if (!pub->playback_supports_multiple_streams) {
+                        if (!s->playback_supports_multiple_streams) {
                                 pdb_iter_t    it;
                                 struct pdb_e *cp =
                                     pdb_iter_init(audio->participants, &it);
@@ -717,7 +716,7 @@ rtp_recv_audio_frame(void *state, decode_audio_frame_fn decode)
                                         ? 0.001
                                         : 0.005);
                         }
-                        cp->decoder_state = audio_decoder_state_create(pub);
+                        cp->decoder_state = audio_decoder_state_create(s);
                         if (!cp->decoder_state) {
                                 exit_uv(1);
                                 break;
