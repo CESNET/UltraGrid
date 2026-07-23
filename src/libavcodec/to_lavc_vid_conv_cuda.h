@@ -9,7 +9,7 @@
  * (2025-11), the imnplementation in .cu file is just a stub.
  */
 /*
- * Copyright (c) 2024-2025 CESNET, zájmové sdružení právnických osob
+ * Copyright (c) 2024-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,11 +45,7 @@
 #define LIBAVCODEC_TO_LAVC_VID_CONV_49C12A96_D7A3_11EE_9446_F0DEF1A0ACC9
 
 #include <libavutil/pixfmt.h>
-#include <stdio.h>
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 #include "types.h"
 
 struct AVFrame;
@@ -62,36 +58,12 @@ extern "C" {
 /// @note needs to support conversion for all src codec_t
 static const enum AVPixelFormat to_lavc_cuda_supp_formats[] = { AV_PIX_FMT_YUV444P };
 
-#ifdef HAVE_LAVC_CUDA_CONV
 struct to_lavc_vid_conv_cuda *
 to_lavc_vid_conv_cuda_init(codec_t in_pixfmt, int width, int height,
                            enum AVPixelFormat out_pixfmt);
 struct AVFrame *to_lavc_vid_conv_cuda(struct to_lavc_vid_conv_cuda *state,
                                       const char                   *in_data);
 void to_lavc_vid_conv_cuda_destroy(struct to_lavc_vid_conv_cuda **state);
-
-#else
-static struct to_lavc_vid_conv_cuda *
-to_lavc_vid_conv_cuda_init(codec_t in_pixfmt, int width, int height,
-                           enum AVPixelFormat out_pixfmt)
-{
-        (void) in_pixfmt, (void) width, (void) height, (void) out_pixfmt;
-        fprintf(stderr, "ERROR: CUDA support not compiled in!\n");
-        return NULL;
-}
-static struct AVFrame *
-to_lavc_vid_conv_cuda(struct to_lavc_vid_conv_cuda *state, const char *in_data)
-{
-        (void) state, (void) in_data;
-        return NULL;
-}
-
-static void
-to_lavc_vid_conv_cuda_destroy(struct to_lavc_vid_conv_cuda **state)
-{
-        (void) state;
-}
-#endif
 
 #ifdef __cplusplus
 }

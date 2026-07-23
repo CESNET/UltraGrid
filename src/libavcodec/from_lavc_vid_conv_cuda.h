@@ -9,7 +9,7 @@
  * (2025-11), the imnplementation in .cu file is just a stub.
  */
 /*
- * Copyright (c) 2024-2025 CESNET, zájmové sdružení právnických osob
+ * Copyright (c) 2024-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,11 +47,7 @@
 struct AVFrame;
 
 #include <libavutil/pixfmt.h>
-#include <stdio.h>
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 #include "types.h" // codec_t
 
 #ifdef __cplusplus
@@ -65,7 +61,6 @@ static const enum AVPixelFormat from_lavc_cuda_supp_formats[] = {
 
 struct av_to_uv_convert_cuda;
 
-#ifdef HAVE_LAVC_CUDA_CONV
 struct av_to_uv_convert_cuda *
 get_av_to_uv_cuda_conversion(enum AVPixelFormat av_codec, codec_t uv_codec);
 void av_to_uv_convert_cuda(struct av_to_uv_convert_cuda *state,
@@ -74,32 +69,6 @@ void av_to_uv_convert_cuda(struct av_to_uv_convert_cuda *state,
                            int height, int pitch,
                            const int *__restrict rgb_shift);
 void av_to_uv_conversion_cuda_destroy(struct av_to_uv_convert_cuda **state);
-
-#else
-static struct av_to_uv_convert_cuda *
-get_av_to_uv_cuda_conversion(int av_codec, codec_t uv_codec)
-{
-        (void) av_codec, (void) uv_codec;
-        fprintf(stderr, "ERROR: CUDA support not compiled in!\n");
-        return NULL;
-}
-
-static void
-av_to_uv_convert_cuda(struct av_to_uv_convert_cuda *state,
-                      char *__restrict dst_buffer,
-                      struct AVFrame *__restrict in_frame, int width,
-                      int height, int pitch, const int *__restrict rgb_shift)
-{
-        (void) state, (void) dst_buffer, (void) in_frame, (void) width,
-            (void) height, (void) pitch, (void) rgb_shift;
-}
-
-static void
-av_to_uv_conversion_cuda_destroy(struct av_to_uv_convert_cuda **state)
-{
-        (void) state;
-}
-#endif
 
 #ifdef __cplusplus
 }

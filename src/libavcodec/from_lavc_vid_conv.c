@@ -56,6 +56,7 @@
 #include <stdbool.h>
 #include <stddef.h>                              // for NULL, ptrdiff_t, size_t
 #include <stdint.h>
+#include <stdio.h>
 
 #include "color_space.h"
 #include "compat/c23.h"   // for countof
@@ -69,7 +70,6 @@
 #include "hwaccel_vdpau.h"
 #include "hwaccel_drm.h"
 #include "libavcodec/from_lavc_vid_conv.h"
-#include "libavcodec/from_lavc_vid_conv_cuda.h"
 #include "libavcodec/lavc_common.h"
 #include "pixfmt_conv.h"
 #include "types.h"
@@ -83,6 +83,35 @@
 #ifdef __SSE3__
 #include "pmmintrin.h"
 #endif
+
+#ifdef HAVE_LAVC_CUDA_CONV
+#include "libavcodec/from_lavc_vid_conv_cuda.h"
+#else
+static struct av_to_uv_convert_cuda *
+get_av_to_uv_cuda_conversion(int av_codec, codec_t uv_codec)
+{
+        (void) av_codec, (void) uv_codec;
+        fprintf(stderr, "ERROR: CUDA support not compiled in!\n");
+        return NULL;
+}
+
+static void
+av_to_uv_convert_cuda(struct av_to_uv_convert_cuda *state,
+                      char *__restrict dst_buffer,
+                      struct AVFrame *__restrict in_frame, int width,
+                      int height, int pitch, const int *__restrict rgb_shift)
+{
+        (void) state, (void) dst_buffer, (void) in_frame, (void) width,
+            (void) height, (void) pitch, (void) rgb_shift;
+}
+
+static void
+av_to_uv_conversion_cuda_destroy(struct av_to_uv_convert_cuda **state)
+{
+        (void) state;
+}
+#endif
+
 
 #define MOD_NAME "[from_lavc_vid_conv] "
 
@@ -2256,6 +2285,7 @@ from_lavc_cuda_conv_enabled()
 static enum AVPixelFormat
 get_first_supported_cuda(const enum AVPixelFormat *fmts)
 {
+#ifdef HAVE_LAVC_CUDA_CONV
         for (; *fmts != AV_PIX_FMT_NONE; fmts++) {
                 for (unsigned i = 0;
                      i < sizeof from_lavc_cuda_supp_formats /
@@ -2266,6 +2296,9 @@ get_first_supported_cuda(const enum AVPixelFormat *fmts)
                         }
                 }
         }
+#else
+        (void) fmts;
+#endif
         return AV_PIX_FMT_NONE;
 }
 

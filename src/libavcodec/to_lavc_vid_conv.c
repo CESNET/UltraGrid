@@ -52,6 +52,7 @@
 #include <stdbool.h>
 #include <stddef.h>                            // for NULL, ptrdiff_t, size_t
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>                            // for free, calloc, abort
 #include <string.h>                            // for memcpy
 
@@ -61,7 +62,6 @@
 #include "debug.h"
 #include "host.h"
 #include "libavcodec/to_lavc_vid_conv.h"
-#include "libavcodec/to_lavc_vid_conv_cuda.h"
 #include "libavcodec/utils.h"                  // for uv_to_av_pixfmt, get_u...
 #include "pixfmt_conv.h"                       // for get_decoder_from_to
 #include "to_planar.h"                         // for r12l_to_gbrp12le, r12l...
@@ -81,6 +81,34 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunknown-pragmas"
 #pragma clang diagnostic warning "-Wpass-failed"
+
+#ifdef HAVE_CONFIG_H
+#include "config.h" // for HAVE_LAVC_CUDA_CONV
+#endif
+#ifdef HAVE_LAVC_CUDA_CONV
+#include "libavcodec/to_lavc_vid_conv_cuda.h"
+#else
+static struct to_lavc_vid_conv_cuda *
+to_lavc_vid_conv_cuda_init(codec_t in_pixfmt, int width, int height,
+                           enum AVPixelFormat out_pixfmt)
+{
+        (void) in_pixfmt, (void) width, (void) height, (void) out_pixfmt;
+        fprintf(stderr, "ERROR: CUDA support not compiled in!\n");
+        return NULL;
+}
+static struct AVFrame *
+to_lavc_vid_conv_cuda(struct to_lavc_vid_conv_cuda *state, const char *in_data)
+{
+        (void) state, (void) in_data;
+        return NULL;
+}
+
+static void
+to_lavc_vid_conv_cuda_destroy(struct to_lavc_vid_conv_cuda **state)
+{
+        (void) state;
+}
+#endif
 
 static struct to_planar_data
 to_planar_data_from_avfame(AVFrame *__restrict out_frame,
@@ -1627,6 +1655,7 @@ set_convertible_formats_cuda(codec_t in_codec, struct to_lavc_req_prop req_prop,
                              int fmt_set[static AV_PIX_FMT_NB],
                              struct lavc_compare_convs_data *comp_data)
 {
+#ifdef HAVE_LAVC_CUDA_CONV
         for (unsigned i = 0; i < sizeof to_lavc_cuda_supp_formats /
                                      sizeof to_lavc_cuda_supp_formats[0];
              i++) {
@@ -1641,6 +1670,9 @@ set_convertible_formats_cuda(codec_t in_codec, struct to_lavc_req_prop req_prop,
                 comp_data->descs[f] = desc;
                 comp_data->steps[f] = 1;
         }
+#else
+        (void) in_codec, (void) req_prop, (void) fmt_set, (void) comp_data;
+#endif
 }
 
 /// @todo TOREMOVE after cuda conversions implemented
