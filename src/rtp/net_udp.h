@@ -83,12 +83,12 @@ int         udp_recvfrom(socket_udp *s, char *buffer, int buflen, struct sockadd
 int         udp_send(socket_udp *s, char *buffer, int buflen);
 int         udp_sendto(socket_udp *s, char *buffer, int buflen, struct sockaddr *dst_addr, socklen_t addrlen);
 
-int         udp_recvv(socket_udp *s, struct msghdr *m);
 void        udp_async_start(socket_udp *s, int nr_packets);
 void        udp_async_wait(socket_udp *s);
 #ifdef _WIN32
 int         udp_sendv(socket_udp *s, LPWSABUF vector, int count, void *d);
 #else
+int         udp_recvv(socket_udp *s, struct msghdr *m);
 int         udp_sendv(socket_udp *s, struct iovec *vector, int count, void *d);
 #endif
 

@@ -53,16 +53,6 @@ typedef SOCKET fd_t;
 #define SHUT_RDWR SD_BOTH
 #define MAXHOSTNAMELEN	256
 typedef unsigned int	in_addr_t;
-typedef char	*caddr_t;
-
-struct msghdr {
-        caddr_t		msg_name;
-        int		msg_namelen;
-        struct iovec	*msg_iov;
-        int		msg_iovlen;
-        caddr_t		msg_accrights;
-        int		msg_accrightslen;
-};
 #else
 #include <arpa/inet.h>      // for htonl, ntohl
 #include <netdb.h>          // for getaddrinfo
