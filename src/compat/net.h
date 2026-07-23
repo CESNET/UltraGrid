@@ -6,7 +6,7 @@
  * (also htonl and the family).
  */
 /*
- * Copyright (c) 2024-2025 CESNET
+ * Copyright (c) 2024-2026 CESNET, zájmové sdružení právnicých osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,9 +42,6 @@
 #define COMPAT_NET_H_EF7499D8_4939_4F86_A585_2EED8221D056
 
 // IWYU pragma: begin_exports
-#if HAVE_CONFIG_H
-#include "config.h" //for HAVE_IPv6
-#endif
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h> // for socklen_t
@@ -69,9 +66,9 @@ struct msghdr {
 #else
 #include <arpa/inet.h>      // for htonl, ntohl
 #include <netdb.h>          // for getaddrinfo
-#include <netinet/in.h>     // for sockaddr_in[6]
-#include <sys/socket.h>     // for sockaddr, sockaddr_storage
+#include <netinet/in.h>     // for sockaddr_in[6], IPV6_{JOIN,LEAVE}_GROUP
 #include <sys/param.h>     // for MAXHOSTNAMELEN
+#include <sys/socket.h>     // for sockaddr, sockaddr_storage
 #include <unistd.h>         // for close
 typedef int fd_t;
 #define INVALID_SOCKET (-1)
@@ -80,33 +77,8 @@ typedef int fd_t;
 // IWYU pragma: end_exports
 
 #ifndef _WIN32
-#ifdef HAVE_IPv6
 
-#ifdef HAVE_NETINET6_IN6_H
-/* Expect IPV6_{JOIN,LEAVE}_GROUP in in6.h, otherwise expect */
-/* IPV_{ADD,DROP}_MEMBERSHIP in in.h                         */
-#include <netinet6/in6.h>
-#else
-#include <netinet/in.h>
-#endif /* HAVE_NETINET_IN6_H */
 
-#ifndef IPV6_ADD_MEMBERSHIP
-#ifdef  IPV6_JOIN_GROUP
-#define IPV6_ADD_MEMBERSHIP IPV6_JOIN_GROUP
-#else
-#error  No definition of IPV6_ADD_MEMBERSHIP
-#endif /* IPV6_JOIN_GROUP     */
-#endif /* IPV6_ADD_MEMBERSHIP */
-
-#ifndef IPV6_DROP_MEMBERSHIP
-#ifdef  IPV6_LEAVE_GROUP
-#define IPV6_DROP_MEMBERSHIP IPV6_LEAVE_GROUP
-#else
-#error  No definition of IPV6_LEAVE_GROUP
-#endif  /* IPV6_LEAVE_GROUP     */
-#endif  /* IPV6_DROP_MEMBERSHIP */
-
-#endif /* HAVE_IPv6 */
 #endif /*_WIN32*/
 
 #endif // defined COMPAT_NET_H_EF7499D8_4939_4F86_A585_2EED8221D056

@@ -577,9 +577,9 @@ udp_join_mcast_grp6(struct in6_addr sin6_addr, int rx_fd, int tx_fd, int ttl,
 #endif
 
                 if (SETSOCKOPT
-                    (rx_fd, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, (char *)&imr,
+                    (rx_fd, IPPROTO_IPV6, IPV6_JOIN_GROUP, (char *)&imr,
                      sizeof(struct ipv6_mreq)) != 0) {
-                        socket_error("setsockopt IPV6_ADD_MEMBERSHIP");
+                        socket_error("setsockopt IPV6_JOIN_GROUP");
                         return false;
                 }
 
@@ -660,9 +660,9 @@ udp_leave_mcast_grp6(struct in6_addr sin6_addr, int fd, const char iface[])
 #endif
 
                 if (SETSOCKOPT
-                    (fd, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, (char *)&imr,
+                    (fd, IPPROTO_IPV6, IPV6_LEAVE_GROUP, (char *)&imr,
                      sizeof(struct ipv6_mreq)) != 0) {
-                        socket_error("setsockopt IPV6_DROP_MEMBERSHIP");
+                        socket_error("setsockopt IPV6_LEAVE_GROUP");
                 }
         } else if (IN6_IS_ADDR_V4MAPPED(&sin6_addr)) {
                 in_addr_t v4mapped = 0;
