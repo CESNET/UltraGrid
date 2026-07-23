@@ -177,7 +177,11 @@ ADD_TO_PARAM("control-report-audio-ch-count", "* control-report-audio-ch-count=<
 
 int control_init(int port, int connection_type, struct control_state **state, struct module *root_module, int force_ip_version)
 {
-        control_state *s = calloc (1, sizeof *s);
+#define HANDLE_ERROR                                                           \
+        control_done(s);                                                       \
+        return -1;
+
+        control_state *s = calloc(1, sizeof *s);
         s->magic = MAGIC;
         ug_pthread_mutex_init(&s->stats_lock);
         s->socket_fd = INVALID_SOCKET;
@@ -186,7 +190,6 @@ int control_init(int port, int connection_type, struct control_state **state, st
         s->audio_channel_report_count = 16;
 
         s->root_module = root_module;
-        s->started = false;
 
         module_init_default(&s->mod);
         s->mod.cls = MODULE_CLASS_CONTROL;
@@ -215,7 +218,7 @@ int control_init(int port, int connection_type, struct control_state **state, st
                 }
                 if (s->socket_fd == INVALID_SOCKET) {
                         socket_error("Control socket - socket");
-                        goto error;
+                        HANDLE_ERROR
                 }
                 int val = 1;
                 int rc;
@@ -253,18 +256,18 @@ int control_init(int port, int connection_type, struct control_state **state, st
                 rc = bind(s->socket_fd, (const struct sockaddr *) &ss, s_len);
                 if (rc != 0) {
                         socket_error("Control socket - bind");
-                        goto error;
+                        HANDLE_ERROR
                 } else {
                         rc = listen(s->socket_fd, MAX_CLIENTS);
                         if (rc != 0) {
                                 socket_error("Control socket - listen");
-                                goto error;
+                                HANDLE_ERROR
                         }
                 }
         } else {
                 if (force_ip_version == 6) {
                         log_msg(LOG_LEVEL_ERROR, "Control socket: IPv6 unimplemented in client mode!\n");
-                        goto error;
+                        HANDLE_ERROR
                 }
                 s->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
                 assert(s->socket_fd != INVALID_SOCKET);
@@ -280,7 +283,7 @@ int control_init(int port, int connection_type, struct control_state **state, st
 
                 if(err) {
                         MSG(ERROR, "Unable to get address: %s\n", gai_strerror(err));
-                        goto error;
+                        HANDLE_ERROR
                 }
                 bool connected = false;
 
@@ -296,7 +299,7 @@ int control_init(int port, int connection_type, struct control_state **state, st
 
                 if(!connected) {
                         MSG(ERROR, "Unable to connect to localhost:%d\n", s->network_port);
-                        goto error;
+                        HANDLE_ERROR
                 }
         }
 
@@ -310,14 +313,6 @@ int control_init(int port, int connection_type, struct control_state **state, st
 
         *state = s;
         return 0;
-
-error:
-        /// @todo - handle in _done?
-        if (s->socket_fd != INVALID_SOCKET) {
-                CLOSESOCKET(s->socket_fd);
-        }
-        control_done(s);
-        return -1;
 }
 
 void control_start(struct control_state *s)
@@ -944,6 +939,12 @@ static void * control_thread(void *args)
                 cur = cur->next;
                 free(tmp);
         }
+        // in client mode, s->socket_fd has been at the same time one (and the
+        // only) client so closed by the above, set to INVALID for not to close
+        // 2nd time in _done
+        if (s->connection_type == CLIENT) {
+                s->socket_fd = INVALID_SOCKET;
+        }
 
         platform_pipe_close(s->internal_fd[0]);
 
@@ -1006,9 +1007,7 @@ void control_done(struct control_state *s)
                         MSG(ERROR, "Cannot exit control thread!\n");
                 }
         }
-        if(s->connection_type == SERVER && s->socket_fd != INVALID_SOCKET) {
-                // for client, the socket has already been closed
-                // by the time of control_thread exit
+        if (s->socket_fd != INVALID_SOCKET) {
                 CLOSESOCKET(s->socket_fd);
         }
 
