@@ -44,7 +44,7 @@
 extern "C" {
 #endif
 
-struct simple_linked_list;
+typedef struct simple_linked_list simple_linked_list;
 struct simple_linked_list *simple_linked_list_init(void);
 void simple_linked_list_destroy(struct simple_linked_list *);
 void simple_linked_list_prepend(struct simple_linked_list *, void *data);

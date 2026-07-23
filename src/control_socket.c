@@ -1,5 +1,5 @@
 /**
- * @file   control_socket.cpp
+ * @file
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
@@ -37,54 +37,52 @@
 
 #include "control_socket.h"
 
-#include <cassert>                 // for assert
-#include <cctype>                  // for isspace, isdigit
-#include <cerrno>                  // for errno, EAFNOSUPPORT
-#include <condition_variable>
-#include <cstdio>                  // for asprintf, snprintf, perror
-#include <cstdlib>                 // for atoi, free, malloc, abort, strtoll
-#include <cstring>                 // for NULL, str[n]casecmp, strlen...
+#include <assert.h>     // for assert
+#include <ctype.h>      // for isspace, isdigit
+#include <errno.h>      // for errno, EAFNOSUPPORT
+#include <pthread.h>    // for pthread_mutex_lock, pthread_mutex_...
+#include <stdint.h>     // for uint32_t
+#include <stdio.h>      // for asprintf, snprintf, perror
+#include <stdlib.h>     // for atoi, free, malloc, abort, strtoll
+#include <string.h>     // for NULL, str[n]casecmp, strlen...
+#include <strings.h>    // for strncasecmp, strcasecmp
+
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #else
-#include <fcntl.h>                 // for fcntl, F_SETFL, O_NONBLOCK
-#include <sys/types.h>             // for ssize_t
-#include <unistd.h>                // for write
+#include <fcntl.h>      // for fcntl, F_SETFL, O_NONBLOCK
+#include <sys/select.h> // for FD_ISSET, FD_SET, FD_ZERO, fd_set
+#include <sys/socket.h> // for send
+#include <sys/types.h>  // for ssize_t
 #endif
 #include <sys/time.h>              // for timeval, gettimeofday
 
-#include <cstdint>             // for uint32_t
-#include <mutex>
-#include <queue>
-#include <string>
-#include <thread>
-
-#include "debug.h"
-#include "compat/net.h"            // for net related
+#include "compat/net.h" // for net related
 #include "compat/platform_pipe.h"
+#include "debug.h" // for LOG_LEVEL_ERROR, MSG, log_msg, LOG...
 #include "host.h"
 #include "messaging.h"
 #include "module.h"
-#include "rtp/net_udp.h" // socket_error
-#include "types.h"                 // for tx_media_type
-#include "utils/color_out.h"       // for TBOLD, color_printf
+#include "rtp/net_udp.h"     // socket_error
+#include "types.h"           // for tx_media_type
+#include "utils/color_out.h" // for TBOLD, color_printf
+#include "utils/list.h"      // for simple_linked_list, simple_linked_..
+#include "utils/macros.h"    // for to_fourcc
 #include "utils/net.h"
-#include "utils/macros.h"    // for MODULE_MAGIC
+#include "utils/pthread.h" // for CHK_PTHR, ug_pthread_mutex_init
 #include "utils/thread.h"
-#include "utils/unicode.h"   // for wcs_to_mbs_fallb
+#include "utils/unicode.h" // for wcs_to_mbs_fallb
 
+#define MAGIC to_fourcc('c', 't', 'r', 'l')
 #define MAX_CLIENTS 16
 #define MOD_NAME "[control_socket] "
-#define MODULE_MAGIC to_fourcc('c', 't', 'r', 'l')
 
 #ifdef _WIN32
 typedef const char *sso_val_type;
 #else
 typedef void *sso_val_type;
 #endif // defined _WIN32
-
-using namespace std;
 
 struct client {
         fd_t fd;
@@ -102,30 +100,30 @@ enum connection_type {
 
 #define MAX_STAT_EVENT_QUEUE 100
 
-struct control_state {
-        const uint32_t magic = MODULE_MAGIC;
+typedef struct control_state {
+        uint32_t magic;
         struct module mod;
-        thread control_thread_id;
+        pthread_t control_thread_id;
         /// @var internal_fd is used for internal communication
         fd_t internal_fd[2];
         int network_port;
         struct module *root_module;
 
-        std::mutex stats_lock;
+        pthread_mutex_t stats_lock;
 
         enum connection_type connection_type;
 
-        fd_t socket_fd = INVALID_SOCKET;
+        fd_t socket_fd;
 
         bool started;
 
-        thread stat_event_thread_id;
-        condition_variable stat_event_cv;
-        queue<string> stat_event_queue;
+        pthread_t stat_event_thread_id;
+        pthread_cond_t stat_event_cv;
+        simple_linked_list *stat_event_queue;
 
         bool stats_on;
-        int audio_channel_report_count = 16;
-};
+        int audio_channel_report_count;
+} control_state;
 
 #define CONTROL_EXIT -1
 #define CONTROL_CLOSE_HANDLE -2
@@ -160,14 +158,17 @@ static ssize_t write_all(fd_t fd, const void *buf, size_t count)
         return count;
 }
 
-static void new_message(struct module *m) {
+static void
+new_control_message(struct module *m)
+{
         control_state *s = (control_state *) m->priv_data;
-        if(s->started) {
-                // just wake up from select
-                int ret = write_all(s->internal_fd[1], "noop\r\n", 6);
-                if (ret <= 0) {
-                        log_msg(LOG_LEVEL_ERROR, "[control] Cannot write to pipe!\n");
-                }
+        if (!s->started) {
+                return;
+        }
+        // just wake up from select
+        int ret = write_all(s->internal_fd[1], "noop\r\n", 6);
+        if (ret <= 0) {
+                MSG(ERROR, "Cannot write to pipe!\n");
         }
 }
 
@@ -176,14 +177,20 @@ ADD_TO_PARAM("control-report-audio-ch-count", "* control-report-audio-ch-count=<
 
 int control_init(int port, int connection_type, struct control_state **state, struct module *root_module, int force_ip_version)
 {
-        control_state *s = new control_state();
+        control_state *s = calloc (1, sizeof *s);
+        s->magic = MAGIC;
+        ug_pthread_mutex_init(&s->stats_lock);
+        s->socket_fd = INVALID_SOCKET;
+        pthread_cond_init(&s->stat_event_cv, nullptr);
+        s->stat_event_queue = simple_linked_list_init();
+        s->audio_channel_report_count = 16;
 
         s->root_module = root_module;
         s->started = false;
 
         module_init_default(&s->mod);
         s->mod.cls = MODULE_CLASS_CONTROL;
-        s->mod.new_message = new_message;
+        s->mod.new_message = new_control_message;
         s->mod.priv_data = s;
 
         if(connection_type == 0) {
@@ -227,23 +234,23 @@ int control_init(int port, int connection_type, struct control_state **state, st
                 /* setting address to in6addr_any allows connections to be established
                  * from both IPv4 and IPv6 hosts. This behavior can be modified
                  * using the IPPROTO_IPV6 level socket option IPV6_V6ONLY if required.*/
-                struct sockaddr_storage ss{};
+                struct sockaddr_storage ss = { 0 };
                 socklen_t s_len = 0;
                 if (ip_version == 4) {
-                        auto *s_in = reinterpret_cast<struct sockaddr_in *>(&ss);
+                        struct sockaddr_in *s_in = (void *) &ss;
                         s_in->sin_family = AF_INET;
                         s_in->sin_addr.s_addr = htonl(INADDR_ANY);
                         s_in->sin_port = htons(s->network_port);
                         s_len = sizeof *s_in;
                 } else {
-                        auto *s_in6 = reinterpret_cast<struct sockaddr_in6 *>(&ss);
+                        struct sockaddr_in6 *s_in6 = (void *) &ss;
                         s_in6->sin6_family = AF_INET6;
                         s_in6->sin6_addr = in6addr_any;
                         s_in6->sin6_port = htons(s->network_port);
                         s_len = sizeof *s_in6;
                 }
 
-                rc = ::bind(s->socket_fd, reinterpret_cast<const struct sockaddr *>(&ss), s_len);
+                rc = bind(s->socket_fd, (const struct sockaddr *) &ss, s_len);
                 if (rc != 0) {
                         socket_error("Control socket - bind");
                         goto error;
@@ -296,7 +303,8 @@ int control_init(int port, int connection_type, struct control_state **state, st
 
         module_register(&s->mod, root_module);
 
-        if (const char *val = get_commandline_param("control-report-audio-ch-count")) {
+        const char *val = get_commandline_param("control-report-audio-ch-count");
+        if (val) {
                 s->audio_channel_report_count = strtoll(val, NULL, 0);
         }
 
@@ -304,10 +312,11 @@ int control_init(int port, int connection_type, struct control_state **state, st
         return 0;
 
 error:
+        /// @todo - handle in _done?
         if (s->socket_fd != INVALID_SOCKET) {
                 CLOSESOCKET(s->socket_fd);
         }
-        delete s;
+        control_done(s);
         return -1;
 }
 
@@ -319,8 +328,9 @@ void control_start(struct control_state *s)
 
         platform_pipe_init(s->internal_fd);
 
-        s->control_thread_id = thread(control_thread, s);
-        s->stat_event_thread_id = thread(stat_event_thread, s);
+        CHK_PTHR(pthread_create(&s->control_thread_id, nullptr, control_thread, s));
+        CHK_PTHR(pthread_create(&s->stat_event_thread_id, nullptr,
+                                stat_event_thread, s));
 
         /* @todo this should be perhaps at most LOG_LEVEL_VERBOSE
          * not to advertise it to users much as control socket is
@@ -341,8 +351,8 @@ process_audio_message(struct module *root_module, const char *cmd)
 
         if (strcmp(cmd, "mute") == 0 || strstr(cmd, "-receiver") != nullptr) {
                 strncpy(path, "audio.receiver", sizeof path);
-                auto *msg = (struct msg_receiver *) new_message(
-                    sizeof(struct msg_receiver));
+                struct msg_receiver *msg =
+                    (void *) new_message(sizeof(struct msg_receiver));
                 if (strcmp(cmd, "mute") == 0) {
                         msg->type = RECEIVER_MSG_MUTE_TOGGLE;
                 } else if (prefix_matches(cmd, "mute-")) {
@@ -358,8 +368,8 @@ process_audio_message(struct module *root_module, const char *cmd)
         }
         if (strstr(cmd, "-sender") != nullptr) {
                 set_message_path(path, sizeof path, path_audio_send_module);
-                auto *msg = (struct msg_audio_sender *) new_message(
-                    sizeof(struct msg_audio_sender));
+                struct msg_audio_sender *msg =
+                    (void *) new_message(sizeof(struct msg_audio_sender));
                 if (prefix_matches(cmd, "mute-")) {
                         msg->type = AUDIO_SENDER_MSG_MUTE;
                 } else if (prefix_matches(cmd, "unmute-")) {
@@ -373,8 +383,8 @@ process_audio_message(struct module *root_module, const char *cmd)
         }
         if (prefix_matches(cmd, "volume ")) {
                 strncpy(path, "audio.receiver", sizeof path);
-                auto *msg = (struct msg_receiver *) new_message(
-                    sizeof(struct msg_receiver));
+                struct msg_receiver *msg =
+                    (void *) new_message(sizeof(struct msg_receiver));
                 const char *dir = suffix(cmd, "volume ");
                 if (strcmp(dir, "up") == 0) {
                         msg->type = RECEIVER_MSG_INCREASE_VOLUME;
@@ -406,7 +416,7 @@ handle_removed_feature(char *message)
                 perror("");
                 msg = nullptr;
         }
-        auto *resp = new_response(RESPONSE_BAD_REQUEST, msg);
+        struct response *resp = new_response(RESPONSE_BAD_REQUEST, msg);
         free(msg);
         return resp;
 }
@@ -581,9 +591,9 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message, s
                    prefix_matches(message, "reset-ssrc")) {
                 resp = handle_removed_feature(message);
         } else if(prefix_matches(message, "fec ")) {
-                auto *msg = reinterpret_cast<struct msg_universal *>(new_message(sizeof(struct msg_universal)));
+                struct msg_universal *msg = (void *) new_message(sizeof(struct msg_universal));
                 char *fec = suffix(message, "fec ");
-                enum tx_media_type media_type{};
+                enum tx_media_type media_type = { 0 };
                 strncpy(msg->text, MSG_UNIVERSAL_TAG_TX "fec ", sizeof(msg->text) - 1);
 
                 if(strncasecmp(fec, "audio ", 6) == 0) {
@@ -946,16 +956,23 @@ static void *stat_event_thread(void *args)
         struct control_state *s = (struct control_state *) args;
 
         while (1) {
-                std::unique_lock<std::mutex> lk(s->stats_lock);
-                s->stat_event_cv.wait(lk, [s] { return s->stat_event_queue.size() > 0; });
-                string &line = s->stat_event_queue.front();
+                char *line = nullptr;
+                CHK_PTHR(pthread_mutex_lock(&s->stats_lock));
+                {
+                        while(simple_linked_list_size(s->stat_event_queue) == 0) {
+                                CHK_PTHR(pthread_cond_wait(&s->stat_event_cv,
+                                                           &s->stats_lock));
+                        }
+                        line = simple_linked_list_pop(s->stat_event_queue);
+                }
+                CHK_PTHR(pthread_mutex_unlock(&s->stats_lock));
 
-                if (line.empty()) {
+                if (!line) { // poison pill
                         break;
                 }
 
-                int ret = write_all(s->internal_fd[1], line.c_str(), line.length());
-                s->stat_event_queue.pop();
+                int ret = write_all(s->internal_fd[1], line, strlen(line));
+                free(line);
                 if (ret <= 0) {
                         MSG(ERROR, "Cannot write stat line!\n");
                 }
@@ -969,18 +986,21 @@ void control_done(struct control_state *s)
         if(!s) {
                 return;
         }
-        assert(s->magic == MODULE_MAGIC);
+        assert(s->magic == MAGIC);
 
         if(s->started) {
-                s->stats_lock.lock();
-                s->stat_event_queue.push({});
-                s->stats_lock.unlock();
-                s->stat_event_cv.notify_one();
-                s->stat_event_thread_id.join();
+                CHK_PTHR(pthread_mutex_lock(&s->stats_lock));
+                {
+                        simple_linked_list_append(s->stat_event_queue, nullptr);
+                }
+                CHK_PTHR(pthread_mutex_unlock(&s->stats_lock));
+
+                CHK_PTHR(pthread_cond_signal(&s->stat_event_cv));
+                CHK_PTHR(pthread_join(s->stat_event_thread_id, nullptr));
 
                 int ret = write_all(s->internal_fd[1], "quit\r\n", 6);
                 if (ret > 0) {
-                        s->control_thread_id.join();
+                        CHK_PTHR(pthread_join(s->control_thread_id, nullptr));
                         platform_pipe_close(s->internal_fd[1]);
                 } else {
                         MSG(ERROR, "Cannot exit control thread!\n");
@@ -993,47 +1013,51 @@ void control_done(struct control_state *s)
         }
 
         module_done(&s->mod);
-
-        delete s;
+        CHK_PTHR(pthread_mutex_destroy(&s->stats_lock));
+        CHK_PTHR(pthread_cond_destroy(&s->stat_event_cv));
+        simple_linked_list_destroy(s->stat_event_queue);
+        free(s);
 }
 
 static void
-control_report_stats_event(struct control_state *s, std::string &&report_line)
+control_report_stats_event(struct control_state *s, const char *prefix, const char *suffix)
 {
-        assert(s->magic == MODULE_MAGIC);
-        std::unique_lock<std::mutex> lk(s->stats_lock);
-
-        if (s->stat_event_queue.size() < MAX_STAT_EVENT_QUEUE) {
-                s->stat_event_queue.push(std::move(report_line));
-        } else {
-                MSG(WARNING, "Cannot write stats/event - queue full!!!\n");
+        assert(s->magic == MAGIC);
+        char *report_line = nullptr;
+        if (asprintf(&report_line, "%s %s\r\n", prefix, suffix) == -1) {
+                perror(__func__);
+                return;
         }
-        lk.unlock();
-        s->stat_event_cv.notify_one();
+
+        CHK_PTHR(pthread_mutex_lock(&s->stats_lock));
+        {
+                if (!simple_linked_list_append_if_less(s->stat_event_queue,
+                                                       report_line,
+                                                       MAX_STAT_EVENT_QUEUE)) {
+                        MSG(WARNING,
+                            "Cannot write stats/event - queue full!!!\n");
+                        free(report_line);
+                }
+        }
+        CHK_PTHR(pthread_mutex_unlock(&s->stats_lock));
+
+        CHK_PTHR(pthread_cond_signal(&s->stat_event_cv));
 }
 
 void
 control_report_stats(struct control_state *s, const char *stat_line)
 {
-        if (!s || !s->stats_on) {
-                return;
+        if (s && s->stats_on) {
+                control_report_stats_event(s, "stats", stat_line);
         }
-
-        string sline = string("stats ") + stat_line + "\r\n";
-
-        control_report_stats_event(s, std::move(sline));
 }
 
 void
 control_report_event(struct control_state *s, const char *event_line)
 {
-        if (!s) {
-                return;
+        if (s) {
+                control_report_stats_event(s, "event", event_line);
         }
-
-        string eline = string("event ") + event_line + "\r\n";
-
-        control_report_stats_event(s, std::move(eline));
 }
 
 bool control_stats_enabled(struct control_state *s)
