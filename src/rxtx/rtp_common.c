@@ -256,6 +256,19 @@ rtp_process_sender_message(struct rtp_rxtx_common_priv_state *s,
         return r;
 }
 
+static void
+medium_process_messages(struct rtp_rxtx_common_priv_state *s,
+                        enum tx_media_type                 t)
+{
+        struct message *msg_external = nullptr;
+        while ((msg_external = check_message(&s->medium[t].sender_mod)) !=
+               nullptr) {
+                struct msg_sender *msg = (struct msg_sender *) msg_external;
+                struct response   *r   = rtp_process_sender_message(s, msg, t);
+                free_message(msg_external, r);
+        }
+}
+
 void
 rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *pub,
                                 enum tx_media_type      t)
@@ -270,13 +283,7 @@ rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *pub,
 
         s->used = true;
 
-        struct message *msg_external = nullptr;
-        while ((msg_external = check_message(&medium_priv->sender_mod)) !=
-               nullptr) {
-                struct msg_sender *msg = (struct msg_sender *) msg_external;
-                struct response *r = rtp_process_sender_message(s, msg, t);
-                free_message(msg_external, r);
-        }
+        medium_process_messages(s, t);
 
         // do the house keeping if no receiver thread, otherwise it does
         // the stuff...
@@ -511,8 +518,11 @@ rtp_rxtx_common_done(struct rtp_rxtx_common *pub)
 
         for (unsigned i = 0; i < NUM_TX_MEDIA; ++i) {
                 struct rtp_rxtx_medium *medium_pub = &pub->medium[i];
+                struct rtp_medium_priv *medium_priv = &s->medium[i];
                 // skip unread messages - eg. gen by rtsp deleteStream
-                rtp_rxtx_sender_do_housekeeping(pub, i);
+                if (medium_priv->sender_mod.cls) {
+                        medium_process_messages(s, i);
+                }
                 if (medium_pub->network_device != nullptr) {
                         destroy_rtp_device(medium_pub->network_device);
                 }
@@ -522,7 +532,6 @@ rtp_rxtx_common_done(struct rtp_rxtx_common *pub)
                 if (medium_pub->tx != nullptr) {
                         tx_done(medium_pub->tx);
                 }
-                struct rtp_medium_priv *medium_priv = &s->medium[i];
                 if (medium_priv->mutex_initialized) {
                         CHK_PTHR(pthread_mutex_destroy(&medium_pub->lock));
                 }
