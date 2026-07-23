@@ -70,11 +70,10 @@ struct packet_counter {
 };
 
 struct packet_counter *
-packet_counter_init(int num_substreams)
+packet_counter_init()
 {
         struct packet_counter *s = calloc(1, sizeof *s);
         s->magic                 = MAGIC;
-        s->num_substreams        = num_substreams;
         return s;
 }
 
@@ -174,12 +173,6 @@ packet_counter_get_bytes(struct packet_counter *s, long *expected_o,
         }
         *expected_o = expected;
         *received_o = received;
-}
-
-int
-packet_counter_get_channels(struct packet_counter *s)
-{
-        return s->num_substreams;
 }
 
 void

@@ -42,13 +42,12 @@
 extern "C" {
 #endif /* __cplusplus */
 
-struct packet_counter *packet_counter_init(int num_substreams);
+struct packet_counter *packet_counter_init();
 void packet_counter_destroy(struct packet_counter *state);
 void packet_counter_register_packet(struct packet_counter *state, unsigned int substream_id,
                 unsigned int bufnum, unsigned int offset, unsigned int len);
 void packet_counter_get_bytes(struct packet_counter *state, long *expected,
                               long *received);
-int  packet_counter_get_channels(struct packet_counter *state);
 void packet_counter_clear(struct packet_counter *state);
 
 #ifdef __cplusplus

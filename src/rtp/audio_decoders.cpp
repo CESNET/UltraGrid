@@ -158,7 +158,7 @@ audio_decoder_init(const char *encryption, struct module *parent)
         auto *s = new struct state_audio_decoder();
         s->magic = AUDIO_DECODER_MAGIC;
         s->audio_decompress = NULL;
-        s->packet_counter = packet_counter_init(0);
+        s->packet_counter = packet_counter_init();
         s->control = get_control_state(parent);
 
         if (strlen(encryption) > 0) {
@@ -423,11 +423,6 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                 unsigned int offset = ntohl(audio_hdr[1]);
                 unsigned int buffer_len = ntohl(audio_hdr[2]);
                 //fprintf(stderr, "%d-%d-%d ", length, bufnum, channel);
-
-                if (packet_counter_get_channels(decoder->packet_counter) != input_channels) {
-                        packet_counter_destroy(decoder->packet_counter);
-                        decoder->packet_counter = packet_counter_init(input_channels);
-                }
 
                 if (PT_AUDIO_HAS_FEC(pt)) {
                         fec_data.resize(input_channels);
