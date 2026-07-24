@@ -840,7 +840,7 @@ static auto codec_list_to_str(vector<codec_t> const &codecs) {
         }
         ostringstream oss;
         auto it = codecs.begin();
-        oss << *it++;
+        oss << get_codec_name(*it++);
         for ( ; it != codecs.end(); ++it) {
                 oss << (it + 1 == codecs.end() ? " and " : ", ") << get_codec_name(*it);
         }
