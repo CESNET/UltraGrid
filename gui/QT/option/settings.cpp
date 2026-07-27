@@ -198,7 +198,7 @@ static void network_mode_callback(Option &opt, bool /*subopt*/, void *){
 	destinationOpt.setEnabled(mode != " -S");
 }
 
-const static struct{
+static constexpr struct{
 	const char *name;
 	Option::OptType type;
 	const char *param;
@@ -255,6 +255,19 @@ const static struct{
 	{"errors_fatal", Option::BoolOpt, " --param errors-fatal", "t", true, "", ""},
 	{"encryption", Option::StringOpt, " --encryption ", "", false, "", ""},
 };
+
+static_assert([]{
+	for(const auto& opt: optionList){
+		if(opt.type == Option::BoolOpt){
+			if(opt.enabled && opt.defaultVal != std::string_view("t"))
+				return false;
+			if(!opt.enabled && opt.defaultVal != std::string_view("f"))
+				return false;
+		}
+	}
+
+	return true;
+}(), "Bool options .defaultVal doesn't match .enabled");
 
 const struct {
 	const char *name;
