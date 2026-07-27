@@ -3721,6 +3721,11 @@ if test "${fluidsynth_req?}" != no; then
                                 [found_fluidsynth=no])
         if test "${found_fluidsynth?}" = yes; then
                 add_module acap_fluidsynth src/audio/capture/fluidsynth.o "$FLUIDSYNTH_LIBS"
+
+                # drop -D_XOPEN_SOURCE=600 (not intended: https://lists.gnu.org/archive/html/bug-ncurses/2016-11/msg00016.html)
+                [FLUIDSYNTH_CFLAGS=$(echo "$FLUIDSYNTH_CFLAGS" | ]dnl
+                [sed 's/ *-D_XOPEN_SOURCE=600 */ /')]
+
                 INC="$INC${FLUIDSYNTH_CFLAGS:+ $FLUIDSYNTH_CFLAGS}"
                 fluidsynth=yes
         fi
