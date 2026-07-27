@@ -522,6 +522,22 @@ render_builtin(struct testcard_state2 *s, const char *frames, char *banner)
                          frames, 0xFF000000U, 0xFFFFFFFFU, scale);
 }
 
+static void
+format_time(double interval, int frame_remainder, size_t buflen,
+            char buf[static buflen])
+{
+        char days[10] = "";
+        int hours = (int) interval / 3600;
+        int minutes = (int) interval / 60 % 60;
+        int seconds = (int) interval / 60 % 60;
+        if (hours >= 24) {
+                snprintf_ch(days, "%dd ", hours / 24);
+                hours %= 24;
+        }
+        (void) snprintf(buf, buflen, "%s%02d:%02d:%02d %3d", days, hours,
+                        minutes, seconds, frame_remainder);
+}
+
 /**
  * Only text banner is rendered in RGBA, other elements (background, squares) are already
  * converted to destination color space. Keep in mind that the regions should be aligned
@@ -606,16 +622,14 @@ void * vidcap_testcard2_thread(void *arg)
                 add_noise(tmp, data_len, get_bpp(s->desc.color_spec), s->noise);
 
                 memset(banner, 0xFF, 4L * s->desc.width * BANNER_HEIGHT);
-                char frames[64];
+                char interval_str[64];
                 double since_start = tv_diff(next_frame_time, s->start_time);
-                snprintf(frames, sizeof frames, "%02d:%02d:%02d %3d", (int) since_start / 3600,
-                                (int) since_start / 60 % 60,
-                                (int) since_start % 60,
-                                 s->count % (int) s->desc.fps);
+                format_time(since_start, s->count % (int) s->desc.fps,
+                            sizeof interval_str, interval_str);
                 if (s->use_builtin_font) {
-                        render_builtin(s, frames, (char *) banner);
+                        render_builtin(s, interval_str, (char *) banner);
                 } else {
-                        render_sdl_ttf(s, frames, banner);
+                        render_sdl_ttf(s, interval_str, banner);
                 }
 
                 testcard_convert_buffer(
