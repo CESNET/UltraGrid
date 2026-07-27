@@ -236,7 +236,7 @@ const static struct{
 	{"network.destination", Option::StringOpt, " ", "", false, "", ""},
 	{"network.port", Option::StringOpt, " -P ", "5004", false, "", ""},
 	{"network.control_port", Option::StringOpt, " --control-port ", "8888", true, "", ""},
-	{"network.control_port.random", Option::BoolOpt, "", "", true, "", ""},
+	{"network.control_port.random", Option::BoolOpt, "", "t", true, "", ""},
 	{"network.fec", Option::StringOpt, " -f ", "", false, "", ""},
 	{"type", Option::SilentOpt, "", "", false, "network.fec", ""},
 	{"enabled", Option::BoolOpt, "", "f", false, "network.fec", ""},
