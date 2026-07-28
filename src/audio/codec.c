@@ -104,7 +104,8 @@ get_audio_codec_list()
                 if (ai->audio_tag == 0) {
                         continue;
                 }
-                strcpy_ch(ret.item[ret.count++], ai->name);
+                strcpy_ch(ret.item[ret.count], ai->name);
+                ret.count++;
         }
 
         return ret;
