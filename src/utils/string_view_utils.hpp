@@ -176,4 +176,10 @@ bool parse_num(std::string_view sv, T& res){
         return parse_num_fallback_impl<T, strtof>(sv, res);
 }
 
+template<size_t N>
+void copy_to_char_array(char (&dst)[N], const std::string_view sv){
+        size_t len = sv.copy(dst, N - 1);
+        dst[len] = '\0';
+}
+
 #endif
