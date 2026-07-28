@@ -36,7 +36,7 @@ build_install() (
         cmake --build SDL_ttf/build -j "$(nproc)"
         sudo cmake --install SDL_ttf/build
 
-        git clone --recurse-submodules --depth 1\
+        git clone --recurse-submodules --depth 1 --branch release/2.5\
          https://github.com/Fluidsynth/fluidsynth
         # shellcheck disable=SC2086 # intentional
         cmake $features -S fluidsynth -B fluidsynth/build
