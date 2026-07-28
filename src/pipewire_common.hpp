@@ -124,6 +124,7 @@ struct Pipewire_device{
         std::string nick; //Display name
         std::string description; //Longer display name
         std::string serial;
+        std::string device_id; //Id of the whole soundcard, should be same across its inputs & outputs
 
         std::string media_class; //"Audio/Sink", "Audio/Source"...
 };

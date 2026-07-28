@@ -72,6 +72,8 @@ static void on_registry_event_global(void *data, uint32_t /*id*/,
                         dev.name = val;
                 else if(key == "object.serial")
                         dev.serial = val;
+                else if(key == "device.id")
+                        dev.device_id = val;
         }
 
         result->push_back(std::move(dev));
