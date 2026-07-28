@@ -79,7 +79,7 @@ static void on_registry_event_global(void *data, uint32_t /*id*/,
         result->push_back(std::move(dev));
 }
 
-std::vector<Pipewire_device> get_pw_device_list(){
+std::vector<Pipewire_device> get_pw_device_list(std::string_view filter){
         pipewire_state_common s;
         initialize_pw_common(s);
 
@@ -104,6 +104,10 @@ std::vector<Pipewire_device> get_pw_device_list(){
         do{
                 pw_thread_loop_wait(s.pipewire_loop.get());
         } while(s.pw_last_seq < wait_seq);
+
+        if(!filter.empty()){
+                std::erase_if(result, [filter](const Pipewire_device& dev){ return dev.media_class != filter; });
+        }
 
         return result;
 }

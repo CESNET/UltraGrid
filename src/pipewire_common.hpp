@@ -131,7 +131,7 @@ struct Pipewire_device{
 
 bool initialize_pw_common(pipewire_state_common& s, int fd = -1);
 
-std::vector<Pipewire_device> get_pw_device_list();
+std::vector<Pipewire_device> get_pw_device_list(std::string_view filter = "");
 void print_devices(std::string_view media_class);
 
 inline spa_audio_format get_pw_format_from_bps(unsigned bps){
