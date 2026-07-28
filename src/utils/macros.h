@@ -117,6 +117,10 @@
 
 /**
  * bound checking strcpy; allways 0-terminates
+ * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ * !!! DO NOT CALL WITH EXPRESIONS THAT HAVE SIDE EFFECTS !!!
+ * e.g. calling with list[idx++] will cause idx to be incremented multiple times
+ * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  * @param dst  must be an char array (not a pointer) - bound is taken from size
  * @param src  C string (null-terminated byte string)
  */
