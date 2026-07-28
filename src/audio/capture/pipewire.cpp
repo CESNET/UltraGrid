@@ -51,6 +51,8 @@
 
 #define MOD_NAME "[PW acap] "
 
+constexpr static std::string_view CAPTURE_MEDIA_CLASS = "Audio/Source";
+
 struct state_pipewire_cap{
         pipewire_state_common pw;
 
@@ -183,7 +185,7 @@ static void audio_cap_pw_help(){
         color_printf("\n");
 
         color_printf("Devices:\n");
-        print_devices("Audio/Source");
+        print_devices(CAPTURE_MEDIA_CLASS);
 }
 
 static void *audio_cap_pipewire_init(module *parent, const char *cfg){
@@ -312,11 +314,25 @@ static void audio_cap_pipewire_done(void *state){
 
 static void audio_cap_pipewire_probe(device_info **available_devices, int *count, void (**deleter)(void *))
 {
+        auto devices = get_pw_device_list(CAPTURE_MEDIA_CLASS);
+
         *deleter = free;
-        *available_devices = static_cast<device_info *>(calloc(1, sizeof(device_info)));
-        strcpy((*available_devices)[0].dev, "");
-        strcpy((*available_devices)[0].name, "Default pipewire capture");
-        *count = 1;
+        const int dev_count = static_cast<int>(devices.size() + 1);
+        *available_devices = static_cast<device_info *>(calloc(dev_count, sizeof(device_info)));
+        copy_to_char_array((*available_devices)[0].dev, "");
+        copy_to_char_array((*available_devices)[0].name, "Default pipewire capture");
+
+        int idx = 1;
+
+        for(const auto& dev : devices){
+                std::string opt = ":device=" + dev.name;
+                std::string desc = dev.description + " (ID: " + dev.device_id + ")";
+                copy_to_char_array((*available_devices)[idx].dev, opt);
+                copy_to_char_array((*available_devices)[idx].name, desc);
+                idx++;
+        }
+
+        *count = dev_count;
 }
 
 constexpr audio_capture_info acap_pipewire_info = {
