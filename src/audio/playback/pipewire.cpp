@@ -56,6 +56,8 @@
 
 #define MOD_NAME "[PW aplay] "
 
+constexpr static std::string_view PLAYBACK_MEDIA_CLASS = "Audio/Sink";
+
 struct state_pipewire_play{
         pipewire_state_common pw;
 
@@ -72,11 +74,25 @@ struct state_pipewire_play{
 
 static void audio_play_pw_probe(device_info **available_devices, int *count, void (**deleter)(void *))
 {
+        auto devices = get_pw_device_list(PLAYBACK_MEDIA_CLASS);
+
         *deleter = free;
-        *available_devices = static_cast<device_info *>(calloc(1, sizeof(device_info)));
-        strcpy((*available_devices)[0].dev, "");
-        strcpy((*available_devices)[0].name, "Default pipewire output");
-        *count = 1;
+        const int dev_count = static_cast<int>(devices.size() + 1);
+        *available_devices = static_cast<device_info *>(calloc(dev_count, sizeof(device_info)));
+        copy_to_char_array((*available_devices)[0].dev, "");
+        copy_to_char_array((*available_devices)[0].name, "Default pipewire output");
+
+        int idx = 1;
+
+        for(const auto& dev : devices){
+                std::string opt = ":device=" + dev.name;
+                std::string desc = dev.description + " (ID: " + dev.device_id + ")";
+                copy_to_char_array((*available_devices)[idx].dev, opt);
+                copy_to_char_array((*available_devices)[idx].name, desc);
+                idx++;
+        }
+
+        *count = dev_count;
 }
 
 static void audio_play_pw_help(){
@@ -86,7 +102,7 @@ static void audio_play_pw_help(){
         color_printf("\n");
 
         color_printf("Devices:\n");
-        print_devices("Audio/Sink");
+        print_devices(PLAYBACK_MEDIA_CLASS);
 }
 
 /* This function can only use realtime-safe calls (no locking, allocating, etc.)
