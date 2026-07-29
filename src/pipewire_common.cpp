@@ -34,12 +34,26 @@ static const struct pw_core_events core_events = {
 bool initialize_pw_common(pipewire_state_common& s, int fd){
         s.init_guard.init();
         s.pipewire_loop.reset(pw_thread_loop_new("Playback", nullptr));
-        s.pipewire_context.reset(pw_context_new(pw_thread_loop_get_loop(s.pipewire_loop.get()), nullptr, 0)); //TODO check return
+        if(!s.pipewire_loop){
+                log_msg(LOG_LEVEL_ERROR, "pw_thread_loop_new failed (%s)\n", strerror(errno));
+                return false;
+        }
+
+        s.pipewire_context.reset(pw_context_new(pw_thread_loop_get_loop(s.pipewire_loop.get()), nullptr, 0));
+        if(!s.pipewire_context){
+                log_msg(LOG_LEVEL_ERROR, "pw_context_new failed (%s)\n", strerror(errno));
+                return false;
+        }
                                                                                                 
         if(fd != -1)
                 s.pipewire_core.reset(pw_context_connect_fd(s.pipewire_context.get(), fd, nullptr, 0));
         else
                 s.pipewire_core.reset(pw_context_connect(s.pipewire_context.get(), nullptr, 0));
+
+        if(!s.pipewire_core){
+                log_msg(LOG_LEVEL_ERROR, "pw_context_connect failed (%s)\n", strerror(errno));
+                return false;
+        }
 
         pw_core_add_listener(s.pipewire_core.get(), &s.core_listener.get(), &core_events, &s);
 
@@ -81,7 +95,9 @@ static void on_registry_event_global(void *data, uint32_t /*id*/,
 
 std::vector<Pipewire_device> get_pw_device_list(std::string_view filter){
         pipewire_state_common s;
-        initialize_pw_common(s);
+        if(!initialize_pw_common(s)){
+                return {};
+        }
 
         std::vector<Pipewire_device> result;
 
