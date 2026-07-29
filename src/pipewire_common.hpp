@@ -10,23 +10,16 @@
 #include <spa/debug/types.h> //For pw format to string
 #include <pipewire/pipewire.h>
 #include "types.h"
+#include "utils/misc.h"
 
-template<typename T, auto delete_func>
-struct raii_deleter_helper { void operator()(T *p) { delete_func(p); } };
-template<typename T, auto delete_func>
-using raii_uniq_handle = std::unique_ptr<T, raii_deleter_helper<T, delete_func>>;
+using pw_thread_loop_uniq = std::unique_ptr<pw_thread_loop, deleter_from_fcn<pw_thread_loop_destroy>>;
+using pw_main_loop_uniq = std::unique_ptr<pw_main_loop, deleter_from_fcn<pw_main_loop_destroy>>;
+using pw_stream_uniq = std::unique_ptr<pw_stream, deleter_from_fcn<pw_stream_destroy>>;
+using pw_context_uniq = std::unique_ptr<pw_context, deleter_from_fcn<pw_context_destroy>>;
+using pw_core_uniq = std::unique_ptr<pw_core, deleter_from_fcn<pw_core_disconnect>>;
 
-template<typename T>
-struct raii_proxy_deleter_helper { void operator()(T *p) { pw_proxy_destroy(reinterpret_cast<pw_proxy *>(p)); } };
-template<typename T>
-using raii_uniq_proxy_handle = std::unique_ptr<T, raii_proxy_deleter_helper<T>>;
-
-using pw_thread_loop_uniq = raii_uniq_handle<pw_thread_loop, pw_thread_loop_destroy>;
-using pw_main_loop_uniq = raii_uniq_handle<pw_main_loop, pw_main_loop_destroy>;
-using pw_stream_uniq = raii_uniq_handle<pw_stream, pw_stream_destroy>;
-using pw_context_uniq = raii_uniq_handle<pw_context, pw_context_destroy>;
-using pw_core_uniq = raii_uniq_handle<pw_core, pw_core_disconnect>;
-using pw_registry_uniq = raii_uniq_proxy_handle<pw_registry>;
+struct raii_proxy_deleter_helper { void operator()(auto *p) const { pw_proxy_destroy(reinterpret_cast<pw_proxy *>(p)); } };
+using pw_registry_uniq = std::unique_ptr<pw_registry, raii_proxy_deleter_helper>;
 
 struct spa_hook_uniq{
         spa_hook_uniq(){
