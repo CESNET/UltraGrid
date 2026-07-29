@@ -125,8 +125,6 @@ std::vector<Pipewire_device> get_pw_device_list(std::string_view filter){
                 std::erase_if(result, [filter](const Pipewire_device& dev){ return dev.media_class != filter; });
         }
 
-        pw_thread_loop_stop(s.pipewire_loop.get());
-
         return result;
 }
 
