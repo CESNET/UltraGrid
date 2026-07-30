@@ -2088,6 +2088,21 @@ else
 fi
 
 ENSURE_FEATURE_PRESENT([$libavcodec_req], [$libavcodec], [Libavcodec not found])
+
+# Dedicated GStreamer VA-API HEVC decoder. Runtime availability of vah265dec
+# is checked when the pipeline is constructed on the receiver.
+PKG_CHECK_MODULES([GSTREAMER_VA],
+        [gstreamer-1.0 >= 1.20 gstreamer-app-1.0 >= 1.20],
+        [
+                COMMON_FLAGS="$COMMON_FLAGS $GSTREAMER_VA_CFLAGS"
+                add_module vdecompress_gstreamer_va \
+                        "src/video_decompress/gstreamer_va.o" \
+                        "$GSTREAMER_VA_LIBS"
+                add_module vcompress_gstreamer_va \
+                        "src/video_compress/gstreamer_va.o" \
+                        "$GSTREAMER_VA_LIBS"
+        ],
+        [AC_MSG_NOTICE([GStreamer app development files not found; disabling GStreamer VA decoder])])
 ENSURE_FEATURE_PRESENT([$lavc_cuda_conv_req], [$lavc_cuda],
         [either libavcodec or CUDA>=9 missing for lavc_cuda])
 
@@ -4088,4 +4103,3 @@ AC_DEFINE_UNQUOTED([SRCDIR], "$srcdir", [path to src directory])
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
-

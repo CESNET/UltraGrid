@@ -1103,10 +1103,16 @@ static bool try_open_codec(struct state_video_compress_libav *s,
 #endif
 
         get_av_pixfmt_details(pix_fmt, &s->codec_ctx->colorspace, &s->codec_ctx->color_range);
-        // QSV always converts to limited BT.601 but writes to metadata contents
-        // of AVCodecContex so set the attribs to correspond
+        // Legacy QSV RGB input paths are internally converted to limited-range
+        // BT.601. X2RGB10LE is different: it is the native full-range RGB
+        // surface used for HEVC RExt 10-bit 4:4:4, so preserve the RGB/full
+        // metadata assigned by get_av_pixfmt_details().
         if (strstr(codec->name, "_qsv") != nullptr &&
-            codec_is_a_rgb(desc.color_spec)) {
+            codec_is_a_rgb(desc.color_spec)
+#if X2RGB10LE_PRESENT
+            && pix_fmt != AV_PIX_FMT_X2RGB10LE
+#endif
+        ) {
                 s->codec_ctx->colorspace =
                     AVCOL_SPC_BT470BG; // or AVCOL_SPC_SMPTE170M?
                 s->codec_ctx->color_range = AVCOL_RANGE_MPEG;
@@ -2061,6 +2067,21 @@ static void configure_qsv_h264_hevc(AVCodecContext *codec_ctx, struct setparam_p
                                        DEFAULT_QSV_PRESET);
         check_av_opt_set<const char *>(codec_ctx->priv_data, "scenario", "livestreaming");
         check_av_opt_set<int>(codec_ctx->priv_data, "async_depth", 1);
+
+        const AVPixFmtDescriptor *pix_desc =
+            av_pix_fmt_desc_get(param->av_pix_fmt);
+        const bool hevc_rext_444 =
+            strcmp(codec_ctx->codec->name, "hevc_qsv") == 0 &&
+            pix_desc != nullptr &&
+            av_pixfmt_get_subsampling(param->av_pix_fmt) == SUBS_444 &&
+            pix_desc->comp[0].depth == 10;
+        if (hevc_rext_444 && !param->lavc_opts.contains("profile")) {
+                // Main10 means 4:2:0. QSV requires HEVC Range Extensions for
+                // X2RGB10LE/XV30 10-bit 4:4:4 input.
+                check_av_opt_set<const char *, true>(
+                    codec_ctx->priv_data, "profile", "rext",
+                    "HEVC 10-bit 4:4:4 profile");
+        }
 
         if (param->periodic_intra != 0) {
                 incomp_feature_warn(INCOMP_INTRA_REFRESH, param->periodic_intra);

@@ -79,6 +79,7 @@ DECLARE_TEST(ff_codec_conversions_test_yuv444pXXle_from_to_r12l);
 DECLARE_TEST(ff_codec_conversions_test_yuv444p16le_from_to_rg48);
 DECLARE_TEST(ff_codec_conversions_test_yuv444p16le_from_to_rg48_out_of_range);
 DECLARE_TEST(ff_codec_conversions_test_pX10_from_to_v210);
+DECLARE_TEST(ff_codec_conversions_test_r12l_to_x2rgb10le);
 DECLARE_TEST(get_framerate_test_2997);
 DECLARE_TEST(get_framerate_test_3000);
 DECLARE_TEST(get_framerate_test_free);
@@ -115,6 +116,7 @@ static const struct {
         DEFINE_TEST(ff_codec_conversions_test_yuv444p16le_from_to_rg48),
         DEFINE_TEST(ff_codec_conversions_test_yuv444p16le_from_to_rg48_out_of_range),
         DEFINE_TEST(ff_codec_conversions_test_pX10_from_to_v210),
+        DEFINE_TEST(ff_codec_conversions_test_r12l_to_x2rgb10le),
 #endif // defined HAVE_LAVC
         DEFINE_TEST(get_framerate_test_2997),
         DEFINE_TEST(get_framerate_test_3000),
@@ -205,4 +207,3 @@ int main(int argc, char **argv)
         // Return error code 1 if the one of test failed.
         return success ? 0 : 1;
 }
-

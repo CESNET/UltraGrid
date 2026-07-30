@@ -156,6 +156,7 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
         struct audio_vals {
                 int64_t saved_sync_ts = INT64_MIN;
                 int64_t last_sync_ts  = INT64_MIN;
+                BMDTimeValue next_stream_time = -1;
         };
 
         enum audio_sync_val : int64_t {
@@ -1724,12 +1725,49 @@ void PlaybackDelegate::ScheduleAudio(const struct audio_frame *frame,
                     m_adata.saved_sync_ts = m_audio_sync_ts;
         }
 
-        if (frame->timestamp < m_adata.last_sync_ts) { // wrap-around
-                m_adata.last_sync_ts -= (1LLU << 32);
+        BMDTimeValue streamTime;
+        if (frame->timestamp == -1) {
+                /*
+                 * Uncompressed audio may not carry an RTP timestamp.  Do not
+                 * feed -1 through the RTP-to-stream-time calculation: after
+                 * unsigned timestamp conversion that schedules many hours of
+                 * silence ahead of the DeckLink playback clock.
+                 *
+                 * Anchor the first block slightly ahead of the current
+                 * scheduled playback position, then keep subsequent PCM
+                 * blocks sample-contiguous.
+                 */
+                if (m_adata.next_stream_time < 0) {
+                        BMDTimeValue current_time = 0;
+                        double playback_speed = 0.0;
+                        const HRESULT res =
+                            m_deckLinkOutput->GetScheduledStreamTime(
+                                bmdAudioSampleRate48kHz, &current_time,
+                                &playback_speed);
+                        if (FAILED(res)) {
+                                LOG(LOG_LEVEL_ERROR)
+                                    << MOD_NAME << "GetScheduledStreamTime: "
+                                    << bmd_hresult_to_string(res) << "\n";
+                                *samples = 0;
+                                return;
+                        }
+                        const BMDTimeValue audio_preroll =
+                            static_cast<BMDTimeValue>(m_min_sched_frames) *
+                            frameRateDuration * bmdAudioSampleRate48kHz /
+                            frameRateScale;
+                        m_adata.next_stream_time =
+                            current_time + audio_preroll;
+                }
+                streamTime = m_adata.next_stream_time;
+                m_adata.next_stream_time += *samples;
+        } else {
+                if (frame->timestamp < m_adata.last_sync_ts) { // wrap-around
+                        m_adata.last_sync_ts -= (1LLU << 32);
+                }
+                streamTime =
+                    ((int64_t) frame->timestamp - m_adata.last_sync_ts) *
+                    bmdAudioSampleRate48kHz / 90000;
         }
-        BMDTimeValue streamTime =
-            ((int64_t) frame->timestamp - m_adata.last_sync_ts) *
-            bmdAudioSampleRate48kHz / 90000;
 
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "audio streamTime: " << streamTime
                              << "; samples: " << *samples

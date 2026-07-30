@@ -1260,6 +1260,40 @@ static void r10k_to_x2rgb10le(AVFrame * __restrict out_frame, const unsigned cha
         }
 }
 
+/**
+ * Convert DeckLink's packed 12-bit RGB to FFmpeg's native-endian
+ * X2RGB10LE layout. The QSV HEVC encoder accepts X2RGB10LE for its
+ * Range Extensions 10-bit 4:4:4 path.
+ *
+ * Reuse the well-tested R12L -> R10k unpacker so the unusual eight-pixel
+ * packing has a single source of truth. Dropping the two least-significant
+ * bits is intentional: HEVC RExt is 10-bit while DeckLink R12L is 12-bit.
+ */
+static void
+r12l_to_x2rgb10le(AVFrame *__restrict out_frame,
+                  const unsigned char *__restrict in_data, int width,
+                  int height)
+{
+        const int src_linesize  = vc_get_linesize(width, R12L);
+        const int r10k_linesize = vc_get_linesize(width, R10k);
+        decoder_t r12l_to_r10k  = get_decoder_from_to(R12L, R10k);
+        assert(r12l_to_r10k != NULL);
+
+        unsigned char r10k_line[r10k_linesize + MAX_PADDING];
+        for (int y = 0; y < height; ++y) {
+                r12l_to_r10k(r10k_line, in_data + y * src_linesize,
+                             r10k_linesize, 0, 0, 0);
+
+                const uint32_t *src =
+                    (const uint32_t *)(const void *) r10k_line;
+                uint32_t *dst = (uint32_t *)(void *)
+                    (out_frame->data[0] + out_frame->linesize[0] * y);
+                for (int x = 0; x < width; ++x) {
+                        *dst++ = ntohl(*src++) >> 2U;
+                }
+        }
+}
+
 static void rgb_to_gbrp(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         rgb_rgba_to_gbrp(out_frame, in_data, width, height, 3);
@@ -1429,6 +1463,7 @@ static const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { R10k, AV_PIX_FMT_GBRP16LE,    r10k_to_gbrp16le },
 #if X2RGB10LE_PRESENT
                 { R10k, AV_PIX_FMT_X2RGB10LE,   r10k_to_x2rgb10le },
+                { R12L, AV_PIX_FMT_X2RGB10LE,   r12l_to_x2rgb10le },
 #endif
                 { R10k, AV_PIX_FMT_YUV422P10LE, r10k_to_yuv422p10le },
                 { R10k, AV_PIX_FMT_YUV420P10LE, r10k_to_yuv420p10le },
