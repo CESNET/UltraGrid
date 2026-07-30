@@ -597,7 +597,7 @@ struct command_line_arguments {
         int x = SDL_WINDOWPOS_UNDEFINED;
         int y = SDL_WINDOWPOS_UNDEFINED;
 
-        uint32_t window_flags = 0 ; ///< user requested flags
+        SDL_WindowFlags window_flags = 0; ///< user requested flags
         uint32_t gpu_idx = vkd::no_gpu_selected;
         std::string driver{};
         std::map<std::string, std::string> hints;
@@ -844,7 +844,7 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int /*flags*
         if (s->width == 0) s->width = 960;
         if (s->height == 0) s->height = 540;
 
-        int window_flags = args.window_flags | SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+        SDL_WindowFlags window_flags = args.window_flags | SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
         if (s->fullscreen) {
                 window_flags |= SDL_WINDOW_FULLSCREEN;
         }
