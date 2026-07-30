@@ -161,7 +161,7 @@ static void compress_process_message(struct compress_state *proxy, struct msg_ch
                                 (struct msg_change_compress_data *)
                                 new_message(sizeof(struct msg_change_compress_data));
                         tmp_data->what = data->what;
-                        strcpy_ch(tmp_data->config_string, data->config_string);
+                        snprintf_ch(tmp_data->config_string, data->config_string);
                         char receiver[100];
                         snprintf(receiver, sizeof receiver, "data[%u]", i);
                         struct response *resp = send_message(&proxy->mod, receiver,

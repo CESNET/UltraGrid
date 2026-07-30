@@ -107,40 +107,10 @@
                     (int) sizeof str) {                                        \
                         break;                                                 \
                 }                                                              \
-                (void) fprintf(stderr,                                         \
-                               "\n%s:%d: %s: snprintf truncates %s (%d B "     \
-                               "needed, %zu B given)!\n\n",                    \
-                               __FILE__, __LINE__, __func__, #str,             \
-                               snprintf(str, sizeof str, __VA_ARGS__),         \
-                               sizeof str);                                    \
-        } while (0)
-
-/**
- * bound checking strcpy; allways 0-terminates
- * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- * !!! DO NOT CALL WITH EXPRESIONS THAT HAVE SIDE EFFECTS !!!
- * e.g. calling with list[idx++] will cause idx to be incremented multiple times
- * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- * @param dst  must be an char array (not a pointer) - bound is taken from size
- * @param src  C string (null-terminated byte string)
- */
-#define strcpy_ch(dst, src)                                                    \
-        do { /* NOLINT(cppcoreguidelines-avoid-do-while) */                    \
-                unsigned dst_sz  = sizeof dst;                                 \
-                unsigned src_len = strlen(src);                                \
-                if (src_len >= dst_sz) {                                       \
-                        memcpy(dst, src, dst_sz - 1);                          \
-                        dst[dst_sz - 1] = '\0';                                \
-                        (void) fprintf(                                        \
-                            stderr,                                            \
-                            "\n%s:%d: %s: strcpy_ch truncates %s (%u B "       \
-                            "needed %u B given)!\n\n",                         \
-                            __FILE__, __LINE__, __func__, #src, src_len + 1,   \
-                            dst_sz);                                           \
-                } else {                                                       \
-                        memcpy(dst, src, src_len);                             \
-                        dst[src_len] = '\0';                                   \
-                }                                                              \
+                (void) fprintf(                                                \
+                    stderr,                                                    \
+                    "\n%s:%d: %s: snprintf truncates %s (%zu B given)!\n\n",   \
+                    __FILE__, __LINE__, __func__, #str, sizeof str);           \
         } while (0)
 
 #define STARTS_WITH(str, token) !strncmp(str, token, strlen(token))

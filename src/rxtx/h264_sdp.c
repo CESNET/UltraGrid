@@ -60,7 +60,7 @@
 #include "transmit.h"
 #include "tv.h"
 #include "types.h"               // for video_frame, VIDEO_CODEC_NONE, codec_t
-#include "utils/macros.h"        // for strcpy_ch, to_fourcc
+#include "utils/macros.h"        // for snprintf_ch, to_fourcc
 #include "utils/sdp.h"
 #include "video_codec.h"         // for is_codec_opaque
 
@@ -136,7 +136,7 @@ create_rxtx_h264_sdp(struct rxtx_params *params)
 
         // adj parameters
         if (strlen(params->video_compression) == 0) {
-                strcpy_ch(params->video_compression,
+                snprintf_ch(params->video_compression,
                           DEFAULT_SDP_COMPRESSION " (tentatively)");
         }
         if (audio_capture_channels > 1) {
@@ -147,7 +147,7 @@ create_rxtx_h264_sdp(struct rxtx_params *params)
         } else {
                 audio_capture_channels = 1;
         }
-        strcpy_ch(params->audio_compression, "MP3");
+        snprintf_ch(params->audio_compression, "MP3");
 
         return s;
 }
@@ -164,7 +164,7 @@ sdp_send_change_address_message(struct module           *root,
         // CHANGE DST ADDRESS
         struct msg_sender *msgV2 = (struct msg_sender *)
             new_message(sizeof(struct msg_sender));
-        strcpy_ch(msgV2->receiver, address);
+        snprintf_ch(msgV2->receiver, address);
         msgV2->type = SENDER_MSG_CHANGE_RECEIVER;
 
         struct response *resp = send_message(root, pathV, (struct message *) msgV2);

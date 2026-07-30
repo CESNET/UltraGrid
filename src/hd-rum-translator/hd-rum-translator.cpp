@@ -80,7 +80,7 @@
 #include "rxtx/rtp_common.h" // for RTP_RATE_UNLIMITED
 #include "tv.h"
 #include "utils/color_out.h"
-#include "utils/macros.h" // for strcpy_ch
+#include "utils/macros.h" // for snprintf_ch
 #include "utils/misc.h"   // format_in_si_units, unit_evaluate
 #include "utils/net.h"
 #include "utils/pthread.h" // for CHK_PTHR
@@ -806,7 +806,7 @@ parse_fmt(int argc, char **argv,
     parsed->host_count = 0;
     while (optind < argc) {
             parsed->hosts.resize(parsed->host_count + 1);
-            strcpy_ch(parsed->hosts[parsed->host_count].bitrate, "unlimited");
+            snprintf_ch(parsed->hosts[parsed->host_count].bitrate, "unlimited");
 
             const char *const optstring = "+46P:c:f:l:m:";
             int               ch        = 0;
@@ -834,7 +834,7 @@ parse_fmt(int argc, char **argv,
                             parsed->hosts[parsed->host_count].fec = optarg;
                             break;
                     case 'l':
-                            strcpy_ch(parsed->hosts[parsed->host_count].bitrate, optarg);
+                            snprintf_ch(parsed->hosts[parsed->host_count].bitrate, optarg);
                             break;
                     case '4':
                             parsed->hosts[parsed->host_count]

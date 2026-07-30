@@ -53,7 +53,7 @@
 #include "debug.h"
 #include "host.h"
 #include "rtp/rtp.h"
-#include "utils/macros.h" // for strcpy_ch
+#include "utils/macros.h" // for snprintf_ch
 #include "utils/misc.h"
 #include "video_compress.h"
 
@@ -131,7 +131,7 @@ recompress_output_port::recompress_output_port(
         if (fec != nullptr) {
                 params.medium[TX_MEDIA_VIDEO].fec = fec;
         }
-        strcpy_ch(params.video_bitrate_limit, bitrate);
+        snprintf_ch(params.video_bitrate_limit, bitrate);
 
         // UltraGrid RTP - fllowing already set by VRXTX_INIT
         // params["decoder_mode"].l = VIDEO_NORMAL;

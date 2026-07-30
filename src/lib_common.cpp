@@ -58,7 +58,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "utils/color_out.h"
-#include "utils/macros.h"     // for strcpy_ch
+#include "utils/macros.h"     // for snprintf_ch
 
 #define MOD_NAME "[lib] "
 
@@ -380,7 +380,7 @@ get_libraries_for_class_internal(enum library_class cls, int abi_version,
                     (include_flags & item.second.visibility_flag) == 0U) {
                         continue;
                 }
-                strcpy_ch(ret.item[ret.count].name, item.first.c_str());
+                snprintf_ch(ret.item[ret.count].name, item.first.c_str());
                 ret.item[ret.count].info = item.second.data;
                 ret.count += 1;
         }

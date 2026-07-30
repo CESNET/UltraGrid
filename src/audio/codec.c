@@ -50,7 +50,7 @@
 #include "debug.h"           // for LOG_LEVEL_ERROR, MSG, log_msg, LOG_LEVE...
 #include "lib_common.h"      // for class_modules, class_modules::(anonymous)
 #include "utils/color_out.h" // for color_printf, TBOLD, TRED
-#include "utils/macros.h"    // for strcpy_ch, IS_KEY_PREFIX, MAX
+#include "utils/macros.h"    // for snprintf_ch, IS_KEY_PREFIX, MAX
 #include "utils/misc.h"      // for unit_evaluate
 
 struct audio_frame2;
@@ -104,7 +104,7 @@ get_audio_codec_list()
                 if (ai->audio_tag == 0) {
                         continue;
                 }
-                strcpy_ch(ret.item[ret.count], ai->name);
+                snprintf_ch(ret.item[ret.count], ai->name);
                 ret.count++;
         }
 
@@ -453,7 +453,7 @@ parse_audio_codec_params(const char *ccfg)
         struct audio_codec_params params = { 0 };
 
         char cfg[strlen(ccfg) + 1];
-        strcpy_ch(cfg, ccfg);
+        snprintf_ch(cfg, ccfg);
         char *tmp    = cfg;
         char *tok    = nullptr;
         char *endptr = nullptr;

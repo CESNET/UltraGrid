@@ -607,7 +607,7 @@ static int vidcap_testcard_init(const struct vidcap_params *params, void **state
                 } else if (strcmp(tmp, "still") == 0) {
                         s->still_image = true;
                 } else if (IS_KEY_PREFIX(tmp, "pattern")) {
-                        strcpy_ch(s->pattern, val);
+                        snprintf_ch(s->pattern, val);
                 } else if (IS_KEY_PREFIX(tmp, "codec")) {
                         desc.color_spec = get_codec_from_name(val);
                         if (desc.color_spec == VIDEO_CODEC_NONE) {

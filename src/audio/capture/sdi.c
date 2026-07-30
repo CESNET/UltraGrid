@@ -51,7 +51,7 @@
 #include "lib_common.h"          // for REGISTER_MODULE, library_class
 #include "tv.h"                  // for MS_TO_NS, time_ns_t
 #include "types.h"               // for device_info, frame_flags_common
-#include "utils/macros.h"        // for strcpy_ch
+#include "utils/macros.h"        // for snprintf_ch
 #include "utils/pthread.h"       // for CHK_PTHR, ug_pthread_cond_reltimedwait
 
 struct module;
@@ -75,9 +75,9 @@ static void audio_cap_sdi_probe_common(struct device_info **available_devices, i
                 const char *dev, const char *name)
 {
         *available_devices = (struct device_info *) calloc(1, sizeof(struct device_info));
-        strcpy_ch((*available_devices)[0].dev, dev);
-        strcpy_ch((*available_devices)[0].name, name);
-        strcpy_ch((*available_devices)[0].extra, "\"isEmbeddedAudio\":\"t\"");
+        snprintf_ch((*available_devices)[0].dev, dev);
+        snprintf_ch((*available_devices)[0].name, name);
+        snprintf_ch((*available_devices)[0].extra, "\"isEmbeddedAudio\":\"t\"");
         *count = 1;
 }
 

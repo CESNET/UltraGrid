@@ -128,10 +128,10 @@ init(struct rxtx_params *params)
 
         // set preferred codecs
         if (strlen(params->video_compression) == 0) {
-                strcpy_ch(params->video_compression,
+                snprintf_ch(params->video_compression,
                           DEFAULT_MPEGTS_COMPRESSION);
         }
-        strcpy_ch(params->audio_compression, "Opus");
+        snprintf_ch(params->audio_compression, "Opus");
 
         return s;
 }

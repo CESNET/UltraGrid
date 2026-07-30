@@ -98,7 +98,7 @@ find_best_decompress(codec_t compression, struct pixfmt_desc internal_prop,
                         }
                         *strchr(tmp, ':') = '\0';
                 }
-                strcpy_ch(force_module, tmp);
+                snprintf_ch(force_module, tmp);
                 free(tmp);
         }
 

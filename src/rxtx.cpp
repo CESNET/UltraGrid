@@ -350,7 +350,7 @@ rxtx::create(string const              &proto,
 
         if (strlen(params->video_compression) == 0) {
                 // not set by user or RXTX mod
-                strcpy_ch(params->video_compression, DEFAULT_VIDEO_COMPRESSION);
+                snprintf_ch(params->video_compression, DEFAULT_VIDEO_COMPRESSION);
         }
         const char *video_compression = params->video_compression;
         // "tentatively" is meant to be just print

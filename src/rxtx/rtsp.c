@@ -141,7 +141,7 @@ create_rxtx_rtsp(struct rxtx_params *params)
         }
         // adj parameters
         if (strlen(params->video_compression) == 0) {
-                strcpy_ch(params->video_compression,
+                snprintf_ch(params->video_compression,
                           DEFAULT_RTSP_COMPRESSION " (tentatively)");
         }
         if (audio_capture_channels > 1) {
@@ -152,7 +152,7 @@ create_rxtx_rtsp(struct rxtx_params *params)
         } else {
                 audio_capture_channels = 1;
         }
-        strcpy_ch(params->audio_compression, "MP3");
+        snprintf_ch(params->audio_compression, "MP3");
 
         return s;
 }

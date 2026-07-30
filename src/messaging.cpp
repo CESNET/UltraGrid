@@ -349,7 +349,7 @@ new_message_universal(const char *contents)
         struct msg_universal *msg = nullptr;
         struct message *m = new_message(sizeof *msg);
         msg = (struct msg_universal *) m;
-        strcpy_ch(msg->text, contents);
+        snprintf_ch(msg->text, contents);
         return msg;
 }
 
