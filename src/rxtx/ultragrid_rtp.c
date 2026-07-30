@@ -479,9 +479,21 @@ receiver_thread(void *arg)
 
                         struct vcodec_state *vdecoder_state = (struct vcodec_state *) cp->decoder_state;
 
-                        /* Decode and render video... */
-                        if (pbuf_decode
-                            (cp->playout_buffer, curr_time, decode_video_frame, vdecoder_state)) {
+                        /*
+                         * Decode and render every frame that is ready at this
+                         * instant.  At high bitrates more than one video frame
+                         * may become eligible between receive-loop iterations.
+                         * pbuf_remove() below removes expired complete frames
+                         * regardless of whether they were decoded, so decoding
+                         * only one here caused every other frame to be purged
+                         * at UHD/60 Mb/s.
+                         *
+                         * The audio receive path uses the same drain-before-
+                         * remove pattern for this reason.
+                         */
+                        while (pbuf_decode(cp->playout_buffer, curr_time,
+                                           decode_video_frame,
+                                           vdecoder_state)) {
                                 fr = 1;
                         }
 

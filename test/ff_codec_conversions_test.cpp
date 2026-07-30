@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "compat/endian.h"
 #include "libavcodec/from_lavc_vid_conv.h"
 #include "libavcodec/to_lavc_vid_conv.h"
 #include "pixfmt_conv.h"
@@ -45,6 +46,7 @@ extern "C" {
         int ff_codec_conversions_test_yuv444p16le_from_to_rg48();
         int ff_codec_conversions_test_yuv444p16le_from_to_rg48_out_of_range();
         int ff_codec_conversions_test_pX10_from_to_v210();
+        int ff_codec_conversions_test_r12l_to_x2rgb10le();
 }
 
 #define CHECK(res) if ((res) != 0) { return res; }
@@ -190,6 +192,68 @@ int ff_codec_conversions_test_yuv444pXXle_from_to_r12l()
         }
         return 0;
 }
+
+#if X2RGB10LE_PRESENT
+int ff_codec_conversions_test_r12l_to_x2rgb10le()
+{
+        constexpr int width = 320;
+        constexpr int height = 4;
+        const int r12l_linesize = vc_get_linesize(width, R12L);
+        const int r10k_linesize = vc_get_linesize(width, R10k);
+
+        vector<unsigned char> rgb(width * height * 3);
+        default_random_engine rand_gen;
+        for (auto &sample : rgb) {
+                sample = rand_gen() & 0xffU;
+        }
+
+        vector<unsigned char> r12l(r12l_linesize * height);
+        decoder_t rgb_to_r12l = get_decoder_from_to(RGB, R12L);
+        decoder_t r12l_to_r10k = get_decoder_from_to(R12L, R10k);
+        assert(rgb_to_r12l != nullptr && r12l_to_r10k != nullptr);
+        for (int y = 0; y < height; ++y) {
+                rgb_to_r12l(r12l.data() + y * r12l_linesize,
+                            rgb.data() + y * width * 3, r12l_linesize,
+                            0, 8, 16);
+        }
+
+        struct to_lavc_vid_conv *conv = to_lavc_vid_conv_init(
+            R12L, width, height, AV_PIX_FMT_X2RGB10LE, 1);
+        ASSERT_MESSAGE("R12L to X2RGB10LE conversion unavailable",
+                       conv != nullptr);
+        AVFrame *converted =
+            to_lavc_vid_conv(conv, reinterpret_cast<char *>(r12l.data()));
+        ASSERT_MESSAGE("R12L to X2RGB10LE conversion failed",
+                       converted != nullptr);
+        ASSERT_MESSAGE("RGB conversion must be marked full-range",
+                       converted->color_range == AVCOL_RANGE_JPEG);
+        ASSERT_MESSAGE("RGB conversion must retain RGB colorspace metadata",
+                       converted->colorspace == AVCOL_SPC_RGB);
+
+        vector<unsigned char> r10k(r10k_linesize);
+        for (int y = 0; y < height; ++y) {
+                r12l_to_r10k(r10k.data(), r12l.data() + y * r12l_linesize,
+                             r10k_linesize, 0, 0, 0);
+                const auto *expected =
+                    reinterpret_cast<const uint32_t *>(r10k.data());
+                const auto *actual = reinterpret_cast<const uint32_t *>(
+                    converted->data[0] + y * converted->linesize[0]);
+                for (int x = 0; x < width; ++x) {
+                        ASSERT_MESSAGE(
+                            "R12L to X2RGB10LE component mismatch",
+                            actual[x] == (be32toh(expected[x]) >> 2U));
+                }
+        }
+
+        to_lavc_vid_conv_destroy(&conv);
+        return 0;
+}
+#else
+int ff_codec_conversions_test_r12l_to_x2rgb10le()
+{
+        return 0;
+}
+#endif
 
 static void yuv444p16le_rg48_encode_decode(int width, int height, char *in, char *out) {
         AVPixelFormat avfmt = AV_PIX_FMT_YUV444P16LE;

@@ -80,7 +80,7 @@ AVPixelFormat get_nv12_or_first(const AVPixelFormat *fmts){
  * <https://github.com/mpv-player/mpv/blob/master/video/out/hwdec/hwdec_vaapi.c>
  * namely from function try_format_config().
  */
-AVPixelFormat get_sw_format(AVBufferRef *device_ref){
+AVPixelFormat get_sw_format(AVBufferRef *device_ref, AVPixelFormat decoded_format){
         AVHWFramesConstraints_uniq fc(av_hwdevice_get_hwframe_constraints(device_ref, nullptr));
         if (!fc) {
                 MSG(ERROR, "failed to retrieve libavutil frame constraints\n");
@@ -117,6 +117,32 @@ AVPixelFormat get_sw_format(AVBufferRef *device_ref){
                 return AV_PIX_FMT_NONE;
         }
         MSG(DEBUG, "Available HW layouts: %s\n", get_avpixfmts_names(fmts.get()));
+        const AVPixFmtDescriptor *decoded_desc = av_pix_fmt_desc_get(decoded_format);
+        if (decoded_desc != nullptr &&
+            av_pixfmt_get_subsampling(decoded_format) == SUBS_444 &&
+            decoded_desc->comp[0].depth == 10) {
+                // HEVC Range Extensions 4:4:4 must not be decoded into the
+                // otherwise preferred NV12 (8-bit 4:2:0) surface. Intel's
+                // iHD decoder exposes the native packed YUV444 10-bit
+                // surface as XV30 (VA_FOURCC_Y410).
+                for (int i = 0; fmts.get()[i] != AV_PIX_FMT_NONE; ++i) {
+                        if (fmts.get()[i] == AV_PIX_FMT_XV30LE) {
+                                return fmts.get()[i];
+                        }
+                }
+                // Keep X2RGB10LE as a fallback for VAAPI implementations
+                // which expose RGB rather than Y410 transfer surfaces.
+                for (int i = 0; fmts.get()[i] != AV_PIX_FMT_NONE; ++i) {
+                        if (fmts.get()[i] == AV_PIX_FMT_X2RGB10LE) {
+                                return fmts.get()[i];
+                        }
+                }
+                MSG(WARNING,
+                    "No 10-bit 4:4:4 VAAPI transfer layout advertised; "
+                    "falling back to decoder format %s\n",
+                    av_get_pix_fmt_name(decoded_format));
+                return decoded_format;
+        }
         return get_nv12_or_first(fmts.get());
 }
 
@@ -129,12 +155,32 @@ int vaapi_init(AVCodecContext *s, hw_accel_state *state, codec_t /*out_codec*/){
                 return -1;
         }
 
+        // Let libavcodec allocate decode surfaces from the actual VA profile.
+        // Preallocating a generic frames context here forces a transfer format
+        // (historically NV12) before the HEVC Range Extensions profile is
+        // known and breaks Intel HEVC Main444-10 decoding.
+        AVFrame_uniq tmp_frame(av_frame_alloc());
+        if(!tmp_frame){
+                return -1;
+        }
+        s->hw_device_ctx = av_buffer_ref(device_ref.get());
+        if (!s->hw_device_ctx) {
+                return -1;
+        }
+        state->type = HWACCEL_VAAPI;
+        state->copy = true;
+        state->ctx = nullptr;
+        state->tmp_frame = tmp_frame.release();
+        state->uninit = nullptr;
+        return 0;
+
+#if 0
         int decode_surfaces = DEFAULT_SURFACES;
 
         if (s->active_thread_type & FF_THREAD_FRAME)
                 decode_surfaces += s->thread_count;
 
-        auto sw_format = get_sw_format(device_ref.get());
+        auto sw_format = get_sw_format(device_ref.get(), s->sw_pix_fmt);
         if (sw_format == AV_PIX_FMT_NONE) {
                 sw_format = s->sw_pix_fmt;
                 MSG(WARNING, "Using fallback HW frames layout: %s\n",
@@ -170,5 +216,5 @@ int vaapi_init(AVCodecContext *s, hw_accel_state *state, codec_t /*out_codec*/){
         state->uninit = nullptr;
 
         return 0;
+#endif
 }
-
