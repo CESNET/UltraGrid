@@ -76,6 +76,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 
+using namespace std::string_view_literals;
 
 namespace {
 
@@ -611,8 +612,6 @@ bool parse_cfg(command_line_arguments& args, state_vulkan_sdl3& s, std::string_v
                         return false; \
                 } \
         } while(0)
-#define SV_PREFIX_COMPARE(key, prefix)                                         \
-        key.compare(0, sizeof (prefix) - 1, prefix, sizeof (prefix) - 1)
 
         while(!cfg.empty()){
                 auto tok = tokenize(cfg, ':');
@@ -641,11 +640,11 @@ bool parse_cfg(command_line_arguments& args, state_vulkan_sdl3& s, std::string_v
                         args.tearing_permitted = true;
                 } else if(key == "validation" && val.empty()){
                         args.validation = true;
-                } else if (SV_PREFIX_COMPARE(key, "display")) {
+                } else if ("display"sv.starts_with(key)) {
                         args.display_id = val;
-                } else if (SV_PREFIX_COMPARE(key, "driver")) {
+                } else if ("driver"sv.starts_with(key)) {
                         args.driver = val;
-                } else if (SV_PREFIX_COMPARE(key, "gpu")) {
+                } else if ("gpu"sv.starts_with(key)) {
                         if(val == "integrated") {
                                 args.gpu_idx = vulkan_display::gpu_integrated;
                         } else if(val == "discrete") {
@@ -653,7 +652,7 @@ bool parse_cfg(command_line_arguments& args, state_vulkan_sdl3& s, std::string_v
                         } else {
                                 CHECKED_PARSE(val, args.gpu_idx);
                         }
-                } else if (SV_PREFIX_COMPARE(key, "pos")) {
+                } else if ("pos"sv.starts_with(key)) {
                         const auto xpos = tokenize(val, ',');
                         const auto ypos = tokenize(val, ',');
                         if(ypos.empty()){
@@ -662,7 +661,7 @@ bool parse_cfg(command_line_arguments& args, state_vulkan_sdl3& s, std::string_v
                         }
                         CHECKED_PARSE(xpos, args.x);
                         CHECKED_PARSE(ypos, args.y);
-                } else if (SV_PREFIX_COMPARE(key, "size")) {
+                } else if ("size"sv.starts_with(key)) {
                         const auto xsize = tokenize(val, 'x');
                         const auto ysize = tokenize(val, 'x');
                         if(ysize.empty()){
@@ -671,7 +670,7 @@ bool parse_cfg(command_line_arguments& args, state_vulkan_sdl3& s, std::string_v
                         }
                         CHECKED_PARSE(xsize, s.width);
                         CHECKED_PARSE(ysize, s.height);
-                } else if (SV_PREFIX_COMPARE(key, "window_flags")) {
+                } else if ("window_flags"sv.starts_with(key)) {
                         int flag = 0;
                         if(val.substr(0, 2) == "0x"){
                                 auto val_without_0x = val.substr(2);
@@ -680,7 +679,7 @@ bool parse_cfg(command_line_arguments& args, state_vulkan_sdl3& s, std::string_v
                                 CHECKED_PARSE(val, flag);
                         }
                         args.window_flags |= flag;
-                } else if (SV_PREFIX_COMPARE(key, "hint")) {
+                } else if ("hint"sv.starts_with(key)) {
                         const std::string hint_key(val);
                         const auto hint_val = tokenize(tok, '=');
                         args.hints[hint_key] = hint_val;
@@ -691,7 +690,6 @@ bool parse_cfg(command_line_arguments& args, state_vulkan_sdl3& s, std::string_v
         }
         return true;
 #undef CHECKED_PARSE
-#undef SV_PREFIX_COMPARE
 }
 
 void
