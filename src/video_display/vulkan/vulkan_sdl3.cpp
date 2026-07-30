@@ -794,6 +794,14 @@ void* display_vulkan_init(module* parent, const char* fmt, unsigned int /*flags*
 
         if (!args.driver.empty()) {
                 SDL_CHECK(SDL_SetHint(SDL_HINT_VIDEO_DRIVER, args.driver.c_str()));
+        } else{
+                std::string driver_list = "wayland";
+                for (int i = 0; i < SDL_GetNumVideoDrivers(); ++i) {
+                        driver_list += ',';
+                        driver_list += SDL_GetVideoDriver(i);
+                }
+                log_msg(LOG_LEVEL_NOTICE, "Using driver: %s\n", driver_list.c_str());
+                SDL_CHECK(SDL_SetHint(SDL_HINT_VIDEO_DRIVER, driver_list.c_str()));
         }
         for (auto &it : args.hints) {
                 SDL_CHECK(SDL_SetHint(it.first.c_str(), it.second.c_str()));
