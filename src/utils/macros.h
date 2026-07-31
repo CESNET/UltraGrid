@@ -99,10 +99,14 @@
                 } \
         } while (0)
 
+#define FAIL_IF_NOT_STRING_LITERAL(str) ((void) "" str "")
+#define GET_FIRST_VARARG(a, ...) a
+
 /// shortcut for `snprintf(var, sizeof var...)`, `var` must be a char array;
 /// truncation handled
 #define snprintf_ch(str, ...)                                                  \
         do { /* NOLINT(cppcoreguidelines-avoid-do-while) */                    \
+                FAIL_IF_NOT_STRING_LITERAL(GET_FIRST_VARARG(__VA_ARGS__));     \
                 if (snprintf(str, sizeof str, __VA_ARGS__) <                   \
                     (int) sizeof str) {                                        \
                         break;                                                 \
