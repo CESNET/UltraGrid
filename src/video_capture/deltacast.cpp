@@ -56,7 +56,7 @@
 #include "lib_common.h"
 #include "tv.h"
 #include "utils/color_out.h"
-#include "utils/string_view_utils.h"
+#include "utils/string_view_utils.hpp"
 #include "utils/macros.h"             // for IS_KEY_PREFIX
 #include "video_capture.h"
 #include "video_capture_params.h"
