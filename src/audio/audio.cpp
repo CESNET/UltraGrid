@@ -204,7 +204,7 @@ audio_init_real(struct state_audio *s, const struct audio_options *opt)
 
         char capture_dev[STR_LEN];
         const char *capture_cfg = "";
-        snprintf_ch(capture_dev, opt->send_cfg);
+        copy_to_char_array(capture_dev, opt->send_cfg);
         if (strchr(capture_dev, ':') != nullptr) {
                 char *delim  = strchr(capture_dev, ':');
                 *delim       = '\0';
@@ -218,14 +218,14 @@ audio_init_real(struct state_audio *s, const struct audio_options *opt)
 
         char playback_dev[STR_LEN];
         const char *playback_cfg = "";
-        snprintf_ch(playback_dev, opt->recv_cfg);
+        copy_to_char_array(playback_dev, opt->recv_cfg);
         if (strchr(playback_dev, ':') != nullptr) {
                 char *delim  = strchr(playback_dev, ':');
                 *delim       = '\0';
                 playback_cfg = delim + 1;
         }
         struct audio_playback_opts opts{};
-        snprintf_ch(opts.cfg, "%s", playback_cfg);
+        copy_to_char_array(opts.cfg, playback_cfg);
         opts.parent = s->audio_receiver_module.get();
         ret =
             audio_playback_init(playback_dev, &opts, &s->audio_playback_device);

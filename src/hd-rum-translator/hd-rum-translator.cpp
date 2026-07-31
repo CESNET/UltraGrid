@@ -84,6 +84,7 @@
 #include "utils/misc.h"   // format_in_si_units, unit_evaluate
 #include "utils/net.h"
 #include "utils/pthread.h" // for CHK_PTHR
+#include "utils/string_view_utils.hpp"
 
 using std::invalid_argument;
 using std::stoi;
@@ -806,7 +807,7 @@ parse_fmt(int argc, char **argv,
     parsed->host_count = 0;
     while (optind < argc) {
             parsed->hosts.resize(parsed->host_count + 1);
-            snprintf_ch(parsed->hosts[parsed->host_count].bitrate, "unlimited");
+            copy_to_char_array(parsed->hosts[parsed->host_count].bitrate, "unlimited");
 
             const char *const optstring = "+46P:c:f:l:m:";
             int               ch        = 0;
@@ -834,7 +835,7 @@ parse_fmt(int argc, char **argv,
                             parsed->hosts[parsed->host_count].fec = optarg;
                             break;
                     case 'l':
-                            snprintf_ch(parsed->hosts[parsed->host_count].bitrate, optarg);
+                            copy_to_char_array(parsed->hosts[parsed->host_count].bitrate, optarg);
                             break;
                     case '4':
                             parsed->hosts[parsed->host_count]

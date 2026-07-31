@@ -56,6 +56,7 @@
 #include "utils/list.h"
 #include "utils/macros.h"        // for snprintf_ch, to_fourcc
 #include "utils/pthread.h" // for CHK_PTHR
+#include "utils/string_view_utils.hpp"
 
 #define MAX_MESSAGES 100
 #define MAX_MESSAGES_FOR_NOT_EXISTING_RECV 10
@@ -349,7 +350,7 @@ new_message_universal(const char *contents)
         struct msg_universal *msg = nullptr;
         struct message *m = new_message(sizeof *msg);
         msg = (struct msg_universal *) m;
-        snprintf_ch(msg->text, contents);
+        copy_to_char_array(msg->text, contents);
         return msg;
 }
 

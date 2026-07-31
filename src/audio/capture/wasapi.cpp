@@ -60,6 +60,7 @@
 #include "host.h"                 // for audio_capture_channels, audio_captu...
 #include "lib_common.h"
 #include "types.h"                // for device_info
+#include "utils/string_view_utils.hpp"
 #include "utils/color_out.h"
 #include "utils/macros.h"         // for snprintf_ch
 #include "utils/windows.h"
@@ -165,9 +166,8 @@ audio_cap_wasapi_probe(struct device_info **available_devices, int *dev_count,
             *available_devices, (*dev_count + 1) * sizeof(struct device_info));
         memset(&(*available_devices)[*dev_count], 0,
                sizeof(struct device_info));
-        snprintf_ch((*available_devices)[*dev_count].dev, ":loopback");
-        snprintf_ch((*available_devices)[*dev_count].name,
-                 "WASAPI computer audio output");
+        copy_to_char_array((*available_devices)[*dev_count].dev, ":loopback");
+        copy_to_char_array((*available_devices)[*dev_count].name, "WASAPI computer audio output");
         *dev_count += 1;
 }
 

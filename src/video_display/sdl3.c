@@ -1041,7 +1041,7 @@ display_sdl3_init(struct module *parent, const char *fmt, unsigned int /* flags 
                         s->deinterlace =
                             strcmp(tok, "d") == 0 ? DEINT_ON : DEINT_OFF;
                 } else if (IS_KEY_PREFIX(tok, "display")) {
-                        snprintf_ch(s->display_id, strchr(tok, '=') + 1);
+                        snprintf_ch(s->display_id, "%s", strchr(tok, '=') + 1);
                 } else if (IS_KEY_PREFIX(tok, "driver")) {
                         driver = strchr(tok, '=') + 1;
                 } else if (IS_PREFIX(tok, "fs")) {

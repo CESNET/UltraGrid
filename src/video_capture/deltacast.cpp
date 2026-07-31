@@ -56,6 +56,7 @@
 #include "lib_common.h"
 #include "tv.h"
 #include "utils/color_out.h"
+#include "utils/string_view_utils.h"
 #include "utils/macros.h"             // for IS_KEY_PREFIX
 #include "video_capture.h"
 #include "video_capture_params.h"
@@ -156,7 +157,7 @@ static void vidcap_deltacast_probe(device_info **available_cards, int *count, vo
                 auto &card = (*available_cards)[*count];
                 snprintf_ch(card.dev, ":device=%" PRIu_ULONG, i);
                 snprintf_ch(card.name, "DELTACAST %s", delta_get_model_name(i));
-                snprintf_ch(card.extra, "\"embeddedAudioAvailable\":\"t\"");
+                copy_to_char_array(card.extra, "\"embeddedAudioAvailable\":\"t\"");
                 *count += 1;
         }
 }

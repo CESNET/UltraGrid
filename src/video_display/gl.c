@@ -864,7 +864,7 @@ display_gl_parse_fmt(struct state_gl *s, char *ptr)
                 } else if (IS_PREFIX(tok, "fs")) {
                         s->fs = true;
                         if (val != nullptr) {
-                                snprintf_ch(s->req_monitor_id, val);
+                                snprintf_ch(s->req_monitor_id, "%s",  val);
                         }
                 } else if (IS_KEY_PREFIX(tok, "size")) {
                         ret = set_size(s, val);
@@ -907,7 +907,7 @@ display_gl_parse_fmt(struct state_gl *s, char *ptr)
                         if (val == nullptr) {
                                 val = "UltraGrid";
                         }
-                        snprintf_ch(s->syphon_spout_srv_name, val);
+                        snprintf_ch(s->syphon_spout_srv_name, "%s",  val);
 #else
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Syphon/Spout support not compiled in.\n");
                         return false;

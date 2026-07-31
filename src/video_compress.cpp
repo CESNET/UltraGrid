@@ -61,6 +61,7 @@
 #include "utils/worker.h"
 #include "video_compress.h"
 #include "video_frame.h"
+#include "utils/string_view_utils.hpp"
 
 constexpr uint32_t MAGIC = to_fourcc('v','c','m','p');
 #define MOD_NAME "[vcompress] "
@@ -161,7 +162,7 @@ static void compress_process_message(struct compress_state *proxy, struct msg_ch
                                 (struct msg_change_compress_data *)
                                 new_message(sizeof(struct msg_change_compress_data));
                         tmp_data->what = data->what;
-                        snprintf_ch(tmp_data->config_string, data->config_string);
+                        copy_to_char_array(tmp_data->config_string, data->config_string);
                         char receiver[100];
                         snprintf(receiver, sizeof receiver, "data[%u]", i);
                         struct response *resp = send_message(&proxy->mod, receiver,

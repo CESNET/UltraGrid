@@ -60,6 +60,7 @@
 #include "rxtx.h"                  // for rxtx_medium_params, vrxtx_pa...
 #include "rxtx/rtp_common.h"       // for rtp_rxtx_common
 #include "utils/profile_timer.hpp"
+#include "utils/string_view_utils.hpp"
 
 #define MOD_NAME "hd-rum-recompress"
 
@@ -131,7 +132,7 @@ recompress_output_port::recompress_output_port(
         if (fec != nullptr) {
                 params.medium[TX_MEDIA_VIDEO].fec = fec;
         }
-        snprintf_ch(params.video_bitrate_limit, bitrate);
+        copy_to_char_array(params.video_bitrate_limit, bitrate);
 
         // UltraGrid RTP - fllowing already set by VRXTX_INIT
         // params["decoder_mode"].l = VIDEO_NORMAL;

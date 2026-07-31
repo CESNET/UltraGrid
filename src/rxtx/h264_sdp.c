@@ -164,7 +164,7 @@ sdp_send_change_address_message(struct module           *root,
         // CHANGE DST ADDRESS
         struct msg_sender *msgV2 = (struct msg_sender *)
             new_message(sizeof(struct msg_sender));
-        snprintf_ch(msgV2->receiver, address);
+        snprintf_ch(msgV2->receiver, "%s", address);
         msgV2->type = SENDER_MSG_CHANGE_RECEIVER;
 
         struct response *resp = send_message(root, pathV, (struct message *) msgV2);

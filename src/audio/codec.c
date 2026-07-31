@@ -104,7 +104,7 @@ get_audio_codec_list()
                 if (ai->audio_tag == 0) {
                         continue;
                 }
-                snprintf_ch(ret.item[ret.count], ai->name);
+                snprintf_ch(ret.item[ret.count], "%s", ai->name);
                 ret.count++;
         }
 
@@ -453,7 +453,7 @@ parse_audio_codec_params(const char *ccfg)
         struct audio_codec_params params = { 0 };
 
         char cfg[strlen(ccfg) + 1];
-        snprintf_ch(cfg, ccfg);
+        snprintf_ch(cfg, "%s",  ccfg);
         char *tmp    = cfg;
         char *tok    = nullptr;
         char *endptr = nullptr;

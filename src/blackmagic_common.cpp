@@ -1625,7 +1625,7 @@ print_status_item(IDeckLinkStatus *deckLinkStatus, BMDDeckLinkStatusID prop,
         }
         case ST_INT: {
                 char buf[STR_LEN];
-                snprintf_ch(buf, s_prop->type_data.int_fmt_str, int_val);
+                snprintf(buf, sizeof(buf), s_prop->type_data.int_fmt_str, int_val);
                 log_msg(LOG_LEVEL_INFO, "%s%s: %s\n",
                         log_prefix, s_prop->prop_name, buf);
                 break;

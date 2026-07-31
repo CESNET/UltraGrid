@@ -62,6 +62,7 @@
 #include "video_codec.h"     // for get_codec_name
 #include "video_compress.h"
 #include "video_frame.h"     // for video_desc_from_frame
+#include "utils/string_view_utils.hpp"
 
 constexpr char DEFAULT_VIDEO_COMPRESSION[] = "none";
 
@@ -350,7 +351,7 @@ rxtx::create(string const              &proto,
 
         if (strlen(params->video_compression) == 0) {
                 // not set by user or RXTX mod
-                snprintf_ch(params->video_compression, DEFAULT_VIDEO_COMPRESSION);
+                copy_to_char_array(params->video_compression, DEFAULT_VIDEO_COMPRESSION);
         }
         const char *video_compression = params->video_compression;
         // "tentatively" is meant to be just print

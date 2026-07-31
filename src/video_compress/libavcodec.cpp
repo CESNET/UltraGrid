@@ -78,6 +78,7 @@
 #include "video_codec.h"
 #include "video_compress.h"
 #include "video_frame.h"
+#include "utils/string_view_utils.hpp"
 
 #ifdef HWACC_VAAPI
 extern "C"
@@ -1770,21 +1771,21 @@ mjpeg_adjust_param(struct setparam_param *param)
         warn[0] = '\0';
         if (param->slices == 1) {
                 if (param->thread_mode.empty()) {
-                        snprintf_ch(warn, "MJPEG requested slice=1, "
+                        copy_to_char_array(warn, "MJPEG requested slice=1, "
                                           "setting thread count=1");
                         param->thread_mode = "1";
                 } else if (strtol(param->thread_mode.c_str(), nullptr, 10) !=
                            1) {
-                        snprintf_ch(warn, "slice=1 with thread count!=1 not "
+                        copy_to_char_array(warn, "slice=1 with thread count!=1 not "
                                           "recommended");
                 }
         } else if (strtol(param->thread_mode.c_str(), nullptr, 10) == 1) {
                 if (param->slices == -1) {
-                        snprintf_ch(warn, "MJPEG requested threads=1, "
+                        copy_to_char_array(warn, "MJPEG requested threads=1, "
                                           "setting slices=1");
                         param->slices = 1;
                 } else if (param->slices > 1) {
-                        snprintf_ch(warn, "slice>1 with thread count=1 not "
+                        copy_to_char_array(warn, "slice>1 with thread count=1 not "
                                           "recommended");
                 }
         }

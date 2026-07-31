@@ -75,8 +75,8 @@ static void audio_cap_sdi_probe_common(struct device_info **available_devices, i
                 const char *dev, const char *name)
 {
         *available_devices = (struct device_info *) calloc(1, sizeof(struct device_info));
-        snprintf_ch((*available_devices)[0].dev, dev);
-        snprintf_ch((*available_devices)[0].name, name);
+        snprintf_ch((*available_devices)[0].dev, "%s",  dev);
+        snprintf_ch((*available_devices)[0].name, "%s",  name);
         snprintf_ch((*available_devices)[0].extra, "\"isEmbeddedAudio\":\"t\"");
         *count = 1;
 }

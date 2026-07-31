@@ -651,8 +651,8 @@ static bool parse_protocol(int ch, char *optarg, struct ug_options *opt) {
                 rxtx_list_protocols(strcmp(optarg, "fullhelp") == 0);
                 return false;
         }
-        snprintf_ch(opt->net_protocol, proto);
-        snprintf_ch(opt->rxtx.protocol_opts, cfg);
+        copy_to_char_array(opt->net_protocol, proto);
+        copy_to_char_array(opt->rxtx.protocol_opts, cfg);
 
         return true;
 }
@@ -789,14 +789,14 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         print_configuration();
                         return 1;
                 case 'c':
-                        snprintf_ch(opt->rxtx.video_compression, optarg);
+                        copy_to_char_array(opt->rxtx.video_compression, optarg);
                         break;
                 case OPT_RTSP_SERVER:
                         log_msg(LOG_LEVEL_WARNING, "Option \"--rtsp-server[=args]\" "
                                         "is deprecated and will be removed in future.\n"
                                         "Please use \"-x rtsp[:args]\"instead.\n");
-                        snprintf_ch(opt->net_protocol, "rtsp");
-                        snprintf_ch(opt->rxtx.protocol_opts, optarg ? optarg : "");
+                        copy_to_char_array(opt->net_protocol, "rtsp");
+                        copy_to_char_array(opt->rxtx.protocol_opts, optarg ? optarg : "");
                         break;
                 case OPT_AUDIO_PROTOCOL:
                 case OPT_VIDEO_PROTOCOL:
@@ -846,7 +846,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                         }
                         break;
                 case 'l':
-                        snprintf_ch(opt->rxtx.video_bitrate_limit, optarg);
+                        copy_to_char_array(opt->rxtx.video_bitrate_limit, optarg);
                         break;
                 case '4':
                 case '6':

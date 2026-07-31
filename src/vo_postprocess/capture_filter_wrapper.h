@@ -74,7 +74,7 @@ static void *CF_WRAPPER_MERGE(vo_pp_init_, name)(const char *cfg) {\
         }\
         struct vo_pp_capture_filter_wrapper *s = (struct vo_pp_capture_filter_wrapper *) \
                         calloc(1, sizeof(struct vo_pp_capture_filter_wrapper));\
-        snprintf_ch(s->cfg, cfg); \
+        snprintf_ch(s->cfg, "%s",  cfg); \
         s->magic = CFW_MAGIC;\
         s->state = state;\
         s->get_property = get_prop_callb;\
