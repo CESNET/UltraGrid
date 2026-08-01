@@ -98,6 +98,11 @@ struct display;
 #define MAGIC    to_fourcc('R', 'T', 'u', 'r')
 #define MOD_NAME "[rxtx/ultragrid_rtp] "
 
+ADD_TO_PARAM("low-latency-video",
+             "* low-latency-video\n"
+             "  Disable the default one-frame RTP video playout delay. Intended "
+             "for reliable, low-jitter links with downstream scheduled output.\n");
+
 struct ultragrid_rtp_rxtx {
         uint32_t magic;
 
@@ -259,9 +264,17 @@ receiver_process_messages(struct ultragrid_rtp_rxtx *s)
         while ((msg = (struct msg_receiver *) check_message(s->receiver_mod))) {
                 switch (msg->type) {
                 case RECEIVER_MSG_VIDEO_PROP_CHANGED:
+                        const double playout_delay =
+                            get_commandline_param("low-latency-video") != NULL
+                                ? 0.0
+                                : 1.0 / msg->new_desc.fps;
                         rtp_rxtx_set_pbuf_delay(
                             &s->rtp_common->medium[TX_MEDIA_VIDEO],
-                            1.0 / msg->new_desc.fps);
+                            playout_delay);
+                        log_msg(LOG_LEVEL_INFO,
+                                MOD_NAME "Video RTP playout delay set to %.3f "
+                                         "ms.\n",
+                                playout_delay * 1000.0);
                         free_message((struct message *) msg,
                                      new_response(RESPONSE_OK, nullptr));
                         break;

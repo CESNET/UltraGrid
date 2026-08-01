@@ -361,7 +361,7 @@ audio_codec_decompress(struct audio_codec_state *s, struct audio_frame2 *frame)
                                                          out->bps,
                                                          out->sample_rate);
                                 audio_frame2_set_timestamp(
-                                    frame, audio_frame2_get_timestamp(frame));
+                                    ret, audio_frame2_get_timestamp(frame));
                         } else {
                                 assert(out->bps == audio_frame2_get_bps(ret) &&
                                        out->sample_rate ==

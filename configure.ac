@@ -2080,8 +2080,8 @@ then
         fi
         libavcodec=yes
         LIBAVCODEC_LIBS="$LIBAVCODEC_LIBS $LIBAVUTIL_LIBS" # added libavutil explicitly
-        add_module vcompress_libavcodec "$LIBAVCODEC_COMPRESS_OBJ" "$LIBAVCODEC_LIBS $LIBSWSCALE_LIBS"
-        add_module vdecompress_libavcodec "$LIBAVCODEC_DECOMPRESS_OBJ" "$LIBAVCODEC_LIBS $LAVC_HWACC_LIBS"
+        add_module vcompress_libavcodec "$LIBAVCODEC_COMPRESS_OBJ src/video_compress/r12l_vaapi_opencl.o" "$LIBAVCODEC_LIBS $LIBSWSCALE_LIBS -lOpenCL"
+        add_module vdecompress_libavcodec "$LIBAVCODEC_DECOMPRESS_OBJ src/video_decompress/r12l_opencl.o" "$LIBAVCODEC_LIBS $LAVC_HWACC_LIBS -lOpenCL"
         add_module acompress_libavcodec "$LIBAVCODEC_AUDIO_CODEC_OBJ" "$LIBAVCODEC_LIBS"
 else
         HW_ACC_OBJ=
@@ -4088,4 +4088,3 @@ AC_DEFINE_UNQUOTED([SRCDIR], "$srcdir", [path to src directory])
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
-

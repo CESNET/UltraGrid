@@ -58,6 +58,14 @@
 #define G G_SHIFT_IDX
 #define B B_SHIFT_IDX
 
+static inline uint16_t
+scale_to_r12l_sample(uint16_t value, int in_depth)
+{
+        return in_depth == 10
+                   ? (uint16_t) ((value * 4095U + 511U) / 1023U)
+                   : (uint16_t) (value >> (in_depth - 12));
+}
+
 [[gnu::always_inline]] static inline  void
 gbrpXXle_to_r12l(struct from_planar_data d, const int in_depth, int rind, int gind, int bind)
 {
@@ -65,7 +73,7 @@ gbrpXXle_to_r12l(struct from_planar_data d, const int in_depth, int rind, int gi
         assert((uintptr_t) d.in_linesize[1] % 2 == 0);
         assert((uintptr_t) d.in_linesize[2] % 2 == 0);
 
-#define S(x) ((x) >> (in_depth - 12))
+#define S(x) scale_to_r12l_sample((uint16_t) (x), in_depth)
         // clang-format off
         for (size_t y = 0; y < (size_t) d.height; ++y) {
                 const uint16_t *src_r = (const void *) (d.in_data[rind] + (d.in_linesize[rind] * y));
@@ -136,6 +144,12 @@ gbrpXXle_to_r12l(struct from_planar_data d, const int in_depth, int rind, int gi
  * # optionally also `--param decoder-use-codec=R12L` to ensure decoded codec
  * @endcode
  */
+void
+gbrp10le_to_r12l(struct from_planar_data d)
+{
+        gbrpXXle_to_r12l(d, DEPTH10, 2, 0, 1);
+}
+
 void
 gbrp12le_to_r12l(struct from_planar_data d)
 {
@@ -664,4 +678,3 @@ yuv420p_to_uyvy(const struct from_planar_data d)
                 }
         }
 }
-

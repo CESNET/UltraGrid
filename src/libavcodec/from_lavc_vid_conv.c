@@ -1745,6 +1745,61 @@ xv30_to_y416(struct av_conv_data d)
                 }
         }
 }
+
+static inline uint16_t
+identity_10_to_12(uint32_t value)
+{
+        return (uint16_t) ((value * 4095U + 511U) / 1023U);
+}
+
+static inline void
+store_r12l_pair(uint8_t *dst, uint16_t first, uint16_t second)
+{
+        dst[0] = (uint8_t) first;
+        dst[1] = (uint8_t) ((first >> 8U) | (second << 4U));
+        dst[2] = (uint8_t) (second >> 4U);
+}
+
+/**
+ * XV30/Y410 carries the identity-mapped RGB planes produced by the encoder:
+ * U=B, Y=G, V=R.  Preserve those components directly instead of applying a
+ * YUV-to-RGB matrix.
+ */
+static void
+xv30_identity_to_r12l(struct av_conv_data d)
+{
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
+        assert((uintptr_t) in_frame->data[0] % 4 == 0);
+#pragma omp parallel for schedule(static)
+        for (ptrdiff_t y = 0; y < height; ++y) {
+                const uint32_t *src = (const void *)
+                        (in_frame->data[0] + in_frame->linesize[0] * y);
+                uint8_t *dst = (void *) (d.dst_buffer + y * d.pitch);
+                OPTIMIZED_FOR (int x = 0; x < width; x += 2) {
+                        const uint32_t first = *src++;
+                        const uint32_t second = *src++;
+                        const uint16_t b0 =
+                                identity_10_to_12(first & 0x3FFU);
+                        const uint16_t g0 = identity_10_to_12(
+                                (first >> 10U) & 0x3FFU);
+                        const uint16_t r0 = identity_10_to_12(
+                                (first >> 20U) & 0x3FFU);
+                        const uint16_t b1 =
+                                identity_10_to_12(second & 0x3FFU);
+                        const uint16_t g1 = identity_10_to_12(
+                                (second >> 10U) & 0x3FFU);
+                        const uint16_t r1 = identity_10_to_12(
+                                (second >> 20U) & 0x3FFU);
+                        store_r12l_pair(dst, r0, g0);
+                        store_r12l_pair(dst + 3, b0, r1);
+                        store_r12l_pair(dst + 6, g1, b1);
+                        dst += 9;
+                }
+        }
+}
 #endif // XV3X_PRESENT
 
 #if Y210_PRESENT
@@ -2100,6 +2155,7 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
 #if XV3X_PRESENT
         { AV_PIX_FMT_XV30,        UYVY,      xv30_to_uyvy,                 nullptr },
         { AV_PIX_FMT_XV30,        v210,      xv30_to_v210,                 nullptr },
+        { AV_PIX_FMT_XV30,        R12L,      xv30_identity_to_r12l,        nullptr },
         { AV_PIX_FMT_XV30,        Y416,      xv30_to_y416,                 nullptr },
         { AV_PIX_FMT_Y212,        UYVY,      y210_to_uyvy,                 nullptr },
         { AV_PIX_FMT_Y212,        v210,      y210_to_v210,                 nullptr },
@@ -2184,6 +2240,7 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
         { AV_PIX_FMT_GBRP10LE,    RGB,       from_planar_conversion,       gbrp10le_to_rgb },
         { AV_PIX_FMT_GBRP10LE,    RGBA,      from_planar_conversion,       gbrp10le_to_rgba },
         { AV_PIX_FMT_GBRP10LE,    RG48,      from_planar_conversion,       gbrp10le_to_rg48 },
+        { AV_PIX_FMT_GBRP10LE,    R12L,      from_planar_conversion,       gbrp10le_to_r12l },
         { AV_PIX_FMT_GBRP12LE,    R12L,      from_planar_conversion,       gbrp12le_to_r12l },
         { AV_PIX_FMT_GBRP12LE,    R10k,      from_planar_conversion,       gbrp12le_to_r10k },
         { AV_PIX_FMT_GBRP12LE,    RGB,       from_planar_conversion,       gbrp12le_to_rgb },

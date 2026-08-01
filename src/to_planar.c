@@ -360,17 +360,24 @@ uyvy_to_i420(struct to_planar_data d)
         }
 }
 
-/// @note out_depth needs to be at least 12
+static inline uint16_t
+scale_r12l_sample(uint16_t value, unsigned int out_depth)
+{
+        return out_depth == 10
+                   ? (uint16_t) ((value * 1023U + 2047U) / 4095U)
+                   : (uint16_t) (value << (out_depth - 12U));
+}
+
 static void
 r12l_to_gbrpXXle(struct to_planar_data d, unsigned int out_depth, int rind,
                  int gind, int bind)
 {
-        assert(out_depth >= 12);
+        assert(out_depth == 10 || out_depth == 12 || out_depth == 16);
         assert((uintptr_t) d.out_linesize[0] % 2 == 0);
         assert((uintptr_t) d.out_linesize[1] % 2 == 0);
         assert((uintptr_t) d.out_linesize[2] % 2 == 0);
 
-#define S(x) ((x) << (out_depth - 12U))
+#define S(x) scale_r12l_sample((uint16_t) (x), out_depth)
 
         int src_linesize = vc_get_linesize(d.width, R12L);
         for (int y = 0; y < d.height; ++y) {
@@ -443,6 +450,12 @@ r12l_to_gbrpXXle(struct to_planar_data d, unsigned int out_depth, int rind,
                 }
         }
 #undef S
+}
+
+void
+r12l_to_gbrp10le(struct to_planar_data d)
+{
+        r12l_to_gbrpXXle(d, DEPTH10, 2, 0, 1);
 }
 
 void

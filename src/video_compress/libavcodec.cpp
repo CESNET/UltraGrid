@@ -48,6 +48,7 @@
 #include <libavutil/rational.h>           // for av_inv_q
 #include <list>
 #include <map>
+#include <memory>
 #include <regex>
 #include <set>
 #include <stdexcept>
@@ -77,6 +78,7 @@
 #include "utils/video.h"
 #include "video_codec.h"
 #include "video_compress.h"
+#include "video_compress/r12l_vaapi_opencl.hpp"
 #include "video_frame.h"
 #include "utils/string_view_utils.hpp"
 
@@ -294,6 +296,8 @@ struct state_video_compress_libav {
 
         bool hwenc = false;
         AVFrame *hwframe = nullptr;
+        std::unique_ptr<r12l_vaapi_opencl> r12l_gpu;
+        AVFrame *r12l_gpu_frame = nullptr;
 
 #ifdef HAVE_SWSCALE
         struct SwsContext *sws_ctx = nullptr;
@@ -790,7 +794,7 @@ fail:
 #endif
 
 #ifdef HWACC_VAAPI
-static int vaapi_init(struct AVCodecContext *s){
+static int vaapi_init(struct AVCodecContext *s, enum AVPixelFormat sw_format){
 
         int pool_size = 20; //Default in ffmpeg examples
 
@@ -807,7 +811,7 @@ static int vaapi_init(struct AVCodecContext *s){
                         s->width,
                         s->height,
                         AV_PIX_FMT_VAAPI,
-                        AV_PIX_FMT_NV12,
+                        sw_format,
                         pool_size,
                         &hw_frames_ctx);
         if(ret < 0)
@@ -1073,7 +1077,15 @@ static bool try_open_codec(struct state_video_compress_libav *s,
         log_msg(LOG_LEVEL_VERBOSE, "[lavc] Trying pixfmt: %s\n", av_get_pix_fmt_name(pix_fmt));
 #ifdef HWACC_VAAPI
         if (pix_fmt == AV_PIX_FMT_VAAPI){
-                int ret = vaapi_init(s->codec_ctx);
+                enum AVPixelFormat sw_format = AV_PIX_FMT_NV12;
+                if (desc.color_spec == R12L) {
+                        // Preserve the RGB components as identity-mapped HEVC
+                        // 4:4:4 planes: Y=G, U=B, V=R.  Feeding VAAPI an RGB
+                        // surface makes the driver perform an unwanted
+                        // RGB-to-YUV matrix conversion.
+                        sw_format = AV_PIX_FMT_XV30LE;
+                }
+                int ret = vaapi_init(s->codec_ctx, sw_format);
                 if (ret != 0) {
                         avcodec_free_context(&s->codec_ctx);
                         s->codec_ctx = NULL;
@@ -1082,7 +1094,28 @@ static bool try_open_codec(struct state_video_compress_libav *s,
                 s->hwenc = true;
                 s->hwframe = av_frame_alloc();
                 av_hwframe_get_buffer(s->codec_ctx->hw_frames_ctx, s->hwframe, 0);
-                pix_fmt = AV_PIX_FMT_NV12;
+                pix_fmt = sw_format;
+                if (desc.color_spec == R12L &&
+                    sw_format == AV_PIX_FMT_XV30LE) {
+                        s->r12l_gpu = std::make_unique<r12l_vaapi_opencl>();
+                        if (!s->r12l_gpu->init(desc.width, desc.height)) {
+                                MSG(ERROR, "OpenCL/VA R12L conversion init failed: %s\n",
+                                    s->r12l_gpu->error().c_str());
+                                s->r12l_gpu.reset();
+                                avcodec_free_context(&s->codec_ctx);
+                                return false;
+                        }
+                        s->r12l_gpu_frame = av_frame_alloc();
+                        s->r12l_gpu_frame->format = AV_PIX_FMT_XV30LE;
+                        s->r12l_gpu_frame->width = desc.width;
+                        s->r12l_gpu_frame->height = desc.height;
+                        if (av_frame_get_buffer(s->r12l_gpu_frame, 0) < 0) {
+                                MSG(ERROR, "Unable to allocate OpenCL RGB10 staging frame\n");
+                                avcodec_free_context(&s->codec_ctx);
+                                return false;
+                        }
+                        MSG(INFO, "Using OpenCL GPU R12L -> identity Y410 conversion\n");
+                }
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "Using VA-API with sw format %s\n", av_get_pix_fmt_name(pix_fmt));
         }
 #endif
@@ -1104,6 +1137,15 @@ static bool try_open_codec(struct state_video_compress_libav *s,
 #endif
 
         get_av_pixfmt_details(pix_fmt, &s->codec_ctx->colorspace, &s->codec_ctx->color_range);
+        if (desc.color_spec == R12L &&
+            (pix_fmt == AV_PIX_FMT_GBRP10LE
+             || pix_fmt == AV_PIX_FMT_XV30LE
+             )) {
+                s->codec_ctx->colorspace = AVCOL_SPC_RGB;
+                s->codec_ctx->color_range = AVCOL_RANGE_JPEG;
+                s->codec_ctx->color_primaries = AVCOL_PRI_BT709;
+                s->codec_ctx->color_trc = AVCOL_TRC_BT709;
+        }
         // QSV always converts to limited BT.601 but writes to metadata contents
         // of AVCodecContex so set the attribs to correspond
         if (strstr(codec->name, "_qsv") != nullptr &&
@@ -1331,7 +1373,10 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         s->mov_avg_frames = s->mov_avg_comp_duration = 0;
 
         to_lavc_vid_conv_destroy(&s->pixfmt_conversion);
-        if ((s->pixfmt_conversion = to_lavc_vid_conv_init(desc.color_spec, desc.width, desc.height, pix_fmt, s->conv_thread_count)) == nullptr) {
+        if (!s->r12l_gpu &&
+            (s->pixfmt_conversion = to_lavc_vid_conv_init(
+                 desc.color_spec, desc.width, desc.height, pix_fmt,
+                 s->conv_thread_count)) == nullptr) {
                 if (!configure_swscale(s, desc, pix_fmt)) {
                         return false;
                 }
@@ -1595,9 +1640,25 @@ static shared_ptr<video_frame> libavcodec_compress_tile(void *state, shared_ptr<
         }
 
         time_ns_t t0 = get_time_in_ns();
-        struct AVFrame *frame = to_lavc_vid_conv(s->pixfmt_conversion, tx->tiles[0].data);
-        if (!frame) {
-                return {};
+        struct AVFrame *frame = nullptr;
+        if (s->r12l_gpu) {
+                if (!s->r12l_gpu->convert(
+                        reinterpret_cast<const unsigned char *>(
+                            tx->tiles[0].data),
+                        vc_get_linesize(tx->tiles[0].width, R12L),
+                        s->r12l_gpu_frame->data[0],
+                        s->r12l_gpu_frame->linesize[0])) {
+                        MSG(ERROR, "OpenCL/VA R12L conversion failed: %s\n",
+                            s->r12l_gpu->error().c_str());
+                        return {};
+                }
+                frame = s->r12l_gpu_frame;
+        } else {
+                frame = to_lavc_vid_conv(s->pixfmt_conversion,
+                                         tx->tiles[0].data);
+                if (!frame) {
+                        return {};
+                }
         }
         time_ns_t t1 = get_time_in_ns();
 
@@ -1672,6 +1733,8 @@ static void cleanup(struct state_video_compress_libav *s)
                 avcodec_free_context(&s->codec_ctx);
         }
 
+        s->r12l_gpu.reset();
+        av_frame_free(&s->r12l_gpu_frame);
         av_frame_free(&s->hwframe);
 
 #ifdef HAVE_SWSCALE

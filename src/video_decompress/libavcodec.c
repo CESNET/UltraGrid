@@ -64,6 +64,7 @@
 #include "video_codec.h"
 #include "video_frame.h"
 #include "video_decompress.h"
+#include "video_decompress/r12l_opencl.h"
 
 #include "hwaccel_libav_common.h"
 #include "hwaccel_vaapi.h"
@@ -104,6 +105,7 @@ struct state_libavcodec_decompress {
         double    mov_avg_comp_duration;
         long long mov_avg_frames;
         time_ns_t duration_warn_last_print;
+        void     *r12l_opencl;
 };
 
 static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const enum AVPixelFormat *fmt);
@@ -228,6 +230,14 @@ set_codec_context_params(struct state_libavcodec_decompress *s)
                 char gpu[3];
                 snprintf(gpu, sizeof gpu, "%u", cuda_devices[0]);
                 check_av_opt_set(s->codec_ctx->priv_data, "gpu", gpu);
+        }
+        if (strstr(s->codec_ctx->codec->name, "_qsv") != NULL) {
+                if (check_av_opt_set(s->codec_ctx->priv_data, "async_depth",
+                                     "1") == 0) {
+                        log_msg(LOG_LEVEL_INFO,
+                                MOD_NAME "Setting QSV decoder async depth to 1 "
+                                         "for low-latency operation.\n");
+                }
         }
 }
 
@@ -1108,9 +1118,45 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                         AVCOL_RANGE_MPEG) {
                         s->frame->colorspace = AVCOL_SPC_BT709;
                 }
-                change_pixfmt(s->frame, dst, s->convert, s->out_codec,
-                              s->pitch,
-                              s->rgb_shift, &s->sws);
+                bool converted_on_gpu = false;
+                if (s->frame->format == AV_PIX_FMT_XV30LE &&
+                    (s->out_codec == R12L || s->out_codec == R10k)) {
+                        if (s->r12l_opencl == NULL) {
+                                s->r12l_opencl =
+                                        r12l_decompress_opencl_create();
+                                if (s->r12l_opencl != NULL) {
+                                        MSG(INFO, "Using OpenCL GPU identity "
+                                                  "Y410 -> %s conversion\n",
+                                            get_codec_name(s->out_codec));
+                                }
+                        }
+                        if (s->r12l_opencl != NULL) {
+                                converted_on_gpu = s->out_codec == R10k
+                                        ? r10k_decompress_opencl_convert(
+                                                s->r12l_opencl,
+                                                s->frame->data[0],
+                                                s->frame->linesize[0], dst,
+                                                s->pitch, s->desc.width,
+                                                s->desc.height)
+                                        : r12l_decompress_opencl_convert(
+                                                s->r12l_opencl,
+                                                s->frame->data[0],
+                                                s->frame->linesize[0], dst,
+                                                s->pitch, s->desc.width,
+                                                s->desc.height);
+                                if (!converted_on_gpu) {
+                                        MSG(WARNING,
+                                            "OpenCL Y410 -> %s conversion failed: %s; falling back to CPU\n",
+                                            get_codec_name(s->out_codec),
+                                            r12l_decompress_opencl_error(
+                                                    s->r12l_opencl));
+                                }
+                        }
+                }
+                if (!converted_on_gpu) {
+                        change_pixfmt(s->frame, dst, s->convert, s->out_codec,
+                                      s->pitch, s->rgb_shift, &s->sws);
+                }
         }
         time_ns_t t2 = get_time_in_ns();
         MSG(DEBUG,
@@ -1179,6 +1225,7 @@ static void libavcodec_decompress_done(void *state)
                 (struct state_libavcodec_decompress *) state;
 
         deconfigure(s);
+        r12l_decompress_opencl_destroy(s->r12l_opencl);
 
         free(s);
 }
@@ -1226,4 +1273,3 @@ static const struct video_decompress_info libavcodec_info = {
 };
 
 REGISTER_MODULE(libavcodec, &libavcodec_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
-

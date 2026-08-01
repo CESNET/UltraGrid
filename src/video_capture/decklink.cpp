@@ -90,6 +90,29 @@
 #include "video_codec.h"
 #include "video_frame.h"
 
+#if BLACKMAGIC_DECKLINK_API_VERSION < 0x10000000
+// DeckLink 16 buffer-access API used with the installed 16.x driver.  Keep
+// these compatibility declarations local until UltraGrid's bundled SDK is
+// updated from 12.8.
+typedef uint32_t BMDBufferAccessFlags;
+enum : BMDBufferAccessFlags {
+        bmdBufferAccessRead = 1U << 0,
+};
+BMD_CONST REFIID IID_IDeckLinkVideoBuffer = {
+        0x81, 0xF0, 0x3D, 0x70, 0xDE, 0x13, 0x4B, 0x17,
+        0x87, 0x3A, 0xC8, 0xAC, 0x96, 0x89, 0xC6, 0x82
+};
+class IDeckLinkVideoBuffer : public IUnknown {
+public:
+        virtual HRESULT GetBytes(void **buffer) = 0;
+        virtual HRESULT GetSize(uint64_t *size) = 0;
+        virtual HRESULT StartAccess(BMDBufferAccessFlags flags) = 0;
+        virtual HRESULT EndAccess(BMDBufferAccessFlags flags) = 0;
+protected:
+        virtual ~IDeckLinkVideoBuffer() {}
+};
+#endif
+
 constexpr const int DEFAULT_AUDIO_BPS = 4;
 constexpr const size_t MAX_AUDIO_PACKETS = 10;
 #define MOD_NAME "[DeckLink capture] "
@@ -1744,20 +1767,38 @@ static audio_frame *process_new_audio_packets(struct vidcap_decklink_state *s) {
         return &s->audio;
 }
 
-static void postprocess_frame(struct vidcap_decklink_state *s) {
+static void postprocess_frame(struct vidcap_decklink_state *s,
+                              struct video_frame *frame) {
         if (s->codec == RGBA) {
-                for (unsigned i = 0; i < s->frame->tile_count; ++i) {
-                        vc_copylineToRGBA_inplace((unsigned char*) s->frame->tiles[i].data,
-                                        (unsigned char*)s->frame->tiles[i].data,
-                                        s->frame->tiles[i].data_len, 16, 8, 0);
+                for (unsigned i = 0; i < frame->tile_count; ++i) {
+                        vc_copylineToRGBA_inplace((unsigned char*) frame->tiles[i].data,
+                                        (unsigned char*)frame->tiles[i].data,
+                                        frame->tiles[i].data_len, 16, 8, 0);
                 }
         }
         if (s->codec == R10k && get_commandline_param(R10K_FULL_OPT) == nullptr) {
-                for (unsigned i = 0; i < s->frame->tile_count; ++i) {
-                        r10k_limited_to_full(s->frame->tiles[i].data, s->frame->tiles[i].data,
-                                        s->frame->tiles[i].data_len);
+                for (unsigned i = 0; i < frame->tile_count; ++i) {
+                        r10k_limited_to_full(frame->tiles[i].data, frame->tiles[i].data,
+                                        frame->tiles[i].data_len);
                 }
         }
+}
+
+struct decklink_accessed_buffers {
+        std::vector<IDeckLinkVideoBuffer *> buffers;
+};
+
+static void
+dispose_decklink_accessed_frame(struct video_frame *frame)
+{
+        auto *accessed = static_cast<decklink_accessed_buffers *>(
+                frame->callbacks.dispose_udata);
+        for (auto *buffer : accessed->buffers) {
+                buffer->EndAccess(bmdBufferAccessRead);
+                buffer->Release();
+        }
+        delete accessed;
+        vf_free(frame);
 }
 
 static struct video_frame *
@@ -1832,34 +1873,9 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
 
         *audio = process_new_audio_packets(s); // return audio even if there is no video to avoid
                                                //  hoarding and then dropping of audio packets
-// UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UN //
-	lk.unlock();
 
 	if(!frame_ready)
 		return NULL;
-
-        /* count returned tiles */
-        int count = 0;
-        if(s->stereo) {
-                if (s->state[0].delegate->pixelFrame != NULL &&
-                                s->state[0].delegate->pixelFrameRight != NULL) {
-                        s->frame->tiles[0].data = (char*)s->state[0].delegate->pixelFrame;
-                        s->frame->tiles[1].data = (char*)s->state[0].delegate->pixelFrameRight;
-                        ++count;
-                } // else count == 0 -> return NULL
-        } else {
-                for (i = 0; i < s->devices_cnt; ++i) {
-                        if (s->state[i].delegate->pixelFrame == NULL) {
-                                break;
-                        }
-                        s->frame->tiles[i].data = (char*)s->state[i].delegate->pixelFrame;
-                        ++count;
-                }
-        }
-        if (count < s->devices_cnt) {
-                return NULL;
-        }
-        postprocess_frame(s);
 
         s->frames++;
         s->frame->timecode = s->state[0].delegate->timecode;
@@ -1867,7 +1883,79 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
             ((int64_t)s->state[0].delegate->frameTime * 90000 +
              s->frameRateScale - 1) /
             s->frameRateScale;
-        return s->frame;
+
+        // Pin each DeckLink 16.x video buffer until downstream compression has
+        // consumed it. The legacy frame GetBytes() pointer alone is not stable.
+        auto *accessed = new decklink_accessed_buffers;
+        auto *out = vf_alloc_desc(video_desc_from_frame(s->frame));
+        out->flags = s->frame->flags;
+        out->timecode = s->frame->timecode;
+        out->timestamp = s->frame->timestamp;
+        out->callbacks.dispose = dispose_decklink_accessed_frame;
+        out->callbacks.dispose_udata = accessed;
+
+        bool valid = true;
+        if (s->stereo) {
+                IDeckLinkVideoFrame *frames[] = {
+                        s->state[0].delegate->lastFrame,
+                        s->state[0].delegate->rightEyeFrame,
+                };
+                for (unsigned int tile = 0; tile < 2; ++tile) {
+                        IDeckLinkVideoBuffer *buffer = nullptr;
+                        void *bytes = nullptr;
+                        if (frames[tile] == nullptr ||
+                            frames[tile]->QueryInterface(
+                                    IID_IDeckLinkVideoBuffer,
+                                    reinterpret_cast<void **>(&buffer)) != S_OK ||
+                            buffer == nullptr ||
+                            buffer->StartAccess(bmdBufferAccessRead) != S_OK ||
+                            buffer->GetBytes(&bytes) != S_OK ||
+                            bytes == nullptr) {
+                                if (buffer != nullptr) buffer->Release();
+                                valid = false;
+                                break;
+                        }
+                        accessed->buffers.push_back(buffer);
+                        out->tiles[tile].data = static_cast<char *>(bytes);
+                }
+        } else {
+                for (i = 0; i < s->devices_cnt; ++i) {
+                        auto *decklink_frame = s->state[i].delegate->lastFrame;
+                        IDeckLinkVideoBuffer *buffer = nullptr;
+                        void *bytes = nullptr;
+                        if (decklink_frame == nullptr ||
+                            decklink_frame->QueryInterface(
+                                    IID_IDeckLinkVideoBuffer,
+                                    reinterpret_cast<void **>(&buffer)) != S_OK ||
+                            buffer == nullptr ||
+                            buffer->StartAccess(bmdBufferAccessRead) != S_OK ||
+                            buffer->GetBytes(&bytes) != S_OK ||
+                            bytes == nullptr) {
+                                if (buffer != nullptr) buffer->Release();
+                                valid = false;
+                                break;
+                        }
+                        uint64_t buffer_size = 0;
+                        if (buffer->GetSize(&buffer_size) != S_OK ||
+                            buffer_size < out->tiles[i].data_len) {
+                                buffer->EndAccess(bmdBufferAccessRead);
+                                buffer->Release();
+                                valid = false;
+                                break;
+                        }
+                        accessed->buffers.push_back(buffer);
+                        out->tiles[i].data = static_cast<char *>(bytes);
+                }
+        }
+// UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UN //
+        lk.unlock();
+
+        if (!valid) {
+                dispose_decklink_accessed_frame(out);
+                return nullptr;
+        }
+        postprocess_frame(s, out);
+        return out;
 }
 
 static string

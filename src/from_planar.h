@@ -89,6 +89,7 @@ decode_planar_func_t gbrp10le_to_rgb;
 decode_planar_func_t gbrp10le_to_rgba;
 decode_planar_func_t gbrp10le_to_rg48;
 decode_planar_func_t gbrp10le_to_r10k;
+decode_planar_func_t gbrp10le_to_r12l;
 decode_planar_func_t gbrp12le_to_rgb;
 decode_planar_func_t gbrp12le_to_rgba;
 decode_planar_func_t gbrp12le_to_rg48;

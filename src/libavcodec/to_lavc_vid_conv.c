@@ -1318,6 +1318,14 @@ static void r10k_to_gbrp16le(AVFrame * __restrict out_frame, const unsigned char
 }
 
 static void
+av_r12l_to_gbrp10le(AVFrame *__restrict out_frame,
+                    const unsigned char *__restrict in_data, int width,
+                    int height)
+{
+        r12l_to_gbrp10le(to_planar_data_from_avfame(out_frame, in_data, width, height));
+}
+
+static void
 av_r12l_to_gbrp12le(AVFrame *__restrict out_frame,
                     const unsigned char *__restrict in_data, int width,
                     int height)
@@ -1432,6 +1440,7 @@ static const struct uv_to_av_conversion *get_uv_to_av_conversions() {
 #endif
                 { R10k, AV_PIX_FMT_YUV422P10LE, r10k_to_yuv422p10le },
                 { R10k, AV_PIX_FMT_YUV420P10LE, r10k_to_yuv420p10le },
+                { R12L, AV_PIX_FMT_GBRP10LE,    av_r12l_to_gbrp10le },
                 { R12L, AV_PIX_FMT_GBRP12LE,    av_r12l_to_gbrp12le },
                 { R12L, AV_PIX_FMT_GBRP16LE,    av_r12l_to_gbrp16le },
                 { RG48, AV_PIX_FMT_GBRP12LE,    rg48_to_gbrp12le },

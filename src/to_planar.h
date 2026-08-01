@@ -68,6 +68,7 @@ decode_buffer_func_t uyvy_to_nv12;
 decode_buffer_func_t rgba_to_bgra;
 // other packed->planar convs are historically in video_codec.[ch]
 decode_buffer_func_t uyvy_to_i420;
+decode_buffer_func_t r12l_to_gbrp10le;
 decode_buffer_func_t r12l_to_gbrp12le;
 decode_buffer_func_t r12l_to_gbrp16le;
 decode_buffer_func_t r12l_to_rgbp12le;

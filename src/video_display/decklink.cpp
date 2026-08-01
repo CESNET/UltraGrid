@@ -479,9 +479,17 @@ void PlaybackDelegate::ScheduleNextFrame()
                     << MOD_NAME
                     << "video streamTime: " << schedSeq * frameRateDuration
                     << "; scale: " << frameRateScale << "\n";
-                m_deckLinkOutput->ScheduleVideoFrame(
+                const HRESULT result = m_deckLinkOutput->ScheduleVideoFrame(
                     f, schedSeq * frameRateDuration, frameRateDuration,
                     frameRateScale);
+                if (FAILED(result)) {
+                        LOG(LOG_LEVEL_ERROR)
+                            << MOD_NAME << "ScheduleVideoFrame: "
+                            << bmd_hresult_to_string(result) << "\n";
+                        f->Release();
+                        m_audio_sync_ts = audio_sync_val::resync;
+                        continue;
+                }
                 schedSeq += 1;
         }
 
@@ -491,9 +499,20 @@ void PlaybackDelegate::ScheduleNextFrame()
         for (; i < (m_min_sched_frames + m_max_sched_frames + 1) / 2; ++i) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Missing frame\n";
                 m_audio_sync_ts = audio_sync_val::resync;
-                m_deckLinkOutput->ScheduleVideoFrame(
+                // Each successful ScheduleVideoFrame() owns one reference until
+                // ScheduledFrameCompleted(). Keep the separate lastSchedFrame
+                // reference intact while the same frame covers an underrun.
+                lastSchedFrame->AddRef();
+                const HRESULT result = m_deckLinkOutput->ScheduleVideoFrame(
                     lastSchedFrame, schedSeq * frameRateDuration,
                     frameRateDuration, frameRateScale);
+                if (FAILED(result)) {
+                        lastSchedFrame->Release();
+                        LOG(LOG_LEVEL_ERROR)
+                            << MOD_NAME << "ScheduleVideoFrame (repeat): "
+                            << bmd_hresult_to_string(result) << "\n";
+                        break;
+                }
                 schedSeq += 1;
         }
 }
@@ -1727,9 +1746,30 @@ void PlaybackDelegate::ScheduleAudio(const struct audio_frame *frame,
         if (frame->timestamp < m_adata.last_sync_ts) { // wrap-around
                 m_adata.last_sync_ts -= (1LLU << 32);
         }
-        BMDTimeValue streamTime =
-            ((int64_t) frame->timestamp - m_adata.last_sync_ts) *
-            bmdAudioSampleRate48kHz / 90000;
+        BMDTimeValue streamTime;
+        if (frame->timestamp == -1) {
+                // Uncompressed audio received through the postprocessor may not
+                // carry an RTP timestamp.  Do not combine the -1 sentinel with
+                // the video RTP epoch: that schedules the samples hours into
+                // the future.  Append them to the current DeckLink audio
+                // timeline instead.
+                double playbackSpeed = 0.0;
+                uint32_t buffered = 0;
+                const HRESULT timeRes = m_deckLinkOutput->GetScheduledStreamTime(
+                    bmdAudioSampleRate48kHz, &streamTime, &playbackSpeed);
+                const HRESULT bufferedRes =
+                    m_deckLinkOutput->GetBufferedAudioSampleFrameCount(&buffered);
+                if (FAILED(timeRes)) {
+                        streamTime = 0;
+                }
+                if (SUCCEEDED(bufferedRes)) {
+                        streamTime += buffered;
+                }
+        } else {
+                streamTime =
+                    ((int64_t) frame->timestamp - m_adata.last_sync_ts) *
+                    bmdAudioSampleRate48kHz / 90000;
+        }
 
         LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "audio streamTime: " << streamTime
                              << "; samples: " << *samples

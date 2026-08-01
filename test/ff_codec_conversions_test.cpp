@@ -106,7 +106,7 @@ int ff_codec_conversions_test_yuv444pXXle_from_to_r10k()
                 return 0;
         };
 
-        for (auto f : { AV_PIX_FMT_YUV444P10LE, AV_PIX_FMT_YUV444P12LE, AV_PIX_FMT_YUV444P16LE }) {
+        for (auto f : { AV_PIX_FMT_GBRP10LE, AV_PIX_FMT_YUV444P10LE, AV_PIX_FMT_YUV444P12LE, AV_PIX_FMT_YUV444P16LE }) {
                 int i = 0;
                 for_each(rgba_buf.begin(), rgba_buf.end(), [&](unsigned char & c) { c = (i++ / 4) % 0x100; });
                 CHECK(test_pattern(f));
