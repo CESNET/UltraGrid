@@ -1,0 +1,39 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(set = 0, binding = 0, rgb10_a2) uniform readonly image2D input_image;
+
+layout(set = 0, binding = 1, std430) writeonly buffer Output {
+        uint data[];
+} output_buffer;
+
+layout(push_constant) uniform Parameters {
+        uint width;
+} parameters;
+
+uint byte_swap(uint value)
+{
+        return ((value & 0x000000ffU) << 24) |
+               ((value & 0x0000ff00U) << 8) |
+               ((value & 0x00ff0000U) >> 8) |
+               ((value & 0xff000000U) >> 24);
+}
+
+void main()
+{
+        uint x = gl_GlobalInvocationID.x;
+        uint y = gl_GlobalInvocationID.y;
+        if (x >= parameters.width) {
+                return;
+        }
+
+        // VA Y410 is exposed as A2B10G10R10. The identity codec mapping is
+        // R=V, G=Y, B=U, which appears here as image B, G, R respectively.
+        vec4 value = imageLoad(input_image, ivec2(x, y));
+        uint b = uint(round(clamp(value.r, 0.0, 1.0) * 1023.0));
+        uint g = uint(round(clamp(value.g, 0.0, 1.0) * 1023.0));
+        uint r = uint(round(clamp(value.b, 0.0, 1.0) * 1023.0));
+        uint r10k = (r << 22) | (g << 12) | (b << 2) | 3U;
+        output_buffer.data[y * parameters.width + x] = byte_swap(r10k);
+}

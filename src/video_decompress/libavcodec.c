@@ -44,6 +44,9 @@
 #include <libswscale/swscale.h>
 #endif // defined HAVE_SWSCALE
 #include <limits.h>
+#ifdef HWACC_VAAPI
+#include <libavutil/hwcontext_vaapi.h>
+#endif
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -64,6 +67,9 @@
 #include "video_codec.h"
 #include "video_frame.h"
 #include "video_decompress.h"
+#ifdef HAVE_R12L_VULKAN
+#include "video_decompress/qsv_vaapi_vulkan.h"
+#endif
 #include "video_decompress/r12l_opencl.h"
 
 #include "hwaccel_libav_common.h"
@@ -105,9 +111,21 @@ struct state_libavcodec_decompress {
         double    mov_avg_comp_duration;
         double    mov_avg_decode_duration;
         double    mov_avg_convert_duration;
+        double    mov_avg_send_duration;
+        double    mov_avg_receive_duration;
+        double    mov_avg_transfer_duration;
+        double    last_send_duration;
+        double    last_receive_duration;
+        double    last_transfer_duration;
         long long mov_avg_frames;
         time_ns_t duration_warn_last_print;
         void     *r12l_opencl;
+#if defined HWACC_VAAPI && defined HAVE_R12L_VULKAN
+        AVBufferRef *qsv_va_device;
+        AVFrame     *qsv_va_frame;
+        void        *qsv_r10k_vulkan;
+        bool         qsv_direct_disabled;
+#endif
 };
 
 static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const enum AVPixelFormat *fmt);
@@ -125,6 +143,13 @@ static void deconfigure(struct state_libavcodec_decompress *s)
         av_packet_free(&s->pkt);
 
         hwaccel_state_reset(&s->hwaccel);
+#if defined HWACC_VAAPI && defined HAVE_R12L_VULKAN
+        qsv_vaapi_vulkan_destroy(s->qsv_r10k_vulkan);
+        s->qsv_r10k_vulkan = NULL;
+        av_buffer_unref(&s->qsv_va_device);
+        av_frame_free(&s->qsv_va_frame);
+        s->qsv_direct_disabled = false;
+#endif
 
         s->convert_in = AV_PIX_FMT_NONE;
 
@@ -588,6 +613,44 @@ fail:
 }
 #endif
 
+#if defined HWACC_COMMON_IMPL && defined HWACC_VAAPI && \
+    defined HAVE_R12L_VULKAN
+static int
+qsv_direct_init(AVCodecContext *codec, struct state_libavcodec_decompress *state)
+{
+        AVBufferRef *va_device = NULL;
+        int ret = create_hw_device_ctx(AV_HWDEVICE_TYPE_VAAPI, &va_device);
+        if (ret < 0) {
+                return ret;
+        }
+        AVBufferRef *qsv_device = NULL;
+        ret = av_hwdevice_ctx_create_derived(&qsv_device,
+                                             AV_HWDEVICE_TYPE_QSV, va_device,
+                                             0);
+        if (ret < 0) {
+                av_buffer_unref(&va_device);
+                return ret;
+        }
+        AVFrame *transfer_frame = av_frame_alloc();
+        AVFrame *va_frame = av_frame_alloc();
+        if (transfer_frame == NULL || va_frame == NULL) {
+                av_frame_free(&transfer_frame);
+                av_frame_free(&va_frame);
+                av_buffer_unref(&qsv_device);
+                av_buffer_unref(&va_device);
+                return AVERROR(ENOMEM);
+        }
+        av_buffer_unref(&state->qsv_va_device);
+        av_frame_free(&state->qsv_va_frame);
+        state->qsv_va_device = va_device;
+        state->qsv_va_frame = va_frame;
+        codec->hw_device_ctx = qsv_device;
+        state->hwaccel.copy = true;
+        state->hwaccel.tmp_frame = transfer_frame;
+        return 0;
+}
+#endif
+
 #ifdef HWACC_COMMON_IMPL
 static void
 check_pixfmt_hw_eligibility(enum AVPixelFormat sw_pix_fmt)
@@ -623,6 +686,19 @@ static enum AVPixelFormat get_format_callback(struct AVCodecContext *s, const en
         const char *hwaccel = get_commandline_param("use-hw-accel");
 #ifdef HWACC_COMMON_IMPL
         hwaccel_state_reset(&state->hwaccel);
+
+#if defined HWACC_VAAPI && defined HAVE_R12L_VULKAN
+        if (state->out_codec == R10k &&
+            strstr(s->codec->name, "_qsv") != NULL) {
+                for (const enum AVPixelFormat *it = fmt;
+                     *it != AV_PIX_FMT_NONE; ++it) {
+                        if (*it == AV_PIX_FMT_QSV &&
+                            qsv_direct_init(s, state) == 0) {
+                                SELECT_PIXFMT(AV_PIX_FMT_QSV);
+                        }
+                }
+        }
+#endif
 
         static const struct{
                 enum AVPixelFormat pix_fmt;
@@ -960,9 +1036,20 @@ static void check_duration(struct state_libavcodec_decompress *s, double duratio
             (s->mov_avg_decode_duration * (MOV_WIN_FRM - 1) +
              (duration_total_sec - duration_pixfmt_change_sec)) /
             MOV_WIN_FRM;
+        s->mov_avg_send_duration =
+            (s->mov_avg_send_duration * (MOV_WIN_FRM - 1) +
+             s->last_send_duration) /
+            MOV_WIN_FRM;
+        s->mov_avg_receive_duration =
+            (s->mov_avg_receive_duration * (MOV_WIN_FRM - 1) +
+             s->last_receive_duration) /
+            MOV_WIN_FRM;
+        s->mov_avg_transfer_duration =
+            (s->mov_avg_transfer_duration * (MOV_WIN_FRM - 1) +
+             s->last_transfer_duration) /
+            MOV_WIN_FRM;
         s->mov_avg_frames += 1;
-        if (s->mov_avg_frames < 2 * MOV_WIN_FRM ||
-            s->mov_avg_comp_duration < tpf) {
+        if (s->mov_avg_frames < 2 * MOV_WIN_FRM) {
                 return;
         }
         const time_ns_t now = get_time_in_ns();
@@ -970,14 +1057,22 @@ static void check_duration(struct state_libavcodec_decompress *s, double duratio
                 return;
         }
         s->duration_warn_last_print = now;
-        MSG(WARNING,
-            "Avg decode path time of last %d frames is %.2f ms (QSV decode/copy "
-            "%.2f ms + pixel conversion %.2f ms), which exceeds %.2f ms "
-            "(%d%% of TPF)!\n",
+        const bool over_budget = s->mov_avg_comp_duration >= tpf;
+        log_msg(over_budget ? LOG_LEVEL_WARNING : LOG_LEVEL_INFO,
+            MOD_NAME
+            "Avg decode path time of last %d frames is %.2f ms (QSV packet "
+            "submit %.2f ms + receive/decode %.2f ms + surface transfer %.2f "
+            "ms + pixel conversion %.2f ms)%s %.2f ms (%d%% of TPF).\n",
             MOV_WIN_FRM, SEC_TO_MS(s->mov_avg_comp_duration),
-            SEC_TO_MS(s->mov_avg_decode_duration),
-            SEC_TO_MS(s->mov_avg_convert_duration), SEC_TO_MS(tpf),
+            SEC_TO_MS(s->mov_avg_send_duration),
+            SEC_TO_MS(s->mov_avg_receive_duration),
+            SEC_TO_MS(s->mov_avg_transfer_duration),
+            SEC_TO_MS(s->mov_avg_convert_duration),
+            over_budget ? ", which exceeds" : "; budget is", SEC_TO_MS(tpf),
             TIME_SLOT_PERC_MAX);
+        if (!over_budget) {
+                return;
+        }
         const char *hint = NULL;
         if ((s->codec_ctx->thread_type & FF_THREAD_FRAME) == 0 &&
             (s->codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) !=
@@ -1062,7 +1157,9 @@ decode_frame(struct state_libavcodec_decompress *s, unsigned char *src,
         bool frame_decoded = false;
         s->pkt->data       = src;
         s->pkt->size       = src_len;
+        const time_ns_t send_start = get_time_in_ns();
         int ret            = avcodec_send_packet(s->codec_ctx, s->pkt);
+        const time_ns_t receive_start = get_time_in_ns();
         if (ret != 0 && ret != AVERROR(EAGAIN)) {
                 handle_lavd_error(MOD_NAME "send - ", s, ret);
                 return false;
@@ -1080,6 +1177,11 @@ decode_frame(struct state_libavcodec_decompress *s, unsigned char *src,
         if (ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
                 handle_lavd_error(MOD_NAME "recv - ", s, ret);
         }
+        const time_ns_t receive_end = get_time_in_ns();
+        s->last_send_duration =
+                NS_TO_SEC_DBL(receive_start - send_start);
+        s->last_receive_duration =
+                NS_TO_SEC_DBL(receive_end - receive_start);
         return frame_decoded;
 }
 
@@ -1123,12 +1225,63 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
         time_ns_t t1 = get_time_in_ns();
 
         s->frame->opaque = callbacks;
+        const time_ns_t transfer_start = get_time_in_ns();
+        bool converted_direct = false;
+#if defined HWACC_VAAPI && defined HAVE_R12L_VULKAN
+        if (s->frame->format == AV_PIX_FMT_QSV && s->out_codec == R10k &&
+            !s->qsv_direct_disabled && s->qsv_va_frame != NULL) {
+                av_frame_unref(s->qsv_va_frame);
+                s->qsv_va_frame->format = AV_PIX_FMT_VAAPI;
+                int map_ret = av_hwframe_map(s->qsv_va_frame, s->frame,
+                                             AV_HWFRAME_MAP_READ);
+                if (map_ret == 0) {
+                        if (s->qsv_r10k_vulkan == NULL) {
+                                AVHWDeviceContext *device =
+                                    (AVHWDeviceContext *) s->qsv_va_device->data;
+                                AVVAAPIDeviceContext *va =
+                                    (AVVAAPIDeviceContext *) device->hwctx;
+                                s->qsv_r10k_vulkan =
+                                    qsv_vaapi_vulkan_create(
+                                        va->display, s->desc.width,
+                                        s->desc.height);
+                                if (s->qsv_r10k_vulkan != NULL) {
+                                        MSG(INFO,
+                                            "Using direct QSV/VA DMA-BUF "
+                                            "Vulkan Y410 "
+                                            "surface -> R10k conversion\n");
+                                }
+                        }
+                        if (s->qsv_r10k_vulkan != NULL) {
+                                unsigned int surface = (unsigned int)
+                                    (uintptr_t) s->qsv_va_frame->data[3];
+                                converted_direct =
+                                    qsv_vaapi_vulkan_convert(
+                                        s->qsv_r10k_vulkan, surface, dst,
+                                        s->pitch);
+                        }
+                }
+                if (!converted_direct) {
+                        MSG(WARNING,
+                            "Direct QSV/VA Vulkan conversion unavailable: %s; "
+                            "falling back to QSV system-memory transfer\n",
+                            s->qsv_r10k_vulkan != NULL
+                                ? qsv_vaapi_vulkan_error(
+                                      s->qsv_r10k_vulkan)
+                                : map_ret < 0 ? av_err2str(map_ret)
+                                              : "Vulkan initialization failed");
+                        s->qsv_direct_disabled = true;
+                }
+        }
+#endif
 #ifdef HWACC_COMMON_IMPL
-        if(s->hwaccel.copy){
+        if(s->hwaccel.copy && !converted_direct){
                 transfer_frame(&s->hwaccel, s->frame);
         }
 #endif
-        if (s->out_codec != VIDEO_CODEC_NONE) {
+        const time_ns_t convert_start = get_time_in_ns();
+        s->last_transfer_duration =
+                NS_TO_SEC_DBL(convert_start - transfer_start);
+        if (s->out_codec != VIDEO_CODEC_NONE && !converted_direct) {
                 if (!reconfigure_convert_if_needed(s, s->frame->format, s->out_codec, s->desc.width, s->desc.height)) {
                         return DECODER_UNSUPP_PIXFMT;
                 }
@@ -1175,8 +1328,10 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
             "Decompressing %c frame (flags: %d) took %f ms, "
             "pixfmt change %f ms.\n",
             av_get_picture_type_char(s->frame->pict_type), s->frame->flags,
-            NS_TO_MS((double) (t1 - t0)), NS_TO_MS((double) (t2 - t1)));
-        check_duration(s, NS_TO_SEC_DBL(t2 - t0), NS_TO_SEC_DBL(t2 - t1));
+            NS_TO_MS((double) (t1 - t0)),
+            NS_TO_MS((double) (t2 - convert_start)));
+        check_duration(s, NS_TO_SEC_DBL(t2 - t0),
+                       NS_TO_SEC_DBL(t2 - convert_start));
 
         if (s->out_codec == VIDEO_CODEC_NONE) {
                 log_msg(LOG_LEVEL_VERBOSE,

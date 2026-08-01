@@ -2081,16 +2081,18 @@ then
         libavcodec=yes
         LIBAVCODEC_LIBS="$LIBAVCODEC_LIBS $LIBAVUTIL_LIBS" # added libavutil explicitly
         R12L_VULKAN_OBJ=
+        QSV_VULKAN_DECOMPRESS_OBJ=
         R12L_VULKAN_LIBS=
         if test "$system" = Linux && test "$found_vulkan" = yes && \
            test "$lavc_hwacc_vaapi" = yes; then
                 AC_DEFINE([HAVE_R12L_VULKAN], [1],
                           [Build Vulkan/DMABUF R12L to VAAPI conversion])
                 R12L_VULKAN_OBJ=src/video_compress/r12l_vaapi_vulkan.o
+                QSV_VULKAN_DECOMPRESS_OBJ=src/video_decompress/qsv_vaapi_vulkan.o
                 R12L_VULKAN_LIBS="$VULKAN_LIBS $LAVC_HWACC_VAAPI_LIBS"
         fi
         add_module vcompress_libavcodec "$LIBAVCODEC_COMPRESS_OBJ src/video_compress/r12l_vaapi_opencl.o $R12L_VULKAN_OBJ" "$LIBAVCODEC_LIBS $LIBSWSCALE_LIBS -lOpenCL $R12L_VULKAN_LIBS"
-        add_module vdecompress_libavcodec "$LIBAVCODEC_DECOMPRESS_OBJ src/video_decompress/r12l_opencl.o" "$LIBAVCODEC_LIBS $LAVC_HWACC_LIBS -lOpenCL"
+        add_module vdecompress_libavcodec "$LIBAVCODEC_DECOMPRESS_OBJ src/video_decompress/r12l_opencl.o $QSV_VULKAN_DECOMPRESS_OBJ" "$LIBAVCODEC_LIBS $LAVC_HWACC_LIBS -lOpenCL $R12L_VULKAN_LIBS"
         add_module acompress_libavcodec "$LIBAVCODEC_AUDIO_CODEC_OBJ" "$LIBAVCODEC_LIBS"
 else
         HW_ACC_OBJ=
