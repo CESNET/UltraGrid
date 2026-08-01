@@ -1,0 +1,59 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(set = 0, binding = 0, std430) readonly buffer Input {
+        uint data[];
+} input_buffer;
+
+layout(set = 0, binding = 1, rgb10_a2) uniform writeonly image2D output_image;
+
+layout(push_constant) uniform Parameters {
+        uint width;
+        uint source_row_bytes;
+} parameters;
+
+uint load_byte(uint offset)
+{
+        uint word = input_buffer.data[offset >> 2];
+        return (word >> ((offset & 3) * 8)) & 0xff;
+}
+
+uint load_lo12(uint offset)
+{
+        return load_byte(offset) | ((load_byte(offset + 1) & 0xf) << 8);
+}
+
+uint load_hi12(uint offset)
+{
+        return (load_byte(offset + 1) >> 4) | (load_byte(offset + 2) << 4);
+}
+
+void main()
+{
+        uint x = gl_GlobalInvocationID.x;
+        uint y = gl_GlobalInvocationID.y;
+        if (x >= parameters.width) {
+                return;
+        }
+
+        uint pair = x >> 1;
+        uint offset = y * parameters.source_row_bytes + pair * 9;
+        uint r;
+        uint g;
+        uint b;
+        if ((x & 1) == 0) {
+                r = load_lo12(offset);
+                g = load_hi12(offset);
+                b = load_lo12(offset + 3);
+        } else {
+                r = load_hi12(offset + 3);
+                g = load_lo12(offset + 6);
+                b = load_hi12(offset + 6);
+        }
+
+        const float scale = 1.0 / 4095.0;
+        imageStore(output_image, ivec2(x, y),
+                   vec4(float(b) * scale, float(g) * scale,
+                        float(r) * scale, 1.0));
+}

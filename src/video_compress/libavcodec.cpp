@@ -85,6 +85,9 @@ extern "C" {
 #include "video_codec.h"
 #include "video_compress.h"
 #include "video_compress/r12l_vaapi_opencl.hpp"
+#ifdef HAVE_R12L_VULKAN
+#include "video_compress/r12l_vaapi_vulkan.hpp"
+#endif
 #include "video_frame.h"
 #include "utils/string_view_utils.hpp"
 
@@ -303,6 +306,9 @@ struct state_video_compress_libav {
         bool hwenc = false;
         AVFrame *hwframe = nullptr;
         std::unique_ptr<r12l_vaapi_opencl> r12l_gpu;
+#ifdef HAVE_R12L_VULKAN
+        std::unique_ptr<r12l_vaapi_vulkan> r12l_vulkan;
+#endif
         AVFrame *r12l_gpu_frame = nullptr;
 
 #ifdef HAVE_SWSCALE
@@ -1104,6 +1110,7 @@ static bool try_open_codec(struct state_video_compress_libav *s,
                 if (desc.color_spec == R12L &&
                     sw_format == AV_PIX_FMT_XV30LE) {
                         s->r12l_gpu = std::make_unique<r12l_vaapi_opencl>();
+#ifdef HAVE_R12L_VULKAN
                         auto *frames_ctx =
                             reinterpret_cast<AVHWFramesContext *>(
                                 s->codec_ctx->hw_frames_ctx->data);
@@ -1113,8 +1120,8 @@ static bool try_open_codec(struct state_video_compress_libav *s,
                         auto *va_device =
                             reinterpret_cast<AVVAAPIDeviceContext *>(
                                 device_ctx->hwctx);
-                        if (!s->r12l_gpu->init(desc.width, desc.height,
-                                               va_device->display)) {
+#endif
+                        if (!s->r12l_gpu->init(desc.width, desc.height)) {
                                 MSG(ERROR, "OpenCL/VA R12L conversion init failed: %s\n",
                                     s->r12l_gpu->error().c_str());
                                 s->r12l_gpu.reset();
@@ -1131,11 +1138,21 @@ static bool try_open_codec(struct state_video_compress_libav *s,
                                 return false;
                         }
                         MSG(INFO, "Using OpenCL GPU R12L -> identity Y410 conversion\n");
-                        if (s->r12l_gpu->va_surface_sharing_available()) {
-                                MSG(INFO, "OpenCL/VA-API surface sharing is "
-                                          "available; trying the single-copy "
-                                          "R12L encoder path.\n");
+#ifdef HAVE_R12L_VULKAN
+                        s->r12l_vulkan =
+                            std::make_unique<r12l_vaapi_vulkan>();
+                        if (!s->r12l_vulkan->init(desc.width, desc.height,
+                                                  va_device->display)) {
+                                MSG(WARNING,
+                                    "Vulkan/DMABUF R12L conversion unavailable "
+                                    "(%s); using staged OpenCL upload.\n",
+                                    s->r12l_vulkan->error().c_str());
+                                s->r12l_vulkan.reset();
+                        } else {
+                                MSG(INFO, "Using Vulkan/DMABUF single-copy "
+                                          "R12L -> VAAPI conversion.\n");
                         }
+#endif
                 }
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "Using VA-API with sw format %s\n", av_get_pix_fmt_name(pix_fmt));
         }
@@ -1669,21 +1686,24 @@ static shared_ptr<video_frame> libavcodec_compress_tile(void *state, shared_ptr<
                         tx->tiles[0].data);
                 const std::size_t source_stride =
                     vc_get_linesize(tx->tiles[0].width, R12L);
-                if (s->r12l_gpu->va_surface_sharing_available()) {
+#ifdef HAVE_R12L_VULKAN
+                if (s->r12l_vulkan) {
                         const unsigned int surface =
                             static_cast<unsigned int>(
                                 reinterpret_cast<uintptr_t>(
                                     s->hwframe->data[3]));
                         already_on_hw_surface =
-                            s->r12l_gpu->convert_to_va_surface(
+                            s->r12l_vulkan->convert(
                                 source, source_stride, surface);
                         if (!already_on_hw_surface) {
-                                MSG(WARNING, "Direct OpenCL/VA conversion "
-                                             "unavailable (%s); falling back "
-                                             "to staged upload.\n",
-                                    s->r12l_gpu->error().c_str());
+                                MSG(WARNING, "Direct Vulkan/VA conversion "
+                                             "failed (%s); using staged "
+                                             "OpenCL upload.\n",
+                                    s->r12l_vulkan->error().c_str());
+                                s->r12l_vulkan.reset();
                         }
                 }
+#endif
                 if (already_on_hw_surface) {
                         frame = s->hwframe;
                 } else {
@@ -1778,6 +1798,9 @@ static void cleanup(struct state_video_compress_libav *s)
         }
 
         s->r12l_gpu.reset();
+#ifdef HAVE_R12L_VULKAN
+        s->r12l_vulkan.reset();
+#endif
         av_frame_free(&s->r12l_gpu_frame);
         av_frame_free(&s->hwframe);
 

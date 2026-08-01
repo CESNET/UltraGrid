@@ -29,18 +29,19 @@ interpret the components as ordinary luma and chroma.
 1. DeckLink captures 12-bit packed RGB as `R12L`.
 2. DeckLink 16.x buffers are accessed through `IDeckLinkVideoBuffer` and stay
    pinned until downstream compression releases the frame.
-3. An OpenCL kernel unpacks each 12-bit RGB component and scales it to 10 bits
-   using full-range integer rounding:
+3. A GPU conversion kernel unpacks each 12-bit RGB component and scales it to
+   10 bits using full-range integer rounding:
 
    ```
    value10 = round(value12 * 1023 / 4095)
    ```
 
-4. When Intel OpenCL/VA-API surface sharing is available, the kernel writes
-   `Y=G`, `U=B`, and `V=R` directly into the encoder's Y410-compatible VA
+4. On Linux, VAAPI exports the encoder's Y410 surface as a DRM PRIME/DMABUF
+   object. Vulkan imports that object with its DRM format modifier, and a
+   compute shader writes `Y=G`, `U=B`, and `V=R` directly into the encoder
    surface.
-5. VA-API encodes that hardware surface as HEVC Main 4:4:4 10. If surface
-   sharing is unavailable, the encoder falls back to an `XV30` software
+5. VA-API encodes that hardware surface as HEVC Main 4:4:4 10. If DMABUF
+   sharing is unavailable, an OpenCL kernel produces an `XV30` software
    surface followed by the normal VA-API hardware-frame upload.
 
 Using an `XV30` software surface is deliberate. Supplying an RGB surface to
@@ -123,10 +124,14 @@ than properties of the R12L transport.
 - The hardware codec must support HEVC 4:4:4 10-bit surfaces.
 - OpenCL is currently linked into the libavcodec compression and
   decompression modules when those modules are enabled.
-- The encoder avoids the intermediate software surface and second upload when
-  Intel OpenCL/VA-API surface sharing is available. DeckLink capture is still
-  CPU-addressable memory and requires one upload to OpenCL, so this is a
-  single-copy encoder path rather than end-to-end zero-copy.
+- The encoder avoids the intermediate software surface, GPU-to-CPU download,
+  and second upload when Vulkan can import the VAAPI Y410 DMABUF. DeckLink
+  capture is still CPU-addressable memory and must be copied once into
+  host-visible Vulkan input memory, so this is a single-copy encoder path
+  rather than end-to-end zero-copy.
+- If Vulkan, VAAPI DMABUF export, the packed 10-bit storage-image format, or
+  the surface's DRM modifier is unavailable, the encoder falls back to the
+  staged OpenCL conversion.
 - The receiver's QSV asynchronous depth is currently fixed at one for QSV
   decoders, favoring latency over general-purpose robustness.
 - `R12L` output has 12-bit packing but only 10 bits of source precision after
