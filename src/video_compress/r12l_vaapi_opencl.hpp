@@ -15,9 +15,13 @@ public:
         r12l_vaapi_opencl(const r12l_vaapi_opencl &) = delete;
         r12l_vaapi_opencl &operator=(const r12l_vaapi_opencl &) = delete;
 
-        bool init(int width, int height);
+        bool init(int width, int height, void *va_display = nullptr);
         bool convert(const unsigned char *input, std::size_t input_stride,
                      unsigned char *output, std::size_t output_stride);
+        bool convert_to_va_surface(const unsigned char *input,
+                                   std::size_t input_stride,
+                                   unsigned int va_surface);
+        bool va_surface_sharing_available() const;
         const std::string &error() const;
 
 private:

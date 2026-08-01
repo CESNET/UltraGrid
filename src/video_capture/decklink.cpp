@@ -90,29 +90,6 @@
 #include "video_codec.h"
 #include "video_frame.h"
 
-#if BLACKMAGIC_DECKLINK_API_VERSION < 0x10000000
-// DeckLink 16 buffer-access API used with the installed 16.x driver.  Keep
-// these compatibility declarations local until UltraGrid's bundled SDK is
-// updated from 12.8.
-typedef uint32_t BMDBufferAccessFlags;
-enum : BMDBufferAccessFlags {
-        bmdBufferAccessRead = 1U << 0,
-};
-BMD_CONST REFIID IID_IDeckLinkVideoBuffer = {
-        0x81, 0xF0, 0x3D, 0x70, 0xDE, 0x13, 0x4B, 0x17,
-        0x87, 0x3A, 0xC8, 0xAC, 0x96, 0x89, 0xC6, 0x82
-};
-class IDeckLinkVideoBuffer : public IUnknown {
-public:
-        virtual HRESULT GetBytes(void **buffer) = 0;
-        virtual HRESULT GetSize(uint64_t *size) = 0;
-        virtual HRESULT StartAccess(BMDBufferAccessFlags flags) = 0;
-        virtual HRESULT EndAccess(BMDBufferAccessFlags flags) = 0;
-protected:
-        virtual ~IDeckLinkVideoBuffer() {}
-};
-#endif
-
 constexpr const int DEFAULT_AUDIO_BPS = 4;
 constexpr const size_t MAX_AUDIO_PACKETS = 10;
 #define MOD_NAME "[DeckLink capture] "
@@ -209,8 +186,6 @@ class VideoDelegate final : public IDeckLinkInputCallback
         int                           newFrameReady{}; // -1 == timeout
         BMDTimeValue                  frameTime{};
         IDeckLinkVideoFrame          *rightEyeFrame{};
-        void                         *pixelFrame{};
-        void                         *pixelFrameRight{};
         IDeckLinkVideoInputFrame     *lastFrame{ nullptr };
         uint32_t                      timecode{};
         struct vidcap_decklink_state *s;
@@ -494,9 +469,6 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
         }
 
         if (videoFrame && newFrameReady == 1 && (!nosig || !lastFrame)) {
-                /// @todo videoFrame should be actually retained until the data are processed
-                videoFrame->GetBytes(&pixelFrame);
-
                 RELEASE_IF_NOT_NULL(lastFrame);
                 lastFrame = videoFrame;
                 lastFrame->AddRef();
@@ -514,7 +486,6 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
                 }
 
                 RELEASE_IF_NOT_NULL(rightEyeFrame);
-                pixelFrameRight = NULL;
 
                 if(s->stereo) {
                         IDeckLinkVideoFrame3DExtensions *rightEye;
@@ -529,11 +500,10 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *videoFrame, IDe
                                         {
                                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Right Eye Frame received (#%d) - No input signal detected\n", s->frames);
                                         }
-                                        rightEyeFrame->GetBytes(&pixelFrameRight);
                                 }
                         }
                         rightEye->Release();
-                        if(!pixelFrameRight) {
+                        if (!rightEyeFrame) {
                                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Sending right eye error.\n");
                         }
                 }

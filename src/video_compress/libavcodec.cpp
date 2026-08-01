@@ -45,6 +45,12 @@
 #include <cstdint>
 #include <cstring>                        // for strcmp, strlen, strstr, strchr
 #include <functional>                     // for function
+#ifdef HWACC_VAAPI
+extern "C" {
+#include <libavutil/hwcontext.h>
+#include <libavutil/hwcontext_vaapi.h>
+}
+#endif
 #include <libavutil/rational.h>           // for av_inv_q
 #include <list>
 #include <map>
@@ -1098,7 +1104,17 @@ static bool try_open_codec(struct state_video_compress_libav *s,
                 if (desc.color_spec == R12L &&
                     sw_format == AV_PIX_FMT_XV30LE) {
                         s->r12l_gpu = std::make_unique<r12l_vaapi_opencl>();
-                        if (!s->r12l_gpu->init(desc.width, desc.height)) {
+                        auto *frames_ctx =
+                            reinterpret_cast<AVHWFramesContext *>(
+                                s->codec_ctx->hw_frames_ctx->data);
+                        auto *device_ctx =
+                            reinterpret_cast<AVHWDeviceContext *>(
+                                frames_ctx->device_ref->data);
+                        auto *va_device =
+                            reinterpret_cast<AVVAAPIDeviceContext *>(
+                                device_ctx->hwctx);
+                        if (!s->r12l_gpu->init(desc.width, desc.height,
+                                               va_device->display)) {
                                 MSG(ERROR, "OpenCL/VA R12L conversion init failed: %s\n",
                                     s->r12l_gpu->error().c_str());
                                 s->r12l_gpu.reset();
@@ -1115,6 +1131,11 @@ static bool try_open_codec(struct state_video_compress_libav *s,
                                 return false;
                         }
                         MSG(INFO, "Using OpenCL GPU R12L -> identity Y410 conversion\n");
+                        if (s->r12l_gpu->va_surface_sharing_available()) {
+                                MSG(INFO, "OpenCL/VA-API surface sharing is "
+                                          "available; trying the single-copy "
+                                          "R12L encoder path.\n");
+                        }
                 }
                 log_msg(LOG_LEVEL_INFO, MOD_NAME "Using VA-API with sw format %s\n", av_get_pix_fmt_name(pix_fmt));
         }
@@ -1641,18 +1662,41 @@ static shared_ptr<video_frame> libavcodec_compress_tile(void *state, shared_ptr<
 
         time_ns_t t0 = get_time_in_ns();
         struct AVFrame *frame = nullptr;
+        bool already_on_hw_surface = false;
         if (s->r12l_gpu) {
-                if (!s->r12l_gpu->convert(
-                        reinterpret_cast<const unsigned char *>(
-                            tx->tiles[0].data),
-                        vc_get_linesize(tx->tiles[0].width, R12L),
-                        s->r12l_gpu_frame->data[0],
-                        s->r12l_gpu_frame->linesize[0])) {
-                        MSG(ERROR, "OpenCL/VA R12L conversion failed: %s\n",
-                            s->r12l_gpu->error().c_str());
-                        return {};
+                const auto *source =
+                    reinterpret_cast<const unsigned char *>(
+                        tx->tiles[0].data);
+                const std::size_t source_stride =
+                    vc_get_linesize(tx->tiles[0].width, R12L);
+                if (s->r12l_gpu->va_surface_sharing_available()) {
+                        const unsigned int surface =
+                            static_cast<unsigned int>(
+                                reinterpret_cast<uintptr_t>(
+                                    s->hwframe->data[3]));
+                        already_on_hw_surface =
+                            s->r12l_gpu->convert_to_va_surface(
+                                source, source_stride, surface);
+                        if (!already_on_hw_surface) {
+                                MSG(WARNING, "Direct OpenCL/VA conversion "
+                                             "unavailable (%s); falling back "
+                                             "to staged upload.\n",
+                                    s->r12l_gpu->error().c_str());
+                        }
                 }
-                frame = s->r12l_gpu_frame;
+                if (already_on_hw_surface) {
+                        frame = s->hwframe;
+                } else {
+                        if (!s->r12l_gpu->convert(
+                                source, source_stride,
+                                s->r12l_gpu_frame->data[0],
+                                s->r12l_gpu_frame->linesize[0])) {
+                                MSG(ERROR, "OpenCL/VA R12L conversion failed: %s\n",
+                                    s->r12l_gpu->error().c_str());
+                                return {};
+                        }
+                        frame = s->r12l_gpu_frame;
+                }
         } else {
                 frame = to_lavc_vid_conv(s->pixfmt_conversion,
                                          tx->tiles[0].data);
@@ -1664,7 +1708,7 @@ static shared_ptr<video_frame> libavcodec_compress_tile(void *state, shared_ptr<
 
         debug_file_dump("lavc-avframe", serialize_video_avframe, frame);
 #ifdef HWACC_VAAPI
-        if(s->hwenc){
+        if(s->hwenc && !already_on_hw_surface){
                 av_hwframe_transfer_data(s->hwframe, frame, 0);
                 frame = s->hwframe;
         }

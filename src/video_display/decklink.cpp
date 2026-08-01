@@ -347,7 +347,9 @@ struct HDRMetadata
         void                                    Init(const string & fmt);
 };
 
-class DeckLinkFrame : public IDeckLinkMutableVideoFrame, public IDeckLinkVideoFrameMetadataExtensions
+class DeckLinkFrame : public IDeckLinkMutableVideoFrame,
+                      public IDeckLinkVideoBuffer,
+                      public IDeckLinkVideoFrameMetadataExtensions
 {
                 long width;
                 long height;
@@ -379,9 +381,14 @@ class DeckLinkFrame : public IDeckLinkMutableVideoFrame, public IDeckLinkVideoFr
                 long STDMETHODCALLTYPE GetRowBytes (void) override;
                 BMDPixelFormat STDMETHODCALLTYPE GetPixelFormat (void) override;
                 BMDFrameFlags STDMETHODCALLTYPE GetFlags (void) override;
-                HRESULT STDMETHODCALLTYPE GetBytes (/* out */ void **buffer) override;
                 HRESULT STDMETHODCALLTYPE GetTimecode (/* in */ BMDTimecodeFormat format, /* out */ IDeckLinkTimecode **timecode) override;
                 HRESULT STDMETHODCALLTYPE GetAncillaryData (/* out */ IDeckLinkVideoFrameAncillary **ancillary) override;
+
+                /* IDeckLinkVideoBuffer */
+                HRESULT STDMETHODCALLTYPE GetBytes (/* out */ void **buffer) override;
+                HRESULT STDMETHODCALLTYPE GetSize (/* out */ uint64_t *size) override;
+                HRESULT STDMETHODCALLTYPE StartAccess(BMDBufferAccessFlags flags) override;
+                HRESULT STDMETHODCALLTYPE EndAccess(BMDBufferAccessFlags flags) override;
 
                 /* IDeckLinkMutableVideoFrame */
                 HRESULT STDMETHODCALLTYPE SetFlags(BMDFrameFlags) override;
@@ -389,6 +396,7 @@ class DeckLinkFrame : public IDeckLinkMutableVideoFrame, public IDeckLinkVideoFr
                 HRESULT STDMETHODCALLTYPE SetTimecodeFromComponents(BMDTimecodeFormat, uint8_t, uint8_t, uint8_t, uint8_t, BMDTimecodeFlags) override;
                 HRESULT STDMETHODCALLTYPE SetAncillaryData(IDeckLinkVideoFrameAncillary*) override;
                 HRESULT STDMETHODCALLTYPE SetTimecodeUserBits(BMDTimecodeFormat, BMDTimecodeUserBits) override;
+                HRESULT STDMETHODCALLTYPE SetInterfaceProvider(REFIID, IUnknown*) override;
 
                 // IDeckLinkVideoFrameMetadataExtensions interface
                 HRESULT STDMETHODCALLTYPE GetInt(BMDDeckLinkFrameMetadataID metadataID, int64_t* value) override;
@@ -770,14 +778,33 @@ display_decklink_getf(void *state)
         }
         out->callbacks.dispose_udata = (void *) deckLinkFrame;
 
-        deckLinkFrame->GetBytes((void **)&out->tiles[0].data);
+        IDeckLinkVideoBuffer *frame_buffer = nullptr;
+        if (deckLinkFrame->QueryInterface(IID_IDeckLinkVideoBuffer,
+                                          (void **) &frame_buffer) != S_OK ||
+            frame_buffer->GetBytes((void **) &out->tiles[0].data) != S_OK) {
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME
+                        "Cannot access DeckLink output frame buffer!\n");
+                RELEASE_IF_NOT_NULL(frame_buffer);
+                return nullptr;
+        }
+        frame_buffer->Release();
 
         if (s->stereo) {
                 IDeckLinkVideoFrame *deckLinkFrameRight = nullptr;
                 DeckLink3DFrame *frame3D = dynamic_cast<DeckLink3DFrame *>(deckLinkFrame);
                 assert(frame3D != nullptr);
                 frame3D->GetFrameForRightEye(&deckLinkFrameRight);
-                deckLinkFrameRight->GetBytes((void **)&out->tiles[1].data);
+                frame_buffer = nullptr;
+                if (deckLinkFrameRight->QueryInterface(
+                                IID_IDeckLinkVideoBuffer,
+                                (void **) &frame_buffer) != S_OK ||
+                    frame_buffer->GetBytes((void **) &out->tiles[1].data) != S_OK) {
+                        log_msg(LOG_LEVEL_ERROR, MOD_NAME
+                                "Cannot access right-eye DeckLink output frame buffer!\n");
+                        RELEASE_IF_NOT_NULL(frame_buffer);
+                        return nullptr;
+                }
+                frame_buffer->Release();
                 // release immedieatelly (parent still holds the reference)
                 deckLinkFrameRight->Release();
         }
@@ -1904,6 +1931,9 @@ HRESULT DeckLinkFrame::QueryInterface(REFIID iid, LPVOID *ppv)
         } else if (iid == IID_IDeckLinkVideoFrame) {
                 *ppv = static_cast<IDeckLinkVideoFrame*>(this);
                 AddRef();
+        } else if (iid == IID_IDeckLinkVideoBuffer) {
+                *ppv = static_cast<IDeckLinkVideoBuffer *>(this);
+                AddRef();
         } else if (iid == IID_IDeckLinkVideoFrameMetadataExtensions) {
                 if (m_metadata.EOTF == static_cast<int64_t>(HDR_EOTF::NONE)) {
                         result = E_NOINTERFACE;
@@ -1984,6 +2014,25 @@ HRESULT DeckLinkFrame::GetBytes (/* out */ void **buffer)
         return S_OK;
 }
 
+HRESULT DeckLinkFrame::GetSize(uint64_t *size)
+{
+        if (size == nullptr) {
+                return E_INVALIDARG;
+        }
+        *size = static_cast<uint64_t>(rawBytes) * height;
+        return S_OK;
+}
+
+HRESULT DeckLinkFrame::StartAccess(BMDBufferAccessFlags)
+{
+        return S_OK;
+}
+
+HRESULT DeckLinkFrame::EndAccess(BMDBufferAccessFlags)
+{
+        return S_OK;
+}
+
 HRESULT DeckLinkFrame::GetTimecode (/* in */ BMDTimecodeFormat, /* out */ IDeckLinkTimecode **timecode)
 {
         *timecode = dynamic_cast<IDeckLinkTimecode *>(this->timecode);
@@ -2022,6 +2071,11 @@ HRESULT DeckLinkFrame::SetAncillaryData (/* in */ IDeckLinkVideoFrameAncillary *
 HRESULT DeckLinkFrame::SetTimecodeUserBits (/* in */ BMDTimecodeFormat, /* in */ BMDTimecodeUserBits)
 {
         return E_FAIL;
+}
+
+HRESULT DeckLinkFrame::SetInterfaceProvider(REFIID, IUnknown *)
+{
+        return E_NOINTERFACE;
 }
 
 void HDRMetadata::Init(const string &fmt) {

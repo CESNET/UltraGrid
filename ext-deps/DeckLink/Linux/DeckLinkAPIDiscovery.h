@@ -1,5 +1,5 @@
 /* -LICENSE-START-
-** Copyright (c) 2024 Blackmagic Design
+** Copyright (c) 2026 Blackmagic Design
 **
 ** Permission is hereby granted, free of charge, to any person or organization
 ** obtaining a copy of the software and accompanying documentation covered by
@@ -24,6 +24,10 @@
 ** DEALINGS IN THE SOFTWARE.
 ** -LICENSE-END-
 */
+
+/*
+ * -- AUTOMATICALLY GENERATED - DO NOT EDIT ---
+ */
 
 #ifndef BMD_DECKLINKAPIDISCOVERY_H
 #define BMD_DECKLINKAPIDISCOVERY_H

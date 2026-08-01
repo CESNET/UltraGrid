@@ -74,7 +74,7 @@
 // <https://github.com/MartinPulec/desktopvideo_sdk-api/tree/main/Linux/include>
 #define BMD_LAST_INCOMPATIBLE_ABI 0x0b050100 // 11.5.1
 
-#if BLACKMAGIC_DECKLINK_API_VERSION > 0x0c080000
+#if BLACKMAGIC_DECKLINK_API_VERSION > 0x10000000
 #warning \
     "Increased BMD API - enum diffs recheck recommends (or just increase the compared API version)"
 #endif
@@ -742,7 +742,7 @@ static const struct {
 
         { 0, "Network Flags"               },
 
-        BMDFCC(bmdDeckLinkConfigEthernetUseDHCP),
+        BMDFCC(bmdDeckLinkConfigParamEthernetUseDHCP),
         BMDFCC(bmdDeckLinkConfigEthernetPTPFollowerOnly),
         BMDFCC(bmdDeckLinkConfigEthernetPTPUseUDPEncapsulation),
 
@@ -754,14 +754,14 @@ static const struct {
 
         { 0, "Network Strings"             },
 
-        BMDFCC(bmdDeckLinkConfigEthernetStaticLocalIPAddress),
-        BMDFCC(bmdDeckLinkConfigEthernetStaticSubnetMask),
-        BMDFCC(bmdDeckLinkConfigEthernetStaticGatewayIPAddress),
-        BMDFCC(bmdDeckLinkConfigEthernetStaticPrimaryDNS),
-        BMDFCC(bmdDeckLinkConfigEthernetStaticSecondaryDNS),
-        BMDFCC(bmdDeckLinkConfigEthernetVideoOutputAddress),
-        BMDFCC(bmdDeckLinkConfigEthernetAudioOutputAddress),
-        BMDFCC(bmdDeckLinkConfigEthernetAncillaryOutputAddress),
+        BMDFCC(bmdDeckLinkConfigParamEthernetStaticLocalIPAddress),
+        BMDFCC(bmdDeckLinkConfigParamEthernetStaticSubnetMask),
+        BMDFCC(bmdDeckLinkConfigParamEthernetStaticGatewayIPAddress),
+        BMDFCC(bmdDeckLinkConfigParamEthernetStaticPrimaryDNS),
+        BMDFCC(bmdDeckLinkConfigParamEthernetStaticSecondaryDNS),
+        BMDFCC(bmdDeckLinkConfigParamEthernetVideoOutputAddress),
+        BMDFCC(bmdDeckLinkConfigParamEthernetAudioOutputAddress),
+        BMDFCC(bmdDeckLinkConfigParamEthernetAncillaryOutputAddress),
         BMDFCC(bmdDeckLinkConfigEthernetAudioOutputChannelOrder),
 
         { 0, "Device Information Strings"  },
@@ -1540,10 +1540,6 @@ static const struct status_property {
          "PCIe Link Speed",               ST_INT,
          { .int_fmt_str = "Gen. %" PRIu64 },
          false, LOG_LEVEL_VERBOSE },
-        { bmdDeckLinkStatusDeviceTemperature,
-         "Temperature",                   ST_INT,
-         { .int_fmt_str = "%" PRIu64 " °C" },
-         false, LOG_LEVEL_VERBOSE }, // temperature info is rate-limited
         { bmdDeckLinkStatusDetectedVideoInputColorspace,
          "Video Colorspace",              ST_ENUM,
          { .map = bmd_cs_map },
@@ -1552,31 +1548,31 @@ static const struct status_property {
          "Video Dynamic Range",           ST_ENUM,
          { .map = bmd_dyn_range_map },
          false, LOG_LEVEL_INFO    },
-        { bmdDeckLinkStatusEthernetLink,
+        { bmdDeckLinkStatusParamEthernetLink,
          "Ethernet state",                ST_ENUM,
          { .map = status_val_map_dfl },
          false, LOG_LEVEL_INFO    },
-        { bmdDeckLinkStatusEthernetLinkMbps,
+        { bmdDeckLinkStatusParamEthernetLinkMbps,
          "Ethernet link speed",           ST_INT,
          { .int_fmt_str = "%" PRIu64 " Mbps" },
          false, LOG_LEVEL_INFO    },
-        { bmdDeckLinkStatusEthernetLocalIPAddress,
+        { bmdDeckLinkStatusParamEthernetLocalIPAddress,
          "Ethernet IP address",           ST_STRING,
          {},
          false, LOG_LEVEL_INFO    },
-        { bmdDeckLinkStatusEthernetSubnetMask,
+        { bmdDeckLinkStatusParamEthernetSubnetMask,
          "Ethernet subnet mask",          ST_STRING,
          {},
          false, LOG_LEVEL_INFO    },
-        { bmdDeckLinkStatusEthernetGatewayIPAddress,
+        { bmdDeckLinkStatusParamEthernetGatewayIPAddress,
          "Ethernet gateway IP",           ST_STRING,
          {},
          false, LOG_LEVEL_INFO    },
-        { bmdDeckLinkStatusEthernetVideoOutputAddress,
+        { bmdDeckLinkStatusParamEthernetVideoOutputAddress,
          "Ethernet video output address", ST_STRING,
          {},
          true,  LOG_LEVEL_INFO    },
-        { bmdDeckLinkStatusEthernetAudioOutputAddress,
+        { bmdDeckLinkStatusParamEthernetAudioOutputAddress,
          "Ethernet audio output address", ST_STRING,
          {},
          true,  LOG_LEVEL_INFO    },
@@ -1695,10 +1691,6 @@ class BMDNotificationCallback : public IDeckLinkNotificationCallback
 
                 // Print the updated status value
                 auto statusId = (BMDDeckLinkStatusID) param1;
-                if (statusId == bmdDeckLinkStatusDeviceTemperature) {
-                        HandleTemperature();
-                        return S_OK;
-                }
                 print_status_item(m_deckLinkStatus, statusId,
                                   m_logPrefix.c_str());
 
@@ -1725,58 +1717,11 @@ class BMDNotificationCallback : public IDeckLinkNotificationCallback
                 return newRefValue;
         }
 
-        void HandleTemperature() {
-                int64_t         cur_temp = 0;
-                m_deckLinkStatus->GetInt(bmdDeckLinkStatusDeviceTemperature,
-                                         &cur_temp);
-                // check overheating
-                if (cur_temp >= m_tempThresholdErr) {
-                        char  deg_fallb_sym[128] = "deg ";
-                        const char *deg_sym = wcs_to_mbs_fallb(W_DEGREE_SIGN, deg_fallb_sym);
-                        log_msg(LOG_LEVEL_ERROR,
-                                "%sDevice is overheating! The temperature is "
-                                "%" PRId64 " %sC.\n",
-                                m_logPrefix.c_str(), cur_temp, deg_sym);
-                        return;
-                }
-                if (cur_temp < m_tempThresholdWarn &&
-                    log_level < LOG_LEVEL_VERBOSE) {
-                        return;
-                }
-                const time_ns_t now = get_time_in_ns();
-                if (cur_temp >= m_tempThresholdWarn &&
-                    now - m_tempWarnLastShown > m_tempShowIntervalWarn) {
-                        log_msg(
-                            LOG_LEVEL_WARNING,
-                            "%sDevice temperature is %" PRId64 " °C (>= %d °C).\n",
-                            m_logPrefix.c_str(), cur_temp, m_tempThresholdWarn);
-                        m_tempWarnLastShown = now;
-                        return;
-                }
-
-                // normal behavior - print once a minute in verbose
-                if (now - m_tempLastShown < m_tempShowInterval) {
-                        return;
-                }
-                print_status_item(m_deckLinkStatus,
-                                  bmdDeckLinkStatusDeviceTemperature,
-                                  m_logPrefix.c_str());
-                m_tempLastShown = now;
-        }
-
       private:
         IDeckLinkStatus       *m_deckLinkStatus;
         IDeckLinkNotification *m_deckLinkNotification;
         string                 m_logPrefix;
         std::atomic<ULONG>     m_refCount;
-
-        // temperature check
-        static constexpr time_ns_t m_tempShowInterval     = SEC_TO_NS(60);
-        static constexpr time_ns_t m_tempShowIntervalWarn = SEC_TO_NS(20);
-        static constexpr int       m_tempThresholdWarn    = 77;
-        static constexpr int       m_tempThresholdErr     = 82;
-        time_ns_t                  m_tempLastShown        = 0;
-        time_ns_t                  m_tempWarnLastShown    = 0;
 
         virtual ~BMDNotificationCallback()
         {
@@ -1815,7 +1760,7 @@ bmd_print_status_subscribe_notify(IDeckLink *deckLink, const char *log_prefix,
         if (SUCCEEDED(result)) {
                 BMD_STR string_val{};
                 if (SUCCEEDED(deckLinkAttributes->GetString(
-                        BMDDeckLinkEthernetMACAddress, &string_val))) {
+                        BMDDeckLinkParamEthernetMACAddress, &string_val))) {
                         string mac_addr = get_str_from_bmd_api_str(string_val);
                         release_bmd_api_str(string_val);
                         log_msg(LOG_LEVEL_INFO, "%sEthernet MAC address: %s\n",
@@ -1909,9 +1854,9 @@ bmd_options_validate(
     map<BMDDeckLinkConfigurationID, bmd_option> &device_options)
 {
         if (device_options.find(
-                bmdDeckLinkConfigEthernetStaticLocalIPAddress) !=
+                bmdDeckLinkConfigParamEthernetStaticLocalIPAddress) !=
                 device_options.end() &&
-            device_options.find(bmdDeckLinkConfigEthernetUseDHCP) ==
+            device_options.find(bmdDeckLinkConfigParamEthernetUseDHCP) ==
                 device_options.end()) {
                 MSG(WARNING,
                     "IP address set but DHCP not disabled via command-line "
@@ -1923,4 +1868,3 @@ ADD_TO_PARAM(R10K_FULL_OPT, "* " R10K_FULL_OPT "\n"
                 "  Do not do conversion from/to limited range on in/out for R10k on BMD devs.\n");
 ADD_TO_PARAM(BMD_NAT_SORT, "* " BMD_NAT_SORT "\n"
                 "  Use the old BMD device sorting.\n");
-
