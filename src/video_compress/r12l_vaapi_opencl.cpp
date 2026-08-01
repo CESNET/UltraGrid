@@ -254,8 +254,13 @@ r12l_vaapi_opencl::convert_to_va_surface(const unsigned char *source,
         VASurfaceID surface = va_surface;
         cl_mem image = m->create_va_surface(m->context, CL_MEM_WRITE_ONLY,
                                             &surface, 0, &status);
-        if (status != CL_SUCCESS || !image)
+        if (status != CL_SUCCESS || !image) {
+                // Import support can be advertised even when the driver
+                // cannot expose this particular Y410 surface. Do not retry
+                // every frame; the caller will use the staged VA upload.
+                m->va_sharing = false;
                 return m->fail("clCreateFromVA_APIMediaSurfaceINTEL", status);
+        }
         cl_image_format format{};
         status = clGetImageInfo(image, CL_IMAGE_FORMAT, sizeof format, &format,
                                 nullptr);
@@ -291,6 +296,9 @@ r12l_vaapi_opencl::convert_to_va_surface(const unsigned char *source,
                                                 nullptr, nullptr);
         if (status == CL_SUCCESS) status = clFinish(m->queue);
         clReleaseMemObject(image);
-        return status == CL_SUCCESS ||
-               m->fail("OpenCL VA surface conversion", status);
+        if (status != CL_SUCCESS) {
+                m->va_sharing = false;
+                return m->fail("OpenCL VA surface conversion", status);
+        }
+        return true;
 }
