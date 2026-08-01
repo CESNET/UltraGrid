@@ -103,6 +103,8 @@ struct state_libavcodec_decompress {
         _Bool sps_vps_found; ///< to avoid initial error flood, start decoding after SPS (H.264) or VPS (HEVC) was received
 
         double    mov_avg_comp_duration;
+        double    mov_avg_decode_duration;
+        double    mov_avg_convert_duration;
         long long mov_avg_frames;
         time_ns_t duration_warn_last_print;
         void     *r12l_opencl;
@@ -237,6 +239,12 @@ set_codec_context_params(struct state_libavcodec_decompress *s)
                         log_msg(LOG_LEVEL_INFO,
                                 MOD_NAME "Setting QSV decoder async depth to 1 "
                                          "for low-latency operation.\n");
+                }
+                if (check_av_opt_set(s->codec_ctx->priv_data, "gpu_copy",
+                                     "on") == 0) {
+                        log_msg(LOG_LEVEL_INFO,
+                                MOD_NAME "Enabling QSV GPU-accelerated copy "
+                                         "for low-latency system-memory output.\n");
                 }
         }
 }
@@ -944,6 +952,14 @@ static void check_duration(struct state_libavcodec_decompress *s, double duratio
             (s->mov_avg_comp_duration * (MOV_WIN_FRM - 1) +
              duration_total_sec) /
             MOV_WIN_FRM;
+        s->mov_avg_convert_duration =
+            (s->mov_avg_convert_duration * (MOV_WIN_FRM - 1) +
+             duration_pixfmt_change_sec) /
+            MOV_WIN_FRM;
+        s->mov_avg_decode_duration =
+            (s->mov_avg_decode_duration * (MOV_WIN_FRM - 1) +
+             (duration_total_sec - duration_pixfmt_change_sec)) /
+            MOV_WIN_FRM;
         s->mov_avg_frames += 1;
         if (s->mov_avg_frames < 2 * MOV_WIN_FRM ||
             s->mov_avg_comp_duration < tpf) {
@@ -955,9 +971,12 @@ static void check_duration(struct state_libavcodec_decompress *s, double duratio
         }
         s->duration_warn_last_print = now;
         MSG(WARNING,
-            "Avg decompress time of last %d frames is %.2f ms which exceeds %.2f "
-            "ms (%d%% of TPF)!\n",
-            MOV_WIN_FRM, SEC_TO_MS(s->mov_avg_comp_duration), SEC_TO_MS(tpf),
+            "Avg decode path time of last %d frames is %.2f ms (QSV decode/copy "
+            "%.2f ms + pixel conversion %.2f ms), which exceeds %.2f ms "
+            "(%d%% of TPF)!\n",
+            MOV_WIN_FRM, SEC_TO_MS(s->mov_avg_comp_duration),
+            SEC_TO_MS(s->mov_avg_decode_duration),
+            SEC_TO_MS(s->mov_avg_convert_duration), SEC_TO_MS(tpf),
             TIME_SLOT_PERC_MAX);
         const char *hint = NULL;
         if ((s->codec_ctx->thread_type & FF_THREAD_FRAME) == 0 &&
@@ -982,7 +1001,8 @@ static void check_duration(struct state_libavcodec_decompress *s, double duratio
         bool in_rgb = av_pix_fmt_desc_get(s->convert_in)->flags & AV_PIX_FMT_FLAG_RGB;
         if (codec_is_a_rgb(s->out_codec) != in_rgb && duration_pixfmt_change_sec > s->mov_avg_comp_duration / 4) {
                 log_msg(LOG_LEVEL_WARNING, MOD_NAME "Also pixfmt change of last frame took %f ms.\n"
-                        "Consider adding \"--conv-policy cds\" to prevent color space conversion.\n", duration_pixfmt_change_sec / 1000.0);
+                        "Consider adding \"--conv-policy cds\" to prevent color space conversion.\n",
+                        SEC_TO_MS(duration_pixfmt_change_sec));
         }
 }
 
@@ -1120,25 +1140,18 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                 }
                 bool converted_on_gpu = false;
                 if (s->frame->format == AV_PIX_FMT_XV30LE &&
-                    (s->out_codec == R12L || s->out_codec == R10k)) {
+                    s->out_codec == R12L) {
                         if (s->r12l_opencl == NULL) {
                                 s->r12l_opencl =
                                         r12l_decompress_opencl_create();
                                 if (s->r12l_opencl != NULL) {
                                         MSG(INFO, "Using OpenCL GPU identity "
-                                                  "Y410 -> %s conversion\n",
-                                            get_codec_name(s->out_codec));
+                                                  "Y410 -> R12L conversion\n");
                                 }
                         }
                         if (s->r12l_opencl != NULL) {
-                                converted_on_gpu = s->out_codec == R10k
-                                        ? r10k_decompress_opencl_convert(
-                                                s->r12l_opencl,
-                                                s->frame->data[0],
-                                                s->frame->linesize[0], dst,
-                                                s->pitch, s->desc.width,
-                                                s->desc.height)
-                                        : r12l_decompress_opencl_convert(
+                                converted_on_gpu =
+                                        r12l_decompress_opencl_convert(
                                                 s->r12l_opencl,
                                                 s->frame->data[0],
                                                 s->frame->linesize[0], dst,
@@ -1146,8 +1159,7 @@ static decompress_status libavcodec_decompress(void *state, unsigned char *dst, 
                                                 s->desc.height);
                                 if (!converted_on_gpu) {
                                         MSG(WARNING,
-                                            "OpenCL Y410 -> %s conversion failed: %s; falling back to CPU\n",
-                                            get_codec_name(s->out_codec),
+                                            "OpenCL Y410 -> R12L conversion failed: %s; falling back to CPU\n",
                                             r12l_decompress_opencl_error(
                                                     s->r12l_opencl));
                                 }

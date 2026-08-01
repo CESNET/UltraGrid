@@ -1800,6 +1800,36 @@ xv30_identity_to_r12l(struct av_conv_data d)
                 }
         }
 }
+
+/**
+ * XV30/Y410 already contains the identity-mapped components in R:G:B bit
+ * order.  R10k uses the same component order shifted two bits toward the
+ * MSB and stored in network byte order, so avoid a YUV matrix and GPU
+ * upload/download round trip.
+ */
+static void
+xv30_identity_to_r10k(struct av_conv_data d)
+{
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
+        assert((uintptr_t) in_frame->data[0] % 4 == 0);
+        assert((uintptr_t) d.dst_buffer % 4 == 0);
+        for (ptrdiff_t y = 0; y < height; ++y) {
+                const uint32_t *src = (const void *)
+                        (in_frame->data[0] + in_frame->linesize[0] * y);
+                uint32_t *dst = (void *) (d.dst_buffer + y * d.pitch);
+                OPTIMIZED_FOR (int x = 0; x < width; ++x) {
+                        const uint32_t r10k = (*src++ << 2U) | 0x3U;
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+                        *dst++ = __builtin_bswap32(r10k);
+#else
+                        *dst++ = r10k;
+#endif
+                }
+        }
+}
 #endif // XV3X_PRESENT
 
 #if Y210_PRESENT
@@ -2155,6 +2185,7 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
 #if XV3X_PRESENT
         { AV_PIX_FMT_XV30,        UYVY,      xv30_to_uyvy,                 nullptr },
         { AV_PIX_FMT_XV30,        v210,      xv30_to_v210,                 nullptr },
+        { AV_PIX_FMT_XV30,        R10k,      xv30_identity_to_r10k,        nullptr },
         { AV_PIX_FMT_XV30,        R12L,      xv30_identity_to_r12l,        nullptr },
         { AV_PIX_FMT_XV30,        Y416,      xv30_to_y416,                 nullptr },
         { AV_PIX_FMT_Y212,        UYVY,      y210_to_uyvy,                 nullptr },
@@ -2597,8 +2628,17 @@ do_av_to_uv_convert(const av_to_uv_convert_t *s, char *__restrict dst_buffer,
         const codec_t av_to_uv_pf = s->src_pixfmt != VC_NONE
                                         ? s->src_pixfmt
                                         : s->dst_pixfmt;
-        const enum colorspace cs_coeffs = get_cs_for_conv(
-            inf, av_to_uv_pf, &lmt_rng);
+        enum colorspace cs_coeffs = CS_DFL;
+#if XV3X_PRESENT
+        const bool identity_conversion =
+                s->conversion != NULL &&
+                (s->conversion->convert == xv30_identity_to_r10k ||
+                 s->conversion->convert == xv30_identity_to_r12l);
+        if (!identity_conversion)
+#endif
+        {
+                cs_coeffs = get_cs_for_conv(inf, av_to_uv_pf, &lmt_rng);
+        }
 
         unsigned char *dec_input = inf->data[0];
         size_t src_linesize = inf->linesize[0];

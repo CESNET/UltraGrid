@@ -119,6 +119,62 @@ int ff_codec_conversions_test_yuv444pXXle_from_to_r10k()
                 for_each(rgba_buf.begin(), rgba_buf.end(), [&](unsigned char & c) { c = rand_gen() % 0x100; });
                 CHECK(test_pattern(f));
         }
+
+#if XV3X_PRESENT
+        {
+                constexpr int xv_width = 17;
+                constexpr int xv_height = 9;
+                AVFrame *xv30 = av_frame_alloc();
+                assert(xv30 != nullptr);
+                xv30->format = AV_PIX_FMT_XV30;
+                xv30->width = xv_width;
+                xv30->height = xv_height;
+                assert(av_frame_get_buffer(xv30, 32) == 0);
+
+                default_random_engine rand_gen;
+                vector<unsigned char> result(
+                        xv_height * vc_get_linesize(xv_width, R10k));
+                for (int y = 0; y < xv_height; ++y) {
+                        auto *row = reinterpret_cast<uint32_t *>(
+                                xv30->data[0] + y * xv30->linesize[0]);
+                        for (int x = 0; x < xv_width; ++x) {
+                                row[x] = rand_gen() & 0x3FFFFFFFU;
+                        }
+                }
+
+                auto conversion =
+                        get_av_to_uv_conversion(AV_PIX_FMT_XV30, R10k);
+                assert(conversion != nullptr);
+                av_to_uv_convert(conversion,
+                                 reinterpret_cast<char *>(result.data()),
+                                 xv30, vc_get_linesize(xv_width, R10k),
+                                 RGB_SHIFT);
+
+                for (int y = 0; y < xv_height; ++y) {
+                        const auto *src = reinterpret_cast<const uint32_t *>(
+                                xv30->data[0] + y * xv30->linesize[0]);
+                        const auto *dst = result.data() +
+                                y * vc_get_linesize(xv_width, R10k);
+                        for (int x = 0; x < xv_width; ++x) {
+                                const uint32_t packed = (src[x] << 2U) | 3U;
+                                ASSERT_MESSAGE(
+                                        "XV30 identity conversion changed a component",
+                                        dst[4 * x + 0] ==
+                                                        (packed >> 24U) &&
+                                                dst[4 * x + 1] ==
+                                                        ((packed >> 16U) &
+                                                         0xFFU) &&
+                                                dst[4 * x + 2] ==
+                                                        ((packed >> 8U) &
+                                                         0xFFU) &&
+                                                dst[4 * x + 3] ==
+                                                        (packed & 0xFFU));
+                        }
+                }
+                av_to_uv_conversion_destroy(&conversion);
+                av_frame_free(&xv30);
+        }
+#endif
         return 0;
 }
 
