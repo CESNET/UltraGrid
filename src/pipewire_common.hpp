@@ -40,7 +40,7 @@ struct spa_hook_uniq{
 
 class pipewire_thread_loop_lock_guard{
 public:
-        pipewire_thread_loop_lock_guard(pw_thread_loop *loop) : l(loop) {
+        explicit pipewire_thread_loop_lock_guard(pw_thread_loop *loop) : l(loop) {
                 pw_thread_loop_lock(l);
         }
         ~pipewire_thread_loop_lock_guard(){
@@ -108,7 +108,7 @@ std::vector<Pipewire_device> get_pw_device_list(std::string_view filter = "");
 void print_devices(std::string_view media_class);
 
 inline spa_audio_format get_pw_format_from_bps(unsigned bps){
-        spa_audio_format format_map[] = {
+        constexpr spa_audio_format format_map[] = {
                 SPA_AUDIO_FORMAT_UNKNOWN,
                 SPA_AUDIO_FORMAT_S8,
                 SPA_AUDIO_FORMAT_S16,
