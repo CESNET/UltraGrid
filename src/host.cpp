@@ -125,14 +125,17 @@
 #include <thread>
 #include <utility>
 
-#if defined HAVE_X || defined BUILD_LIBRARIES
-#include <dlfcn.h>
-#endif
-#if defined HAVE_X
+#if defined __linux__ && __has_include(<X11/Xlib.h>)
+#define HAVE_X 1
 #include <X11/Xlib.h>
 /// @todo
 /// The actual SONAME should be actually figured in configure.
 #define X11_LIB_NAME "libX11.so.6"
+typedef int XGetErrorText_fn(Display *, int, char *, int);
+static XGetErrorText_fn *XGetErrorTextProc;
+#endif
+#if defined HAVE_X || defined BUILD_LIBRARIES
+#include <dlfcn.h>
 #endif
 
 #ifdef HAVE_FEC_INIT
@@ -301,11 +304,13 @@ static bool set_output_buffering() {
  * doesn't produce a stacktrace.
  */
 static int x11_error_handler(Display *d, XErrorEvent *e) {
-        //char msg[1024] = "";
-        //XGetErrorText(d, e->error_code, msg, sizeof msg - 1);
-        UNUSED(d);
-        log_msg(LOG_LEVEL_ERROR, "X11 error - code: %d, serial: %d, error: %d, request: %d, minor: %d\n",
+        MSG(ERROR, "X11 error - code: %d, serial: %lu, error: %d, request: %d, minor: %d\n",
                         e->error_code, e->serial, e->error_code, e->request_code, e->minor_code);
+        if (XGetErrorTextProc != nullptr) {
+                char msg[1024] = "";
+                XGetErrorTextProc(d, e->error_code, msg, sizeof msg - 1);
+                MSG(ERROR, "%s\n", msg);
+        }
         print_backtrace();
         return 0;
 }
@@ -543,6 +548,7 @@ struct init_data *common_preinit(int argc, char *argv[])
                 } else {
                         log_msg(LOG_LEVEL_WARNING, "Unable to load symbol XSetErrorHandler: %s\n", dlerror());
                 }
+                XGetErrorTextProc = (XGetErrorText_fn*) dlsym(handle, "XGetErrorText");
 
                 dlclose(handle);
         } else {
