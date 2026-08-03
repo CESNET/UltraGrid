@@ -58,8 +58,8 @@ public:
         pipewire_init_guard() = default;
         pipewire_init_guard(pipewire_init_guard&) = delete;
         pipewire_init_guard& operator=(pipewire_init_guard&) = delete;
-        pipewire_init_guard(pipewire_init_guard&& o) { std::swap(initialized, o.initialized);}
-        pipewire_init_guard& operator=(pipewire_init_guard&& o) {
+        pipewire_init_guard(pipewire_init_guard&& o)  noexcept { std::swap(initialized, o.initialized);}
+        pipewire_init_guard& operator=(pipewire_init_guard&& o)  noexcept {
                 std::swap(initialized, o.initialized);
                 return *this;
         }
