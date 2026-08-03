@@ -21,21 +21,23 @@ struct raii_proxy_deleter_helper { void operator()(auto *p) const { pw_proxy_des
 using pw_registry_uniq = std::unique_ptr<pw_registry, raii_proxy_deleter_helper>;
 
 struct spa_hook_uniq{
-        spa_hook_uniq(){
-                spa_zero(hook);
-        }
+        spa_hook_uniq() = default;
         ~spa_hook_uniq(){
-                /*Check if hook is initialized.
-                 * Needed only for old pw versions before commit 2394413e */
-                if(!!hook.link.prev)
-                        spa_hook_remove(&hook);
+                /* Check if hook is initialized.
+                 * Needed only for ancient pw versions before commit 2394413e
+                 * TODO: Remove after upgrading CI from Ubuntu 22
+                 */
+                if(!hook.link.prev)
+                        return;
+
+                spa_hook_remove(&hook);
         }
         spa_hook_uniq(spa_hook_uniq&) = delete;
         spa_hook_uniq& operator=(spa_hook_uniq&) = delete;
 
         spa_hook& get() { return hook; }
 
-        spa_hook hook;
+        spa_hook hook{};
 };
 
 class pipewire_thread_loop_lock_guard{
