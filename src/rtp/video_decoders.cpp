@@ -155,7 +155,6 @@ constexpr int PADDING = MAX_PADDING;
 
 using namespace std::string_literals;
 using std::chrono::duration_cast;
-using std::chrono::high_resolution_clock;
 using std::chrono::nanoseconds;
 using std::chrono::seconds;
 using std::chrono::steady_clock;
@@ -651,7 +650,7 @@ static void *decompress_thread(void *args) {
                         break;
                 }
 
-                auto t0 = std::chrono::high_resolution_clock::now();
+                auto t0 = steady_clock::now();
                 unique_ptr<char[]> tmp;
 
                 if (decoder->out_codec == VIDEO_CODEC_END) {
@@ -713,7 +712,7 @@ static void *decompress_thread(void *args) {
                 }
 
                 LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "Decompress duration: " <<
-                        duration_cast<nanoseconds>(high_resolution_clock::now() - t0).count() / 1000000.0 << " ms\n";
+                        duration_cast<nanoseconds>(steady_clock::now() - t0).count() / 1000000.0 << " ms\n";
 
                 if(decoder->change_il) {
                         for(unsigned int i = 0; i < decoder->frame->tile_count; ++i) {
@@ -1858,9 +1857,9 @@ next_packet:
                 fec_msg->received_pkts_cum = stats->received_pkts_cum;
                 fec_msg->expected_pkts_cum = stats->expected_pkts_cum;
 
-                auto t0 = std::chrono::high_resolution_clock::now();
+                auto t0 = steady_clock::now();
                 decoder->fec_queue.push(std::move(fec_msg));
-                auto t1 = std::chrono::high_resolution_clock::now();
+                auto t1 = steady_clock::now();
                 double tpf = 1.0 / decoder->display_desc.fps;
                 if (std::chrono::duration_cast<std::chrono::duration<double>>(t1 - t0).count() > tpf && decoder->stats.displayed > 20) {
                         decoder->slow_msg.print("Your computer may be too SLOW to play this !!!\n");
