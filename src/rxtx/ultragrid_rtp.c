@@ -58,6 +58,7 @@
 #include "rxtx/ultragrid_rtp.h"
 
 #include <assert.h>  // for assert
+#include <stdatomic.h>
 #include <pthread.h> // for pthread_mutex_lock, pthread_mutex...
 #include <stdint.h>  // for uint32_t
 #include <stdio.h>   // for fprintf, stderr
@@ -127,7 +128,7 @@ struct ultragrid_rtp_rxtx {
 
         struct module *receiver_mod;
 
-        bool should_exit;
+        atomic_bool should_exit;
 };
 
 // protoypes
