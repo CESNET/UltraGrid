@@ -119,7 +119,7 @@ static bool display_decklink_reconfigure(void *state, struct video_desc desc);
                 }\
         } while (0)
 
-using hrc = std::chrono::high_resolution_clock;
+using std::chrono::steady_clock;
 using namespace std::string_literals;
 using std::chrono::duration_cast;
 using std::chrono::seconds;
@@ -163,7 +163,7 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
                 resync = INT64_MIN + 1,
         };
 
-        hrc::time_point t0             = hrc::now();
+        steady_clock::time_point t0 = steady_clock::now();
         uint64_t        frames_dropped = 0;
         uint64_t frames_flushed = 0;
         uint64_t frames_late = 0;
@@ -267,8 +267,8 @@ class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLi
 
 void PlaybackDelegate::PrintStats()
 {
-        auto now = hrc::now();
-        if (duration_cast<seconds>(now - t0).count() >= 5) {
+        auto now = steady_clock::now();
+        if (now - t0 >= std::chrono::seconds(5)) {
                 LOG(LOG_LEVEL_VERBOSE)
                     << MOD_NAME << frames_late << " frames late, "
                     << frames_dropped << " dropped, " << frames_flushed
