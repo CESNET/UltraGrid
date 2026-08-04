@@ -1025,19 +1025,19 @@ static void hd_rum_translator_should_exit_callback(void *arg) {
 
 int main(int argc, char **argv)
 {
-    struct init_data *init;
-    struct hd_rum_translator_state state;
+    init_data *init = common_preinit(argc, argv);
+    hd_rum_translator_state state;
+
+    socket_udp *sock_in = nullptr;
+    if (init == nullptr) {
+        EXIT(EXIT_FAILURE);
+    }
 
     int qsize;
-    socket_udp *sock_in = nullptr;
     pthread_t thread;
     int err = 0;
     int i;
     struct cmdline_parameters params = {};
-
-    if ((init = common_preinit(argc, argv)) == nullptr) {
-        EXIT(EXIT_FAILURE);
-    }
 
     print_version();
     printf("\n");
