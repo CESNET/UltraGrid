@@ -145,8 +145,8 @@ public:
          *        but will only print out the report once every 30 seconds.
          */
         void report() {
-                std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-                if(std::chrono::duration_cast<std::chrono::seconds>(now - this->last_summary).count() > 10) {                
+                auto now = std::chrono::steady_clock::now();
+                if(now - this->last_summary > std::chrono::seconds(10)) {
                         LOG(LOG_LEVEL_INFO) << SUNDERLINE("Decklink stats (cumulative)")
                                         << " - Total Audio Frames Played: "
                                         << SBOLD(this->frames_played)
@@ -254,8 +254,8 @@ public:
                 // CHeck the previous time has been initialised
                 if(this->prev_audio_end.time_since_epoch().count() != 0) {
                         // Collect the time now and do a comparison to the time when we ended the previous function call
-                        std::chrono::high_resolution_clock::time_point audio_begin = std::chrono::high_resolution_clock::now();
-                        std::chrono::milliseconds time_diff = std::chrono::duration_cast<std::chrono::milliseconds>(audio_begin - this->prev_audio_end);
+                        auto audio_begin = std::chrono::steady_clock::now();
+                        auto time_diff = std::chrono::duration_cast<std::chrono::milliseconds>(audio_begin - this->prev_audio_end);
 
                         // Set a max or min if the timing is outside of what is already been collected
                         long long duration_diff = time_diff.count();
@@ -273,7 +273,7 @@ public:
          * 
          */
         void mark_audio_time_end() {
-                this->prev_audio_end = std::chrono::high_resolution_clock::now();
+                this->prev_audio_end = std::chrono::steady_clock::now();
         }
 private:
         // Keep a track of the amount in the decklink buffer
@@ -292,7 +292,7 @@ private:
         // Sample count average
         uint32_t buffer_average = 0;
         // Timing between calls of audio put
-        std::chrono::high_resolution_clock::time_point prev_audio_end{};
+        std::chrono::steady_clock::time_point prev_audio_end{};
         long long audio_time_diff_max = 0;
         long long audio_time_diff_min = std::numeric_limits<long long>().max();
         // We want to the summary to be outputted every 30 or so seconds. So keep track of
