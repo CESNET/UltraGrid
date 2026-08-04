@@ -265,8 +265,7 @@ struct reported_statistics_cumul {
                 }
                 last_buffer_number = buffer_number;
                 const auto now = steady_clock::now();
-                if (duration_cast<seconds>(now - t_last).count() >
-                    CUMULATIVE_REPORTS_INTERVAL) {
+                if (now - t_last > std::chrono::seconds(CUMULATIVE_REPORTS_INTERVAL)) {
                         print();
                         t_last = now;
                 }
@@ -712,7 +711,7 @@ static void *decompress_thread(void *args) {
                 }
 
                 LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "Decompress duration: " <<
-                        duration_cast<nanoseconds>(steady_clock::now() - t0).count() / 1000000.0 << " ms\n";
+                        std::chrono::duration<double, std::milli>(steady_clock::now() - t0).count() << " ms\n";
 
                 if(decoder->change_il) {
                         for(unsigned int i = 0; i < decoder->frame->tile_count; ++i) {
@@ -1860,8 +1859,8 @@ next_packet:
                 auto t0 = steady_clock::now();
                 decoder->fec_queue.push(std::move(fec_msg));
                 auto t1 = steady_clock::now();
-                double tpf = 1.0 / decoder->display_desc.fps;
-                if (std::chrono::duration_cast<std::chrono::duration<double>>(t1 - t0).count() > tpf && decoder->stats.displayed > 20) {
+                auto tpf = std::chrono::duration<double>(1.0 / decoder->display_desc.fps);
+                if (t1 - t0 > tpf && decoder->stats.displayed > 20) {
                         decoder->slow_msg.print("Your computer may be too SLOW to play this !!!\n");
                 }
 
