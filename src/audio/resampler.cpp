@@ -184,7 +184,7 @@ bool soxr_resampler::check_reconfigure(uint32_t original_sample_rate, uint32_t n
 }
 
 tuple<bool, audio_frame2> soxr_resampler::resample(audio_frame2 &a, vector<audio_frame2::channel> &new_channels, int new_sample_rate_num, int new_sample_rate_den) {
-        std::chrono::high_resolution_clock::time_point funcBegin = std::chrono::high_resolution_clock::now();
+        auto funcBegin = std::chrono::steady_clock::now();
 
         bool ret = check_reconfigure(a.get_sample_rate(), new_sample_rate_num, new_sample_rate_den, a.get_channel_count(), a.get_bps());
         if (!ret) {
@@ -216,9 +216,9 @@ tuple<bool, audio_frame2> soxr_resampler::resample(audio_frame2 &a, vector<audio
 
         free(obuf_ptrs); free(ibuf_ptrs);
 
-        std::chrono::high_resolution_clock::time_point funcEnd = std::chrono::high_resolution_clock::now();
-        long long resamplerDuration = std::chrono::duration_cast<std::chrono::milliseconds>(funcEnd - funcBegin).count();
-        LOG(LOG_LEVEL_DEBUG) << "[audio_frame2_resampler] resampler_duration " << resamplerDuration << "\n";
+        auto funcEnd = std::chrono::steady_clock::now();
+        auto resamplerDuration = std::chrono::duration<float, std::milli>(funcEnd - funcBegin).count();
+        LOG(LOG_LEVEL_DEBUG) << "[audio_frame2_resampler] resampler_duration " << resamplerDuration << "ms\n";
 
         // Remainders aren't as relevant when using SOXR
         audio_frame2 remainder = {};
