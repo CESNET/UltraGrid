@@ -42,4 +42,5 @@ else
         echo "Downloading $gh_path" 1>&2
         set -- "$@" -O
 fi
+set -v
 curl -LSfs "$@" "$gh_path"

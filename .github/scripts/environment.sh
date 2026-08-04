@@ -173,10 +173,6 @@ set_ximea_url() {
 set_ximea_url
 
 import_macos_signing_key() {
-        if [ "$(uname -s)" != Darwin ]; then
-                return 0
-        fi
-
         if [ -z "$apple_key_p12_b64" ]; then
                 if [ "${GITHUB_REPOSITORY?}" = CESNET/UltraGrid ]; then
                         echo "apple_key_p12_b64 GitHub secret must be set"\
@@ -199,7 +195,15 @@ import_macos_signing_key() {
         printf '%b' "KEY_CHAIN_PASS=$KEY_CHAIN_PASS\nKEY_CHAIN=$KEY_CHAIN\n" \
                 >> "$GITHUB_ENV"
 }
-import_macos_signing_key
+set_macos_homebrew_token() {
+        export "HOMEBREW_GITHUB_API_TOKEN=$GITHUB_TOKEN"
+        printf '%b' "HOMEBREW_GITHUB_API_TOKEN=$GITHUB_TOKEN\n" >> "$GITHUB_ENV"
+}
+if [ "$(uname -s)" = Darwin ]; then
+        import_macos_signing_key
+        set_macos_homebrew_token
+fi
+
 
 printf '%b' 'DELTA_MAC_ARCHIVE=videomaster-macos-dev.tar.gz\n' >> "$GITHUB_ENV"
 
