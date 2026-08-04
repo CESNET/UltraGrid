@@ -1221,7 +1221,9 @@ void udp_exit(socket_udp * s)
                         char c = 0;
                         int ret = PLATFORM_PIPE_WRITE(s->local->should_exit_fd[1], &c, 1);
                         assert (ret == 1);
+                        CHK_PTHR(pthread_mutex_lock(&s->local->lock));
                         s->local->should_exit = true;
+                        CHK_PTHR(pthread_mutex_unlock(&s->local->lock));
                         pthread_cond_signal(&s->local->reader_cv);
                         pthread_join(s->local->thread_id, NULL);
                         while (simple_linked_list_size(s->local->packets) > 0) {
