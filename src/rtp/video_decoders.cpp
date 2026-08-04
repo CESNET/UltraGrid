@@ -178,7 +178,7 @@ struct state_video_decoder;
  * Interlacing changing function prototype. The function should be able to change buffer
  * in place, that is when dst and src are the same.
  */
-typedef void (*change_il_t)(char *dst, char *src, int linesize, int height, void **state);
+using change_il_t = void (*)(char *dst, char *src, int linesize, int height, void **state);
 
 // prototypes
 static bool reconfigure_decoder(struct state_video_decoder *decoder,
@@ -192,11 +192,10 @@ static void decoder_process_message(struct module *);
 static bool  video_decoder_register_display(struct state_video_decoder *decoder,
                                             struct display             *display);
 
-static int sum_map(map<int, int> const & m) {
+static int sum_map(const map<int, int>& m) {
         int ret = 0;
-        for (map<int, int>::const_iterator it = m.begin();
-                        it != m.end(); ++it) {
-                ret += it->second;
+        for (auto [pos, len] : m) {
+                ret += len;
         }
         return ret;
 }
@@ -1070,8 +1069,8 @@ static vector<pair<struct pixfmt_desc, codec_t>> video_decoder_order_output_code
 
         if (log_level >= LOG_LEVEL_VERBOSE) {
                 LOG(LOG_LEVEL_VERBOSE) << "Trying codecs in this order:\n";
-                for (auto it = ret.begin(); it != ret.end(); ++it) {
-                        LOG(LOG_LEVEL_VERBOSE) << "\t" << get_codec_name((*it).second) << ", internal: " << get_pixdesc_desc((*it).first) << "\n";
+                for (auto& [pixfmt, codec] : ret) {
+                        LOG(LOG_LEVEL_VERBOSE) << "\t" << get_codec_name(codec) << ", internal: " << get_pixdesc_desc(pixfmt) << "\n";
                 }
         }
 
@@ -1143,10 +1142,10 @@ after_linedecoder_lookup:
                 vector<pair<struct pixfmt_desc, codec_t>> formats_to_try; // comp_int_prop (may be empty), display_fmt
                 formats_to_try = video_decoder_order_output_codecs(comp_int_prop, decoder->native_codecs);
 
-                for (auto it = formats_to_try.begin(); it != formats_to_try.end(); ++it) {
-                        out_codec = (*it).second;
-                        if (decompress_init_multi(desc.color_spec, (*it).first,
-                                                (*it).second,
+                for (auto& [pixfmt, codec] : formats_to_try) {
+                        out_codec = codec;
+                        if (decompress_init_multi(desc.color_spec, pixfmt,
+                                                codec,
                                                 decoder->decompress_state.data(),
                                                 decoder->decompress_state.size())) {
                                 decoder->decoder_type = EXTERNAL_DECODER;
