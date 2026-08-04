@@ -126,7 +126,7 @@
 #include <utility>
 
 #if defined __linux__ && __has_include(<X11/Xlib.h>)
-#define HAVE_X 1
+#define X11_HDR_FOUND 1
 #include <X11/Xlib.h>
 /// @todo
 /// The actual SONAME should be actually figured in configure.
@@ -134,7 +134,7 @@
 typedef int XGetErrorText_fn(Display *, int, char *, int);
 static XGetErrorText_fn *XGetErrorTextProc;
 #endif
-#if defined HAVE_X || defined BUILD_LIBRARIES
+#if defined X11_HDR_FOUND || defined BUILD_LIBRARIES
 #include <dlfcn.h>
 #endif
 
@@ -214,6 +214,7 @@ __declspec(dllexport) unsigned long NvOptimusEnablement =
 struct init_data {
         bool com_initialized = false;
         list <void *> opened_libs;
+        void *x11_handle;
 };
 
 static void linux_print_rss_mem();
@@ -228,6 +229,11 @@ void common_cleanup(struct init_data *init)
 #if defined BUILD_LIBRARIES
                 for (auto a : init->opened_libs) {
                         dlclose(a);
+                }
+#endif
+#ifdef X11_HDR_FOUND
+                if (init->x11_handle != nullptr) {
+                        dlclose(init->x11_handle);
                 }
 #endif
                 com_uninitialize(&init->com_initialized);
@@ -297,7 +303,7 @@ static bool set_output_buffering() {
         return true;
 }
 
-#ifdef HAVE_X
+#ifdef X11_HDR_FOUND
 /**
  * Custom X11 error handler to catch errors and handle them more reasonably
  * than the default handler which exits the program immediately, which, however,
@@ -525,12 +531,13 @@ struct init_data *common_preinit(int argc, char *argv[])
         std::clog.rdbuf(std::cout.rdbuf()); // use stdout for logs by default
         color_output_init();
 
-#ifdef HAVE_X
-        void *handle = dlopen(X11_LIB_NAME, RTLD_NOW);
+        struct init_data init{};
+#ifdef X11_HDR_FOUND
+        init.x11_handle = dlopen(X11_LIB_NAME, RTLD_NOW);
 
-        if (handle) {
+        if (init.x11_handle != nullptr) {
                 Status (*XInitThreadsProc)();
-                XInitThreadsProc = (Status (*)()) dlsym(handle, "XInitThreads");
+                XInitThreadsProc = (Status (*)()) dlsym(init.x11_handle, "XInitThreads");
                 if (XInitThreadsProc) {
                         Status s = XInitThreadsProc();
                         if (s != True) {
@@ -540,23 +547,20 @@ struct init_data *common_preinit(int argc, char *argv[])
                         log_msg(LOG_LEVEL_WARNING, "Unable to load symbol XInitThreads: %s\n", dlerror());
                 }
 
-                typedef int (*XSetErrorHandler_t(int (*handler)(Display *, XErrorEvent *)))();
-                XSetErrorHandler_t *XSetErrorHandlerProc;
-                XSetErrorHandlerProc = (XSetErrorHandler_t *) dlsym(handle, "XSetErrorHandler");
+                typedef int (*XSetErrorHandler_fn(int (*handler)(Display *, XErrorEvent *)))();
+                XSetErrorHandler_fn *XSetErrorHandlerProc;
+                XSetErrorHandlerProc = (XSetErrorHandler_fn *) dlsym(init.x11_handle, "XSetErrorHandler");
                 if (XSetErrorHandlerProc) {
                         XSetErrorHandlerProc(x11_error_handler);
                 } else {
                         log_msg(LOG_LEVEL_WARNING, "Unable to load symbol XSetErrorHandler: %s\n", dlerror());
                 }
-                XGetErrorTextProc = (XGetErrorText_fn*) dlsym(handle, "XGetErrorText");
-
-                dlclose(handle);
+                XGetErrorTextProc = (XGetErrorText_fn *) dlsym(init.x11_handle, "XGetErrorText");
         } else {
                 log_msg(LOG_LEVEL_WARNING, "Unable open " X11_LIB_NAME " library: %s\n", dlerror());
         }
 #endif
 
-        struct init_data init{};
         bool is_win_utf8_terminal = false;
 #ifdef _WIN32
         WSADATA wsaData;
