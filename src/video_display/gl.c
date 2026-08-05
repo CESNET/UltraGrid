@@ -405,7 +405,7 @@ static void glfw_key_callback(GLFWwindow* win, int key, int scancode, int action
 static void glfw_mouse_callback(GLFWwindow *win, double x, double y);
 static void glfw_close_callback(GLFWwindow *win);
 static void glfw_print_error(int error_code, const char* description);
-static void glfw_print_video_mode(struct state_gl *s);
+static void glfw_print_video_mode(struct state_gl *s, GLFWmonitor *mon);
 static void display_gl_set_sync_on_vblank(int value);
 static void screenshot(struct video_frame *frame);
 static void upload_compressed_texture(struct state_gl *s, char *data);
@@ -1077,11 +1077,13 @@ display_gl_reconfigure(void *state, struct video_desc desc)
         return true;
 }
 
-static void glfw_print_video_mode(struct state_gl *s) {
-        if (!s->fs || !s->modeset) {
+static void
+glfw_print_video_mode(struct state_gl *s, GLFWmonitor *mon)
+{
+        if (!s->fs || !s->modeset || mon == nullptr) {
                 return;
         }
-        const GLFWvidmode* mode = glfwGetVideoMode(s->monitor);
+        const GLFWvidmode* mode = glfwGetVideoMode(mon);
         MSG(NOTICE, "Display mode set to: %dx%d@%d\n", mode->width,
             mode->height, mode->refreshRate);
 }
@@ -1515,6 +1517,38 @@ static int64_t translate_glfw_to_ug(int key, int mods) {
         return -1;
 }
 
+static GLFWmonitor *
+get_window_current_monitor(int pos_x, int pos_y, int size_x, int size_y)
+{
+#if GLFW_VERSION_MAJOR < 3 || \
+    (GLFW_VERSION_MAJOR == 3 && GLFW_VERSION_MINOR < 3)
+        (void) pos_x, (void) pos_y, (void) size_x, (void) size_y;
+        MSG(WARNING, "Old GLFW - cannot get window position for fullscreen!\n");
+        return glfwGetPrimaryMonitor();
+#else
+        int count = 0;
+        GLFWmonitor **mon = glfwGetMonitors(&count);
+        if (count <= 0) {
+                MSG(ERROR, "No monitors found!\n");
+                return nullptr;
+        }
+        for (int i = 0; i < count; ++i) {
+                int xpos, ypos, width, height;
+                int clamp_x = MAX(0, pos_x);
+                int clamp_y  = MAX(0, pos_y);
+                glfwGetMonitorWorkarea(mon[i], &xpos, &ypos, &width, &height);
+                if (clamp_x >= xpos && clamp_x < xpos + width &&
+                    clamp_y >= ypos && clamp_y < ypos + height) {
+                        return mon[i];
+                }
+        }
+        MSG(WARNING, "Cannot get monitor for window geometry %dx%d%+d%+d\n", size_x,
+            size_y, pos_x, pos_y);
+        gl_print_monitors(false);
+        return glfwGetPrimaryMonitor();
+#endif
+}
+
 static void
 handle_toggle_fullscreen(struct state_gl *s)
 {
@@ -1525,10 +1559,11 @@ handle_toggle_fullscreen(struct state_gl *s)
                 width  = s->size_w;
                 height = s->size_h;
         } else {
-                mon = s->monitor;
                 // store pos+size for toggling back
                 glfwGetWindowPos(s->window, &s->pos_x, &s->pos_y);
                 glfwGetWindowSize(s->window, &s->size_w, &s->size_h);
+                mon = get_window_current_monitor(s->pos_x, s->pos_y, s->size_w,
+                                                 s->size_h);
         }
         s->fs = !s->fs;
         if (mon && s->modeset == NOMODESET) {
@@ -1542,7 +1577,7 @@ handle_toggle_fullscreen(struct state_gl *s)
                              width, height, refresh_rate);
         MSG(NOTICE, "Setting fullscreen: %s\n", s->fs ? "ON" : "OFF");
         set_gamma(s);
-        glfw_print_video_mode(s);
+        glfw_print_video_mode(s, mon);
 }
 
 static bool display_gl_process_key(struct state_gl *s, long long int key)
@@ -1828,14 +1863,6 @@ vdp_interop_supported()
 static GLFWmonitor *
 get_monitor_real(const char *req_monitor_id)
 {
-        if (strlen(req_monitor_id) == 0) {
-                GLFWmonitor *ret = glfwGetPrimaryMonitor();
-                if (ret == nullptr) {
-                        MSG(WARNING, "No monitor found! Continuing but "
-                                     "full-screen will be disabled.\n");
-                }
-                return ret;
-        }
         char *endptr          = nullptr;
         int   req_monitor_idx = strtol(req_monitor_id, &endptr, 0);
 
@@ -1880,9 +1907,11 @@ static bool display_gl_init_opengl(struct state_gl *s)
 {
         gl_print_current_platform();
 
-        s->monitor = get_monitor(s->req_monitor_id);
-        if (s->monitor == nullptr && strlen(s->req_monitor_id) > 0) {
-                return false;
+        if (strlen(s->req_monitor_id) > 0) {
+                s->monitor = get_monitor(s->req_monitor_id);
+                if (s->monitor == nullptr) {
+                        return false;
+                }
         }
 
         if (get_commandline_param(GL_DISABLE_10B_OPT_PARAM_NAME) == nullptr) {
@@ -1897,7 +1926,18 @@ static bool display_gl_init_opengl(struct state_gl *s)
         int width = splash->tiles[0].width;
         int height = splash->tiles[0].height;
         vf_free(splash);
-        GLFWmonitor *mon = s->fs ? s->monitor : nullptr;
+        GLFWmonitor *mon = nullptr;
+        if (s->fs) {
+                if (s->monitor) {
+                        mon = s->monitor;
+                } else {
+                        mon = glfwGetPrimaryMonitor();
+                        if (mon == nullptr) {
+                                MSG(WARNING, "No monitor found! Continuing but "
+                                             "full-screen will not be set.\n");
+                        }
+                }
+        }
         if (s->fixed_size && s->size_w && s->size_h) {
                 width = s->size_w;
                 height = s->size_h;
@@ -1928,7 +1968,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
         if (mon != nullptr) { /// @todo remove/revert when no needed (see particular commit message
                 glfwSetWindowMonitor(s->window, mon, GLFW_DONT_CARE, GLFW_DONT_CARE, width, height, get_refresh_rate(s->modeset, mon, GLFW_DONT_CARE));
         }
-        glfw_print_video_mode(s);
+        glfw_print_video_mode(s, mon);
         glfwSetWindowUserPointer(s->window, s);
         set_gamma(s);
         glfwSetInputMode(s->window, GLFW_CURSOR, s->show_cursor == SC_TRUE ?  GLFW_CURSOR_NORMAL : GLFW_CURSOR_HIDDEN);
