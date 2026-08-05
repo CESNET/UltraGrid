@@ -16,20 +16,13 @@ static void on_core_error(void * /*data*/, uint32_t id, int seq, int res, const 
         log_msg(LOG_LEVEL_ERROR, "Pipewire error: id:%d seq:%x res:%d msg: %s\n", id, seq, res, message);
 }
 
-static const struct pw_core_events core_events = {
-        .version = PW_VERSION_CORE_EVENTS,
-        .info = nullptr,
-        .done = on_core_done,
-        .ping = nullptr,
-        .error = on_core_error,
-        .remove_id = nullptr,
-        .bound_id = nullptr,
-        .add_mem = nullptr,
-        .remove_mem = nullptr,
-#if PW_MAJOR > 0 || PW_MINOR > 3 || (PW_MINOR == 3 && PW_MICRO > 67)
-        .bound_props = nullptr,
-#endif
-};
+static constexpr pw_core_events core_events = []{
+        pw_core_events e{};
+        e.version = PW_VERSION_CORE_EVENTS;
+        e.done = on_core_done;
+        e.error = on_core_error;
+        return e;
+}();
 
 bool initialize_pw_common(pipewire_state_common& s, int fd){
         s.init_guard.init();
