@@ -90,7 +90,7 @@ struct state_blend_common {
         queue<struct video_frame *> incoming_queue;
         condition_variable in_queue_decremented_cv;
         map<uint32_t, list<struct video_frame *> > frames;
-        unordered_map<uint32_t, chrono::system_clock::time_point> disabled_ssrc;
+        unordered_map<uint32_t, chrono::steady_clock::time_point> disabled_ssrc;
 
         mutex lock;
         condition_variable cv;
@@ -189,7 +189,7 @@ static void display_blend_run(void *state)
                         break;
                 }
 
-                chrono::system_clock::time_point now = chrono::system_clock::now();
+                auto now = chrono::steady_clock::now();
                 auto it = s->disabled_ssrc.find(frame->ssrc);
                 if (it != s->disabled_ssrc.end()) {
                         it->second = now;
@@ -199,7 +199,7 @@ static void display_blend_run(void *state)
 
                 it = s->disabled_ssrc.begin();
                 while (it != s->disabled_ssrc.end()) {
-                        if (chrono::duration_cast<chrono::milliseconds>(now - it->second) > SOURCE_TIMEOUT) {
+                        if (now - it->second > SOURCE_TIMEOUT) {
                                 verbose_msg("Source 0x%08" PRIx32 " timeout. Deleting from blend display.\n", it->first);
                                 s->disabled_ssrc.erase(it++);
                         } else {
@@ -312,13 +312,13 @@ static void display_blend_run(void *state)
                 }
 
                 if (s->old_ssrc != 0 && s->transition >= TRANSITION_COUNT) {
-                        for (auto && frame : s->frames[s->old_ssrc]) {
-                                vf_free(frame);
+                        for (auto& f: s->frames[s->old_ssrc]) {
+                                vf_free(f);
                         }
 
                         s->frames.erase(s->old_ssrc);
 
-                        s->disabled_ssrc[s->old_ssrc] = chrono::system_clock::now();
+                        s->disabled_ssrc[s->old_ssrc] = chrono::steady_clock::now();
                         s->old_ssrc = 0u;
                         s->transition = 0;
                 }
