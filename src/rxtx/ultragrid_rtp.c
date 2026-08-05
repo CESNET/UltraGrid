@@ -116,9 +116,7 @@ struct ultragrid_rtp_rxtx {
         /**
          * This variables serve as a notification when asynchronous sending exits
          * @{ */
-        bool            async_sending;
-        pthread_cond_t  async_sending_cv;
-        pthread_mutex_t async_sending_lock;
+        task_result_handle_t async_sending_task;
         /// @}
 
         long long int         send_bytes_total;
@@ -144,8 +142,6 @@ static void done(void *state)
                 display_done(s->display_copies[i]);
         }
         rtp_rxtx_common_done(s->rtp_common);
-        CHK_PTHR(pthread_cond_destroy(&s->async_sending_cv));
-        CHK_PTHR(pthread_mutex_destroy(&s->async_sending_lock));
         free(s);
 }
 
@@ -166,8 +162,7 @@ init(struct rxtx_params *params)
         s->parent         = params->parent;
         s->start_time     = params->start_time;
         s->receiver_mod   = params->receiver_mod;
-        ug_pthread_mutex_init(&s->async_sending_lock);
-        pthread_cond_init(&s->async_sending_cv, nullptr);
+        s->async_sending_task = nullptr;
         int rc = rtp_rxtx_common_init(&s->rtp_common, params);
         if (rc != 0) {
                 done(s);
@@ -190,11 +185,10 @@ init(struct rxtx_params *params)
 
 static void join(void *state) {
         struct ultragrid_rtp_rxtx *s = state;
-        CHK_PTHR(pthread_mutex_lock(&s->async_sending_lock));
-        while (s->async_sending) {
-                pthread_cond_wait(&s->async_sending_cv, &s->async_sending_lock);
+        if(s->async_sending_task){
+                wait_task(s->async_sending_task);
+                s->async_sending_task = nullptr;
         }
-        CHK_PTHR(pthread_mutex_unlock(&s->async_sending_lock));
 }
 
 struct async_data {
@@ -222,14 +216,12 @@ send_video_frame(void *state, struct video_frame *tx_frame)
         data->s = s;
         data->f = tx_frame;
 
-        CHK_PTHR(pthread_mutex_lock(&s->async_sending_lock));
-        while (s->async_sending) {
-                pthread_cond_wait(&s->async_sending_cv, &s->async_sending_lock);
+        if(s->async_sending_task){
+                wait_task(s->async_sending_task);
+                s->async_sending_task = nullptr;
         }
         rtp_rxtx_sender_do_housekeeping(s->rtp_common, TX_MEDIA_VIDEO);
-        s->async_sending = true;
-        task_run_async_detached(send_video_frame_async_callback, (void *) data);
-        CHK_PTHR(pthread_mutex_unlock(&s->async_sending_lock));
+        s->async_sending_task = task_run_async(send_video_frame_async_callback, (void *) data);
 }
 
 static void *send_video_frame_async_callback(void *arg) {
@@ -244,11 +236,6 @@ static void *send_video_frame_async_callback(void *arg) {
         CHK_PTHR(pthread_mutex_unlock(&video->lock));
 
         tx_frame->callbacks.dispose(tx_frame);
-
-        CHK_PTHR(pthread_mutex_lock(&s->async_sending_lock));
-        s->async_sending = false;
-        CHK_PTHR(pthread_mutex_unlock(&s->async_sending_lock));
-        CHK_PTHR(pthread_cond_signal(&s->async_sending_cv));
 
         return nullptr;
 }
