@@ -1513,28 +1513,34 @@ static int64_t translate_glfw_to_ug(int key, int mods) {
         return -1;
 }
 
+static void
+handle_toggle_fullscreen(struct state_gl *s)
+{
+        s->fs               = !s->fs;
+        int          width  = s->current_display_desc.width;
+        int          height = s->current_display_desc.height;
+        GLFWmonitor *mon    = s->fs ? s->monitor : nullptr;
+        if (mon && s->modeset == NOMODESET) {
+                const GLFWvidmode *mode = glfwGetVideoMode(mon);
+                width                   = mode->width;
+                height                  = mode->height;
+        }
+        int refresh_rate =
+            get_refresh_rate(s->modeset, mon, s->current_display_desc.fps);
+        glfwSetWindowMonitor(s->window, mon, GLFW_DONT_CARE, GLFW_DONT_CARE,
+                             width, height, refresh_rate);
+        MSG(NOTICE, "Setting fullscreen: %s\n", s->fs ? "ON" : "OFF");
+        set_gamma(s);
+        glfw_print_video_mode(s);
+}
+
 static bool display_gl_process_key(struct state_gl *s, long long int key)
 {
         verbose_msg(MOD_NAME "Key %lld pressed\n", key);
         switch (key) {
                 case 'f':
-                        {
-                                s->fs = !s->fs;
-                                int width = s->current_display_desc.width;
-                                int height = s->current_display_desc.height;
-                                GLFWmonitor *mon = s->fs ? s->monitor : nullptr;
-                                if (mon && s->modeset == NOMODESET) {
-                                        const GLFWvidmode* mode = glfwGetVideoMode(mon);
-                                        width = mode->width;
-                                        height = mode->height;
-                                }
-                                int refresh_rate = get_refresh_rate(s->modeset, mon, s->current_display_desc.fps);
-                                glfwSetWindowMonitor(s->window, mon, GLFW_DONT_CARE, GLFW_DONT_CARE, width, height, refresh_rate);
-                                MSG(NOTICE, "Setting fullscreen: %s\n", s->fs ? "ON" : "OFF");
-                                set_gamma(s);
-                                glfw_print_video_mode(s);
-                                break;
-                        }
+                        handle_toggle_fullscreen(s);
+                        break;
                 case 'q':
                         exit_uv(0);
                         break;
