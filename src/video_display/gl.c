@@ -550,9 +550,10 @@ gl_print_platforms()
 }
 
 static void
-gl_print_current_platform()
+gl_print_current_platform(bool *is_wayland)
 {
         const int platform = glfwGetPlatform();
+        *is_wayland = platform == GLFW_PLATFORM_WAYLAND;
         const char *name = "UNKNOWN/ERROR";
         for (unsigned i = 0; i < countof(platform_map); ++i) {
                 if (platform_map[i].platform_id == platform) {
@@ -575,8 +576,9 @@ gl_print_platforms()
 }
 // NOOP
 static void
-gl_print_current_platform()
+gl_print_current_platform(bool *is_wayland)
 {
+        *is_wayland = false;
 }
 #endif // not defined GLFW_PLATFORM
 
@@ -1905,7 +1907,8 @@ ADD_TO_PARAM(GL_DISABLE_10B_OPT_PARAM_NAME ,
  */
 static bool display_gl_init_opengl(struct state_gl *s)
 {
-        gl_print_current_platform();
+        bool is_wayland = false;
+        gl_print_current_platform(&is_wayland);
 
         if (strlen(s->req_monitor_id) > 0) {
                 s->monitor = get_monitor(s->req_monitor_id);
@@ -1959,8 +1962,24 @@ static bool display_gl_init_opengl(struct state_gl *s)
                 const int y = s->pos_y == INT_MIN ? 0 : s->pos_y;
                 glfwSetWindowPos(s->window, s->pos_x, y);
         }
-        glfwGetWindowPos(s->window, &s->pos_x,
-                         &s->pos_y); // for handle_toggle_fullscreen
+
+        if (is_wayland) { // Wayland fiddling, see the log - suppress eventual
+                glfwSetErrorCallback(nullptr); // error on Wayand
+        }
+        // to determine workspace in handle_toggle_fullscreen()
+        glfwGetWindowPos(s->window, &s->pos_x, &s->pos_y);
+        if (is_wayland) {
+                if (glfwGetError(nullptr)) {
+                        MSG(WARNING,
+                            "Wayland doesn't keep workspace when toggling "
+                            "fullscreen! Use X11 backend if needed...\n");
+                } else {
+                        MSG(VERBOSE, "Wayland already supports protocol for "
+                                     "querying position...\n");
+                }
+                glfwSetErrorCallback(glfw_print_error);
+        }
+
         if (s->noresizable) {
                 glfwSetWindowSizeLimits(s->window, width, height, width,
                                         height);
