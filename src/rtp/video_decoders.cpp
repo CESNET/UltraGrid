@@ -1499,13 +1499,13 @@ static void check_for_mode_change(struct state_video_decoder *decoder,
                                       PARAM_TILE_COUNT)) {
                 return;
         }
-        char desc[STR_LEN];
-        MSG(NOTICE, "New incoming video format detected: %s\n",
-            video_desc_to_string(network_desc, sizeof desc, desc));
+        char desc[256] = "";
+        video_desc_to_string(network_desc, sizeof(desc), desc);
+        MSG(NOTICE, "New incoming video format detected: %s\n", desc);
 
-        char report[STR_LEN];
-        snprintf_ch(report, "new incoming video fmt: %s", desc);
-        control_report_stats(decoder->control, report);
+        std::string report = "new incoming video fmt: ";
+        report += desc;
+        control_report_stats(decoder->control, report.c_str());
 
         reconfigure_helper(decoder, network_desc, {});
 }
