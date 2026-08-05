@@ -468,8 +468,8 @@ struct state_gl {
         void *syphon_spout;
 
         bool fixed_size;
-        int fixed_w;
-        int fixed_h;
+        int size_w;
+        int size_h;
         int pos_x;
         int pos_y;
 
@@ -721,8 +721,8 @@ static bool set_size(struct state_gl *s, const char *val)
                 struct video_desc desc = get_video_desc_from_mode(val);
                 if (desc.width != 0) {
                         s->fixed_size = true;
-                        s->fixed_w = desc.width;
-                        s->fixed_h = desc.height;
+                        s->size_w = desc.width;
+                        s->size_h = desc.height;
                         return true;
                 }
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Wrong size spec: %s\n", val);
@@ -730,8 +730,8 @@ static bool set_size(struct state_gl *s, const char *val)
         }
         if (strchr(val, 'x') != NULL) {
                 s->fixed_size = true;
-                s->fixed_w = atoi(val);
-                s->fixed_h = atoi(strchr(val, 'x') + 1);
+                s->size_w = atoi(val);
+                s->size_h = atoi(strchr(val, 'x') + 1);
         }
         val = strpbrk(val, "+-");
         if (val != NULL) {
@@ -1281,6 +1281,8 @@ static void gl_reconfigure_screen(struct state_gl *s, struct video_desc desc)
         if (!s->fixed_size) {
                 glfw_resize_window(s->window, s->fs, desc.height, s->aspect, desc.fps, s->window_size_factor);
                 //gl_resize(s->window, desc.width, desc.height);
+                s->size_w = desc.width;
+                s->size_h = desc.height;
         }
         int width, height;
         glfwGetFramebufferSize(s->window, &width, &height);
@@ -1516,10 +1518,19 @@ static int64_t translate_glfw_to_ug(int key, int mods) {
 static void
 handle_toggle_fullscreen(struct state_gl *s)
 {
-        s->fs               = !s->fs;
         int          width  = s->current_display_desc.width;
         int          height = s->current_display_desc.height;
-        GLFWmonitor *mon    = s->fs ? s->monitor : nullptr;
+        GLFWmonitor *mon    = nullptr;
+        if (s->fs) { // toggling from fullscreen
+                width  = s->size_w;
+                height = s->size_h;
+        } else {
+                mon = s->monitor;
+                // store pos+size for toggling back
+                glfwGetWindowPos(s->window, &s->pos_x, &s->pos_y);
+                glfwGetWindowSize(s->window, &s->size_w, &s->size_h);
+        }
+        s->fs = !s->fs;
         if (mon && s->modeset == NOMODESET) {
                 const GLFWvidmode *mode = glfwGetVideoMode(mon);
                 width                   = mode->width;
@@ -1527,7 +1538,7 @@ handle_toggle_fullscreen(struct state_gl *s)
         }
         int refresh_rate =
             get_refresh_rate(s->modeset, mon, s->current_display_desc.fps);
-        glfwSetWindowMonitor(s->window, mon, GLFW_DONT_CARE, GLFW_DONT_CARE,
+        glfwSetWindowMonitor(s->window, mon, s->pos_x, s->pos_y,
                              width, height, refresh_rate);
         MSG(NOTICE, "Setting fullscreen: %s\n", s->fs ? "ON" : "OFF");
         set_gamma(s);
@@ -1887,9 +1898,9 @@ static bool display_gl_init_opengl(struct state_gl *s)
         int height = splash->tiles[0].height;
         vf_free(splash);
         GLFWmonitor *mon = s->fs ? s->monitor : nullptr;
-        if (s->fixed_size && s->fixed_w && s->fixed_h) {
-                width = s->fixed_w;
-                height = s->fixed_h;
+        if (s->fixed_size && s->size_w && s->size_h) {
+                width = s->size_w;
+                height = s->size_h;
         } else if (mon != nullptr && s->modeset == NOMODESET) {
                 const GLFWvidmode* mode = glfwGetVideoMode(mon);
                 width = mode->width;
@@ -1897,13 +1908,19 @@ static bool display_gl_init_opengl(struct state_gl *s)
                 glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
         }
         display_gl_set_window_hints(s);
-        if ((s->window = glfwCreateWindow(width, height, IF_NOT_NULL_ELSE(get_commandline_param("window-title"), DEFAULT_WIN_NAME), nullptr, nullptr)) == nullptr) {
+        const char *win_title = IF_NOT_NULL_ELSE(get_commandline_param("window-title"),
+                                  DEFAULT_WIN_NAME);
+        s->window = glfwCreateWindow(width, height, win_title, nullptr,
+                                          nullptr);
+        if (s->window == nullptr) {
                 return false;
         }
         if (s->pos_x != INT_MIN) {
                 const int y = s->pos_y == INT_MIN ? 0 : s->pos_y;
                 glfwSetWindowPos(s->window, s->pos_x, y);
         }
+        glfwGetWindowPos(s->window, &s->pos_x,
+                         &s->pos_y); // for handle_toggle_fullscreen
         if (s->noresizable) {
                 glfwSetWindowSizeLimits(s->window, width, height, width,
                                         height);
