@@ -99,6 +99,11 @@ struct display;
 #define MAGIC    to_fourcc('R', 'T', 'u', 'r')
 #define MOD_NAME "[rxtx/ultragrid_rtp] "
 
+struct async_data {
+        struct ultragrid_rtp_rxtx *s;
+        struct video_frame *f;
+};
+
 struct ultragrid_rtp_rxtx {
         uint32_t magic;
 
@@ -116,6 +121,7 @@ struct ultragrid_rtp_rxtx {
         /**
          * This variables serve as a notification when asynchronous sending exits
          * @{ */
+        struct async_data async_data;
         task_result_handle_t async_sending_task;
         /// @}
 
@@ -191,11 +197,6 @@ static void join(void *state) {
         }
 }
 
-struct async_data {
-        struct ultragrid_rtp_rxtx *s;
-        struct video_frame              *f;
-};
-
 static void *send_video_frame_async_callback(void *arg);
 
 static void
@@ -212,16 +213,15 @@ send_video_frame(void *state, struct video_frame *tx_frame)
                 tx_frame = f;
         }
 
-        struct async_data *data = malloc(sizeof *data);
-        data->s = s;
-        data->f = tx_frame;
-
         if(s->async_sending_task){
                 wait_task(s->async_sending_task);
                 s->async_sending_task = nullptr;
         }
         rtp_rxtx_sender_do_housekeeping(s->rtp_common, TX_MEDIA_VIDEO);
-        s->async_sending_task = task_run_async(send_video_frame_async_callback, (void *) data);
+
+        s->async_data.s = s;
+        s->async_data.f = tx_frame;
+        s->async_sending_task = task_run_async(send_video_frame_async_callback, &s->async_data);
 }
 
 static void *send_video_frame_async_callback(void *arg) {
@@ -229,7 +229,6 @@ static void *send_video_frame_async_callback(void *arg) {
         struct ultragrid_rtp_rxtx *s    = data->s;
         struct rtp_rxtx_medium *video = &s->rtp_common->medium[TX_MEDIA_VIDEO];
         struct video_frame *tx_frame = data->f;
-        free(data);
 
         CHK_PTHR(pthread_mutex_lock(&video->lock));
         tx_send(video->tx, tx_frame, video->network_device);
