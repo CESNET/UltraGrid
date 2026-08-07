@@ -192,7 +192,7 @@ install_openapv() (
         cmake --build openapv/build --parallel "$(nproc)"
         sudo cmake --install openapv/build
         if is_win; then
-                mv /usr/local/lib/oapv/import/liboapv.dll.a /usr/local/lib
+                mv /usr/local/lib/import/liboapv.dll.a /usr/local/lib
         fi
 )
 
