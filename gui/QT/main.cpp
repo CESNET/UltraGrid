@@ -40,6 +40,7 @@ int main(int argc, char *argv[]){
 	fmt.setStencilBufferSize(8);
 	fmt.setVersion(3, 3);
 	fmt.setProfile(QSurfaceFormat::CoreProfile);
+	fmt.setRenderableType(QSurfaceFormat::OpenGL);
 	QSurfaceFormat::setDefaultFormat(fmt);
 
 	UltragridWindow uw;
