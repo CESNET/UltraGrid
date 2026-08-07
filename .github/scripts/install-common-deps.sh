@@ -93,8 +93,9 @@ live555_rm_tests() {
 }
 
 download_build_live555() {(
-        git clone --depth 1 https://github.com/xanview/live555/
+        git clone https://github.com/xanview/live555/
         cd live555
+        git checkout b785e62
 
         if is_win; then
                 ./genMakefiles mingw
