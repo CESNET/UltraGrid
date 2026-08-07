@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
 #TODO: Set MacOS bundle prefix
-#TODO: Set icon on Windows (uv-qt.rc)
 
 project(ultragrid-gui
         LANGUAGES CXX C
@@ -50,6 +49,7 @@ set(UG_SOURCES
 )
 
 set(SOURCES
+        uv-qt.rc
         window/ultragrid_window.cpp
         option/available_settings.cpp
         option/settings.cpp
