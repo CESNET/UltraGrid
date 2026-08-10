@@ -3806,6 +3806,7 @@ if test "$build_default" != no || test "$req_files" = all; then
         src/capture_filter/mirror.o
         src/capture_filter/noise.o
         src/capture_filter/override_prop.o
+        src/capture_filter/r12l_to_y416_fake.o
         src/capture_filter/ratelimit.o
         src/capture_filter/split.o
         src/capture_filter/temporal_3d.o

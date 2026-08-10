@@ -47,8 +47,19 @@ extern "C" {
 struct module;
 
 /**
- * @param f  can be nullptr, in which case return either nullptr or a subsequent
- *           frame produced from previous non-null frame
+ * @brief Performs actual filtering
+ * @note
+ * Frame management note
+ * When input frame is no longer used (eg. returned new output frame),
+ * VIDEO_FRAME_DISPOSE(f) has to be called. Also, if you create new output
+ * frame, you may use its .dispose and .dispose_udata member to manage
+ * video_frame lifetime. If .dispose==nullptr, the callback is not called (in
+ * this case its lifetime must be managed by capture_filter module; repeated
+ * call of the function or capture_filter_info.done means that the previously
+ * returned frame is no longer used by the caller).
+ *
+ * @param f  input frame - can be nullptr, in which case return either nullptr
+ *           or a subsequent frame produced from previous non-null frame
  */
 typedef struct video_frame *capture_filter_filter_fn(void               *state,
                                                      struct video_frame *f);
@@ -63,16 +74,6 @@ struct capture_filter_info {
         /// @retval     >0     no error but state was not returned, eg. showing help
         int (*init)(struct module *parent, const char *cfg, void **state);
         void (*done)(void *state);
-        /// @brief Performs filtering
-        /// @param f input frame
-        /// @note
-        /// Frame management note
-        /// When input frame is no longer used (eg. returned new output frame),
-        /// VIDEO_FRAME_DISPOSE(f) has to be called. Also, if you create
-        /// new output frame, you may use its .dispose and .dispose_udata
-        /// member to manage video_frame lifetime.
-        /// This behavior may change towards use of shared_ptr<video_frame>
-        /// in future.
         capture_filter_filter_fn *filter;
 };
 
