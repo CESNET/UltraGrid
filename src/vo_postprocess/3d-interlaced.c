@@ -43,6 +43,7 @@
 
 #include "compat/c23.h"      // IWYU pragma: keep
 #include "debug.h"
+#include "host.h"            // for INIT_NOERR
 #include "lib_common.h"
 #include "utils/color_out.h"
 #include "video_codec.h"   // for vc_get_linesize
@@ -76,6 +77,7 @@ static void * interlaced_3d_init(const char *config) {
                                            "right eye into one single where "
                                            "the eyes are line-interleaved.\n\n");
                 printf("Usage:\n\t-p interlaced_3d\n\n");
+                return INIT_NOERR;
         }
         if (strlen(config) > 0) {
                 printf("3d-interlaced takes no parameters.\n");
