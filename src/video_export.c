@@ -77,6 +77,7 @@ destroy_output_entry(struct output_entry *entry)
 
 struct video_export {
         char *path;
+        FILE *summary;
 
         uint32_t total;
 
@@ -172,9 +173,9 @@ void output_summary(struct video_export *s)
         fprintf(summary, "fourcc %.4s\n", (char *) &fourcc);
         fprintf(summary, "fps %.2f\n", s->saved_desc.fps);
         fprintf(summary, "interlacing %d\n", (int) s->saved_desc.interlacing);
-        fprintf(summary, "count %d\n", s->total);
+        fflush(s->summary);
 
-        fclose(summary);
+        s->summary = summary;
 }
 
 void video_export_destroy(struct video_export *s)
@@ -198,11 +199,10 @@ void video_export_destroy(struct video_export *s)
                 pthread_join(s->thread_id, NULL);
                 CHK_PTHR(pthread_mutex_destroy(&s->lock));
 
-                // write summary
-                if(s->total > 0) {
-                        output_summary(s);
+                if (s->summary) {
+                        fprintf(s->summary, "count %d\n", s->total);
+                        fclose(s->summary);
                 }
-
                 free(s->path);
                 free(s);
         }
@@ -224,6 +224,10 @@ void video_export(struct video_export *s, struct video_frame *frame)
                         fprintf(stderr, "[Video export] Format change detected, not exporting.\n");
                         return;
                 }
+        }
+        // write video.info file (without frame "count" appended in _destroy)
+        if (s->total == 1) {
+                output_summary(s);
         }
 
         for (unsigned int i = 0; i < frame->tile_count; ++i) {
