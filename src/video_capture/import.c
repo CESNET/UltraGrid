@@ -329,14 +329,20 @@ static struct video_desc parse_video_desc_info(FILE *info, long *video_frame_cou
                 } else if(strncmp(line, "count ", strlen("count ")) == 0) {
                         if ((val = strtol_checked(line, "count ", 0, LONG_MAX)) == LONG_MIN) {
                                 return (struct video_desc) { 0 };
-                        };
-                        *video_frame_count = val;
-                        items_found |= 1U<<6U;
+                        }
+                        if (*video_frame_count == 0) { // store only if not set via opt
+                                *video_frame_count = val;
+                        }
                 }
         }
 
-        if(items_found != (1U << 7U) - 1U) {
+        if(items_found != (1U << 6U) - 1U) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed while reading config file - some items missing.\n");
+                return (struct video_desc) { 0 };
+        }
+        if (!*video_frame_count) {
+                MSG(ERROR, "video.info file doesn't contain frame count. Pass "
+                           "the info to frames= option!\n");
                 return (struct video_desc) { 0 };
         }
 
@@ -469,12 +475,10 @@ static bool initialize_import(struct vidcap_import_state *s, char *tmp, FILE **i
         }
 
         if (s->has_video) {
-                long frame_count = 0;
-                s->video_desc = parse_video_desc_info(*info, &frame_count);
+                s->video_desc = parse_video_desc_info(*info, &s->video_frame_count);
                 if (s->video_desc.width == 0) {
                         return false;
                 }
-                s->video_frame_count = s->video_frame_count == 0 ? frame_count : MIN(s->video_frame_count, frame_count);
 
                 s->video_desc.tile_count = get_tile_count(s->directory, s->video_desc.color_spec, &s->tile_delim);
                 if (s->video_desc.tile_count == 0) {
