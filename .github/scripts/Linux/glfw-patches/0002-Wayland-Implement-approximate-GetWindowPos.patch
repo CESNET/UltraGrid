@@ -1,0 +1,59 @@
+From 2289e1929cdec3ec80773fc8d451b29833cb84ba Mon Sep 17 00:00:00 2001
+From: Martin Piatka <piatka@cesnet.cz>
+Date: Mon, 10 Aug 2026 14:19:53 +0200
+Subject: [PATCH 2/2] Wayland: Implement approximate GetWindowPos()
+
+---
+ src/wl_platform.h |  3 +++
+ src/wl_window.c   | 14 ++++++++++++--
+ 2 files changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/src/wl_platform.h b/src/wl_platform.h
+index 9d5a3c32..ccaaa9e8 100644
+--- a/src/wl_platform.h
++++ b/src/wl_platform.h
+@@ -435,6 +435,9 @@ typedef struct _GLFWwindowWayland
+         uint32_t                    buttonPressSerial;
+         const char*                 cursorName;
+     } fallback;
++
++    int xpos;
++    int ypos;
+ } _GLFWwindowWayland;
+ 
+ // Wayland-specific global data
+diff --git a/src/wl_window.c b/src/wl_window.c
+index 4914dc83..61bc4e97 100644
+--- a/src/wl_window.c
++++ b/src/wl_window.c
+@@ -611,6 +611,16 @@ static void surfaceHandleEnter(void* userData,
+         (_GLFWscaleWayland) { output, monitor->wl.scale };
+ 
+     _glfwUpdateBufferScaleFromOutputsWayland(window);
++
++    const int xpos = monitor->wl.x;
++    const int ypos = monitor->wl.y;
++    if (xpos != window->wl.xpos || ypos != window->wl.ypos)
++    {
++        window->wl.xpos = xpos;
++        window->wl.ypos = ypos;
++
++        _glfwInputWindowPos(window, xpos, ypos);
++    }
+ }
+ 
+ static void surfaceHandleLeave(void* userData,
+@@ -2534,8 +2544,8 @@ void _glfwGetWindowPosWayland(_GLFWwindow* window, int* xpos, int* ypos)
+     // A Wayland client is not aware of its position, so just warn and leave it
+     // as (0, 0)
+ 
+-    _glfwInputError(GLFW_FEATURE_UNAVAILABLE,
+-                    "Wayland: The platform does not provide the window position");
++    *xpos = window->wl.xpos;
++    *ypos = window->wl.ypos;
+ }
+ 
+ void _glfwSetWindowPosWayland(_GLFWwindow* window, int xpos, int ypos)
+-- 
+2.55.0
+

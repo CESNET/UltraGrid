@@ -18,6 +18,13 @@ build_install() (
         cd $cache_dir
 
         git clone --depth 1 https://github.com/glfw/glfw.git
+
+        cd glfw
+        # apply patches
+        find "$GITHUB_WORKSPACE/.github/scripts/Linux/glfw-patches" \
+                -name '*.patch' -print0 | sort -z | xargs -0 -n 1 git am -3
+        cd ..
+
         cmake -S glfw -B glfw/build \
                 -DGLFW_BUILD_WAYLAND=ON -DGLFW_BUILD_X11=ON
         cmake --build glfw/build -j "$(nproc)"
