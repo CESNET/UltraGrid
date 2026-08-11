@@ -45,6 +45,7 @@
 #include <string.h>           // for memcpy, strcmp, strlen
 #include <time.h>             // for localtime_r, strftime, time, time_t, tm
 
+#include "compat/c23.h" // IWYU pragma: keep
 #include "debug.h"
 #include "export.h"
 #include "host.h"
@@ -52,6 +53,7 @@
 #include "types.h"            // for video_frame, tile, video_desc, codec_t
 #include "utils/color_out.h"
 #include "utils/macros.h"
+#include "utils/text.h"       // for color_printf_wrapped
 #include "video_codec.h"      // for is_codec_opaque
 #include "video_display.h"
 #include "video_frame.h"      // for vf_free, vf_alloc_desc, vf_data_deleter
@@ -71,10 +73,19 @@ struct dump_display_state {
 static void usage()
 {
         color_printf("Usage:\n");
-        color_printf(TERM_BOLD TERM_FG_RED "\t-d dump" TERM_FG_RESET "[:<directory>] [--param decoder-use-codec=<c>]\n" TERM_RESET);
+        color_printf("\t" TBOLD(TRED("-d dump") "[:<directory>[:<opts>]] [--param decoder-use-codec=<c>]")"\n");
         color_printf("where\n");
         color_printf(TERM_BOLD "\t<directory>" TERM_RESET " - directory to save the dumped stream\n");
+        color_printf("\t" TBOLD("<opts>")
+                     " - options passed to export, see below\n");
         color_printf(TERM_BOLD "\t<c>" TERM_RESET " - codec to use instead of the received (default), must be a way to convert\n");
+
+        color_printf_wrapped(
+            "\n"TBOLD("Note: ")
+            "Options are actually passed-through to " TBOLD("export")
+            " so refere below for usable options reference:\n");
+        struct exporter *e = export_init(nullptr, "help", false);
+        assert(e == nullptr);
 }
 
 static void *display_dump_init(struct module *parent, const char *cfg, unsigned int flags)

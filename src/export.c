@@ -279,6 +279,9 @@ static bool create_dir(struct exporter *s)
                                     "an empty directory! Trying to create "
                                     "subdir.\n",
                                     s->dir);
+                                MSG(WARNING,
+                                    "You may use :override to override earlier "
+                                    "data in the root dir...\n");
                                 char *prefix = s->dir;
                                 s->dir = create_implicit_dir(prefix);
                                 free(prefix);
