@@ -227,7 +227,7 @@ check_print_bitrate(long long int bitrate)
                 snprintf_ch(buf, "%lld%s", bitrate & ~RATE_FLAG_FIXED_RATE,
                             bitrate & RATE_FLAG_FIXED_RATE ? " (fixed)" : "");
         }
-        MSG(VERBOSE, "Using bitrate: %s\n", num);
+        MSG(VERBOSE, "Using bitrate limit: %s\n", num);
         return true;
 }
 
