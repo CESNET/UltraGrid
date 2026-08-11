@@ -55,8 +55,10 @@ jobs:
       uses: actions/cache@main
       with:
         path: '/var/tmp/glfw'
-        key: cache-glfw-${{ github.workflow }}-${{ runner.os }}-${{ hashFiles(
-         '.github/scripts/Linux/install_glfw.sh' ) }}
+        key: cache-glfw-${{ github.workflow }}-${{ runner.os }}-${{
+         hashFiles(
+         '.github/scripts/Linux/install_glfw.sh',
+         '.github/scripts/Linux/glfw-patches/*') }}
     - name: Cache XIMEA
       id: cache-macos-ximea
       uses: actions/cache@main
