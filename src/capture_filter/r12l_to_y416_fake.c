@@ -25,6 +25,7 @@ struct module;
 
 struct state_cf_r12l_to_y416_fake {
         uint32_t magic;
+        bool     full_range;
 };
 
 static int
@@ -35,19 +36,32 @@ init(struct module *parent, const char *cfg, void **state)
         if (strcmp(cfg, "help") == 0) {
                 color_printf_wrapped(
                     TBOLD("r12l_to_y416_fake")
-                    " fake-converts R12L to Y416 not doing any conversion, "
-                    "just pretending R is Y, G is Cb and R Cr\n");
+                    " fake-converts R12L to Y416 not doing actual conversion, "
+                    "just pretending G is Y, R is Cb and B Cr (scaled to "
+                    "limited range).\n\n");
+                color_printf_wrapped("Usage:\n\t" TBOLD(
+                    TRED("-F r12l_to_y416_fake") "[:full-range]")
+                                     "\n");
+                color_printf("\n");
+                color_printf_wrapped("Use " TBOLD(":full-range")
+                                     " to disable full->limited scaling.\n");
+                color_printf("\n");
                 return 1;
-        }
-        if (strlen(cfg) > 0) {
-                MSG(ERROR, "r12l_to_y416_fake doesn't take any arguments.\n");
-                return -1;
         }
 
         struct state_cf_r12l_to_y416_fake *s =
             calloc(1, sizeof(struct state_cf_r12l_to_y416_fake));
         s->magic = MAGIC;
-        *state   = s;
+
+        if (IS_PREFIX(cfg, "full-range")) {
+                s->full_range = true;
+        } else if (strlen(cfg) > 0) {
+                MSG(ERROR, "unknown argument '%s'; see :help.\n", cfg);
+                free(s);
+                return -1;
+        }
+
+        *state = s;
         return 0;
 }
 
@@ -70,18 +84,29 @@ struct task_data {
 };
 
 // adapted r12l_to_yuv4XXpYYle from to_lavc_vid_conv.c
-static void *
-r12l_to_y416(void *arg)
+[[gnu::always_inline]] static inline void *
+r12l_to_y416(void *arg, bool full_range)
 {
+        enum {
+                Y12_Y16_LMT_SCALE = 13, // (3760-256)*(1<<4)/4096
+                C12_C16_LMT_SCALE = 14, // (3840-256)*(1<<4)/4096
+                FOOTR_16B          = 4096,
+        };
         struct task_data *d      = arg;
         int               width  = d->width;
         int               height = d->height;
         const uint8_t    *src    = d->src;
         uint16_t         *out    = d->dst;
 #define WRITE_RES                                                              \
-        *out++ = g << 4;                                                       \
-        *out++ = r << 4;                                                       \
-        *out++ = b << 4;                                                       \
+        if (full_range) {                                                      \
+                *out++ = r << 4;                                               \
+                *out++ = g << 4;                                               \
+                *out++ = b << 4;                                               \
+        } else {                                                               \
+                *out++ = (C12_C16_LMT_SCALE * r) + FOOTR_16B;                  \
+                *out++ = (Y12_Y16_LMT_SCALE * g) + FOOTR_16B;                  \
+                *out++ = (C12_C16_LMT_SCALE * b) + FOOTR_16B;                  \
+        }                                                                      \
         *out++ = 0xFFFF;
 
         assert(width % 8 == 0);
@@ -161,15 +186,27 @@ r12l_to_y416(void *arg)
 #undef WRITE_RES
 }
 
+static void *
+r12l_to_y416_full(void *arg)
+{
+        return r12l_to_y416(arg, true);
+}
+
+static void *
+r12l_to_y416_limited(void *arg)
+{
+        return r12l_to_y416(arg, false);
+}
+
 static struct video_frame *
 filter(void *state, struct video_frame *in)
 {
+        struct state_cf_r12l_to_y416_fake *s = state;
         if (in == nullptr) {
                 return nullptr;
         }
         assert(in->tile_count == 1);
         assert(in->color_spec == R12L);
-        (void) state;
         size_t    src_linesize = vc_get_linesize(in->tiles[0].width, R12L);
         size_t    dst_linesize = vc_get_linesize(in->tiles[0].width, Y416);
         const int cpu_count    = get_cpu_core_count();
@@ -193,8 +230,9 @@ filter(void *state, struct video_frame *in)
                 data[i].dst = (uint16_t *) (out->tiles[0].data +
                                             (i * height * dst_linesize));
         }
-        task_run_parallel(r12l_to_y416, cpu_count, data, sizeof data[0],
-                          nullptr);
+        runnable_t runner =
+            s->full_range ? r12l_to_y416_full : r12l_to_y416_limited;
+        task_run_parallel(runner, cpu_count, data, sizeof data[0], nullptr);
         VIDEO_FRAME_DISPOSE(in);
         return out;
 }
