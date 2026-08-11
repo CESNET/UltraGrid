@@ -1,18 +1,27 @@
-From 2289e1929cdec3ec80773fc8d451b29833cb84ba Mon Sep 17 00:00:00 2001
+From 66282dd2a9b50a363e1a3cd9afc4d2ee42a50c2e Mon Sep 17 00:00:00 2001
 From: Martin Piatka <piatka@cesnet.cz>
 Date: Mon, 10 Aug 2026 14:19:53 +0200
 Subject: [PATCH 2/2] Wayland: Implement approximate GetWindowPos()
 
 ---
- src/wl_platform.h |  3 +++
- src/wl_window.c   | 14 ++++++++++++--
- 2 files changed, 15 insertions(+), 2 deletions(-)
+ src/wl_platform.h |  5 +++++
+ src/wl_window.c   | 29 ++++++++++++++++++++++++++---
+ 2 files changed, 31 insertions(+), 3 deletions(-)
 
 diff --git a/src/wl_platform.h b/src/wl_platform.h
-index 9d5a3c32..ccaaa9e8 100644
+index 9d5a3c32..5ceee234 100644
 --- a/src/wl_platform.h
 +++ b/src/wl_platform.h
-@@ -435,6 +435,9 @@ typedef struct _GLFWwindowWayland
+@@ -362,6 +362,8 @@ typedef struct _GLFWscaleWayland
+ {
+     struct wl_output*           output;
+     int32_t                     factor;
++    int xpos;
++    int ypos;
+ } _GLFWscaleWayland;
+ 
+ // Wayland-specific per-window data
+@@ -435,6 +437,9 @@ typedef struct _GLFWwindowWayland
          uint32_t                    buttonPressSerial;
          const char*                 cursorName;
      } fallback;
@@ -23,27 +32,51 @@ index 9d5a3c32..ccaaa9e8 100644
  
  // Wayland-specific global data
 diff --git a/src/wl_window.c b/src/wl_window.c
-index 4914dc83..61bc4e97 100644
+index 4914dc83..a9e2d549 100644
 --- a/src/wl_window.c
 +++ b/src/wl_window.c
-@@ -611,6 +611,16 @@ static void surfaceHandleEnter(void* userData,
-         (_GLFWscaleWayland) { output, monitor->wl.scale };
+@@ -608,9 +608,21 @@ static void surfaceHandleEnter(void* userData,
+ 
+     window->wl.outputScaleCount++;
+     window->wl.outputScales[window->wl.outputScaleCount - 1] =
+-        (_GLFWscaleWayland) { output, monitor->wl.scale };
++        (_GLFWscaleWayland) { output, monitor->wl.scale, monitor->wl.x, monitor->wl.y };
  
      _glfwUpdateBufferScaleFromOutputsWayland(window);
 +
-+    const int xpos = monitor->wl.x;
-+    const int ypos = monitor->wl.y;
-+    if (xpos != window->wl.xpos || ypos != window->wl.ypos)
-+    {
-+        window->wl.xpos = xpos;
-+        window->wl.ypos = ypos;
++    if(window->wl.outputScaleCount == 1){
++        const int xpos = window->wl.outputScales[0].xpos;
++        const int ypos = window->wl.outputScales[0].ypos;
++        if (xpos != window->wl.xpos || ypos != window->wl.ypos)
++        {
++            window->wl.xpos = xpos;
++            window->wl.ypos = ypos;
 +
-+        _glfwInputWindowPos(window, xpos, ypos);
++            _glfwInputWindowPos(window, xpos, ypos);
++        }
 +    }
  }
  
  static void surfaceHandleLeave(void* userData,
-@@ -2534,8 +2544,8 @@ void _glfwGetWindowPosWayland(_GLFWwindow* window, int* xpos, int* ypos)
+@@ -634,6 +646,17 @@ static void surfaceHandleLeave(void* userData,
+     }
+ 
+     _glfwUpdateBufferScaleFromOutputsWayland(window);
++    if(window->wl.outputScaleCount == 1){
++        const int xpos = window->wl.outputScales[0].xpos;
++        const int ypos = window->wl.outputScales[0].ypos;
++        if (xpos != window->wl.xpos || ypos != window->wl.ypos)
++        {
++            window->wl.xpos = xpos;
++            window->wl.ypos = ypos;
++
++            _glfwInputWindowPos(window, xpos, ypos);
++        }
++    }
+ }
+ 
+ static const struct wl_surface_listener surfaceListener =
+@@ -2534,8 +2557,8 @@ void _glfwGetWindowPosWayland(_GLFWwindow* window, int* xpos, int* ypos)
      // A Wayland client is not aware of its position, so just warn and leave it
      // as (0, 0)
  
