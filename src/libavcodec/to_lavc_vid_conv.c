@@ -45,6 +45,8 @@
 
 #define __STDC_WANT_LIB_EXT1__ 1 // qsort_s
 
+#include "libavcodec/to_lavc_vid_conv.h"
+
 #include <assert.h>
 #include <libavutil/frame.h>                   // for AVFrame, av_frame_alloc
 #include <libavutil/pixdesc.h>                 // for av_get_pix_fmt_name
@@ -57,17 +59,18 @@
 #include <string.h>                            // for memcpy
 
 #include "color_space.h"
+#include "compat/endian.h"
 #include "compat/net.h"                        // for htonl
 #include "compat/qsort_s.h"
 #include "debug.h"
 #include "host.h"
-#include "libavcodec/to_lavc_vid_conv.h"
 #include "libavcodec/utils.h"                  // for uv_to_av_pixfmt, get_u...
 #include "pixfmt_conv.h"                       // for get_decoder_from_to
 #include "to_planar.h"                         // for r12l_to_gbrp12le, r12l...
 #include "tv.h"                                // for get_time_in_ns, time_ns_t
-#include "utils/macros.h" // OPTIMIZED_FOR
-#include "utils/parallel_conv.h"
+#include "types.h"                // for depth, pixfmt_desc, v210, R12L, R10k
+#include "utils/macros.h"         // OPTIMIZED_FOR
+#include "utils/parallel_conv.h"  // for parallel_pix_conv
 #include "utils/worker.h"
 #include "video_codec.h"                       // for vc_get_linesize, get_p...
 #include "video_frame.h"                       // for buf_get_planes
@@ -468,6 +471,90 @@ static void y416_to_xv30(AVFrame * __restrict out_frame, const unsigned char * _
                                 (u >> 6U);
                 }
         }
+}
+
+static void
+y416_to_yuv444p(AVFrame *__restrict out_frame,
+                const unsigned char *__restrict in_data, int width, int height)
+{
+        // not sure if Y416 is ordered differenty on BE but just for sure
+        static_assert(BYTE_ORDER == LITTLE_ENDIAN);
+        for(ptrdiff_t y = 0; y < height; y += 1) {
+                const uint8_t *src = (const void *) (in_data + (y * vc_get_linesize(width, Y416)));
+
+                uint8_t *dst_y =
+                    out_frame->data[0] + (out_frame->linesize[0] * y);
+                uint8_t *dst_cb =
+                    out_frame->data[1] + (out_frame->linesize[1] * y);
+                uint8_t *dst_cr =
+                    out_frame->data[2] + (out_frame->linesize[2] * y);
+
+                for (int x = 0; x < width; x += 1) {
+                        src++; // little-endian -> use least-significant byte
+                        *dst_cb++ = *src++;
+                        src++;
+                        *dst_y++ = *src++;
+                        src++;
+                        *dst_cr++ = *src++;
+                        src += 2; // skip alpha
+                }
+        }
+}
+
+[[gnu::always_inline]] static inline void
+y416_to_yuv444pXXle(AVFrame *__restrict out_frame,
+                    const unsigned char *__restrict in_data, int width,
+                    int height, int depth)
+{
+        // not sure if Y416 is ordered differenty on BE but just for sure
+        static_assert(BYTE_ORDER == LITTLE_ENDIAN);
+        assert((uintptr_t) in_data % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
+        assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
+
+        for(ptrdiff_t y = 0; y < height; y += 1) {
+                const uint16_t *src =
+                    (const void *) (in_data +
+                                    (y * vc_get_linesize(width, Y416)));
+                uint16_t *dst_y  = (void *) (out_frame->data[0] +
+                                             (out_frame->linesize[0] * y));
+                uint16_t *dst_cb = (void *) (out_frame->data[1] +
+                                             (out_frame->linesize[1] * y));
+                uint16_t *dst_cr = (void *) (out_frame->data[2] +
+                                             (out_frame->linesize[2] * y));
+
+                for (int x = 0; x < width; x += 1) {
+                        *dst_cb++ = *src++ >> (DEPTH16 - depth);
+                        *dst_y++ = *src++ >> (DEPTH16 - depth);
+                        *dst_cr++ = *src++ >> (DEPTH16 - depth);
+                        src += 1; // skip alpha
+                }
+        }
+}
+
+static void
+y416_to_yuv444p10le(AVFrame *__restrict out_frame,
+                    const unsigned char *__restrict in_data, int width,
+                    int height)
+{
+        y416_to_yuv444pXXle(out_frame, in_data, width, height, DEPTH10);
+}
+
+static void
+y416_to_yuv444p12le(AVFrame *__restrict out_frame,
+                    const unsigned char *__restrict in_data, int width,
+                    int height)
+{
+        y416_to_yuv444pXXle(out_frame, in_data, width, height, DEPTH12);
+}
+
+static void
+y416_to_yuv444p16le(AVFrame *__restrict out_frame,
+                    const unsigned char *__restrict in_data, int width,
+                    int height)
+{
+        y416_to_yuv444pXXle(out_frame, in_data, width, height, DEPTH16);
 }
 
 static void
@@ -1419,6 +1506,10 @@ static const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { Y216, AV_PIX_FMT_YUV422P10LE, y216_to_yuv422p10le },
                 { Y216, AV_PIX_FMT_YUV422P16LE, y216_to_yuv422p16le },
                 { Y216, AV_PIX_FMT_YUV444P16LE, y216_to_yuv444p16le },
+                { Y416, AV_PIX_FMT_YUV444P,     y416_to_yuv444p },
+                { Y416, AV_PIX_FMT_YUV444P10LE, y416_to_yuv444p10le },
+                { Y416, AV_PIX_FMT_YUV444P12LE, y416_to_yuv444p12le },
+                { Y416, AV_PIX_FMT_YUV444P16LE, y416_to_yuv444p16le },
                 { RGB, AV_PIX_FMT_BGR0,         rgb_to_bgr0 },
                 { RGB, AV_PIX_FMT_GBRP,         rgb_to_gbrp },
                 { RGB, AV_PIX_FMT_YUV444P,      rgb_to_yuv444p },
