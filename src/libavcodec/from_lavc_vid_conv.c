@@ -2380,9 +2380,17 @@ get_av_to_uv_conversion(int av_codec, codec_t uv_codec)
         if (ret == NULL) {
                 return NULL;
         }
-        MSG(VERBOSE, "converting %s to %s over %s\n",
-            av_get_pix_fmt_name(av_codec), get_codec_name(ret->conversion->uv_codec),
-            get_codec_name(ret->src_pixfmt));
+        if (ret->dst_pixfmt == ret->conversion->uv_codec) {
+                MSG(VERBOSE, "converting %s to %s\n",
+                    av_get_pix_fmt_name(av_codec),
+                    get_codec_name(ret->dst_pixfmt));
+        } else {
+                MSG(VERBOSE,
+                    "converting %s to %s with intermediate UG conv over %s\n",
+                    av_get_pix_fmt_name(av_codec),
+                    get_codec_name(ret->dst_pixfmt),
+                    get_codec_name(ret->conversion->uv_codec));
+        }
         return ret;
 }
 
@@ -2424,8 +2432,6 @@ static enum AVPixelFormat get_ug_codec_to_av(const enum AVPixelFormat *fmt, code
                         // AV+UV conversion needed
                         codec_t c;
                         if (get_av_and_uv_conversion(*fmt_it, *ugc, &c, NULL)) {
-                                log_msg(LOG_LEVEL_VERBOSE, __FILE__ ": selected conversion from %s to %s with %s intermediate.\n",
-                                                av_get_pix_fmt_name(*fmt_it), get_codec_name(*ugc), get_codec_name(c));
                                 return *fmt_it;
                         }
                 } else { // probe
