@@ -1633,6 +1633,9 @@ static shared_ptr<video_frame> libavcodec_compress_tile(void *state, shared_ptr<
 
         shared_ptr<video_frame> out = receive_packet(s);
         time_ns_t t3 = get_time_in_ns();
+        // DEBUG2 (instead of DEBUG) here is because the overall compression time
+        // is already print by the caller so to be less chatty (sth like
+        // genric/non-generic FPS counter may be deployed later)
         LOG(LOG_LEVEL_DEBUG2) << MOD_NAME << "duration pixfmt change: "
                 << NS_TO_SEC_DBL(t1 - t0) <<
                 " s, dump+swscale " << (t2 - t1) / (double) NS_IN_SEC <<

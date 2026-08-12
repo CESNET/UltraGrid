@@ -10,6 +10,7 @@
 #include "compat/c23.h"      // IWYU pragma: keep
 #include "debug.h"           // for LOG_LEVEL_ERROR, MSG
 #include "lib_common.h"      // for REGISTER_MODULE, library_class
+#include "tv.h"
 #include "types.h"           // for tile, video_frame, Y416, video_desc, R12L
 #include "utils/color_out.h" // for TBOLD
 #include "utils/macros.h"    // for to_fourcc
@@ -230,9 +231,12 @@ filter(void *state, struct video_frame *in)
                 data[i].dst = (uint16_t *) (out->tiles[0].data +
                                             (i * height * dst_linesize));
         }
+        time_ns_t t0 = get_time_in_ns();
         runnable_t runner =
             s->full_range ? r12l_to_y416_full : r12l_to_y416_limited;
         task_run_parallel(runner, cpu_count, data, sizeof data[0], nullptr);
+        time_ns_t t1 = get_time_in_ns();
+        MSG(DEBUG, "duration %f ms\n", NS_TO_MS_DBL(t1 - t0));
         VIDEO_FRAME_DISPOSE(in);
         return out;
 }

@@ -246,9 +246,12 @@ postprocess(void *state, struct video_frame *in, struct video_frame *out,
                                                  (i * height * dst_linesize));
                 data[i].dst_pitch = req_pitch;
         }
+        time_ns_t t0 = get_time_in_ns();
         runnable_t runner =
             s->full_range ? y416_to_r12l_full : y416_to_r12l_limited;
         task_run_parallel(runner, cpu_count, data, sizeof data[0], nullptr);
+        time_ns_t t1 = get_time_in_ns();
+        MSG(DEBUG, "duration %f ms\n", NS_TO_MS_DBL(t1 - t0));
         return true;
 }
 
