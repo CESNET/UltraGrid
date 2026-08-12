@@ -71,7 +71,7 @@ using namespace std;
 struct compress_state;
 
 static video_frame pop_retry_frame{};
-shared_ptr<video_frame> vcomp_pop_retry(&pop_retry_frame, [](video_frame *){});
+const shared_ptr<video_frame> vcomp_pop_retry(&pop_retry_frame, [](video_frame *){});
 
 namespace {
 /**

@@ -103,7 +103,7 @@ std::shared_ptr<video_frame> compress_pop(struct compress_state *);
 #include <vector>
 
 /// _pop callbacks can return to indicate recoverable error
-extern std::shared_ptr<video_frame> vcomp_pop_retry;
+extern const std::shared_ptr<video_frame> vcomp_pop_retry;
 
 /**
  * @brief Initializes video compression
