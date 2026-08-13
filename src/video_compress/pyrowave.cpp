@@ -48,6 +48,7 @@
 #include "video_codec.h"
 #include "video_frame.h"
 #include "utils/misc.h"
+#include "utils/profile_timer.hpp"
 #include "utils/string_view_utils.hpp"
 #include "utils/video_frame_pool.h"
 
@@ -157,7 +158,8 @@ bool configure_with(pyrowave_compress_state *s, const video_desc& desc){
         return res;
 }
 
-void ug_to_pyro_frame(pyrowave_compress_state *s, const std::shared_ptr<video_frame>& f){
+void ug_to_pyro_frame(const pyrowave_compress_state *s, const std::shared_ptr<video_frame>& f){
+        PROFILE_FUNC;
         to_planar_data conv_data{};
         conv_data.width = static_cast<int>(f->tiles[0].width);
         conv_data.height = static_cast<int>(f->tiles[0].height);
@@ -176,6 +178,7 @@ std::shared_ptr<video_frame> pyrowave_compress_tile(void *state, std::shared_ptr
         if(!video_frame){
                 return {};
         }
+        PROFILE_FUNC;
 
         if(const auto frame_desc = video_desc_from_frame(video_frame.get()); !video_desc_eq(s->saved_desc, frame_desc)){
                 if(!configure_with(s, frame_desc)){
