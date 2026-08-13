@@ -296,7 +296,7 @@ get_video_desc_from_mode(const char *string)
                         color_printf("Further formats with (optional) direct "
                                      "FPS spec: ");
                 }
-                color_printf(TBOLD("{Hp,Hi,hp,2d,4k,4d,1080i,1080p,720p,2160p}{"
+                color_printf(TBOLD("{Hp,Hi,hp,2d,4k,4d,8k,1080i,1080p,720p,2160p}{"
                                    "23,24,25,29,30,59,60}") " or " TBOLD(
                     "<W>x<H>[@<FPS>[<suff>]]") "\n");
                 if (!full) {
@@ -333,6 +333,9 @@ get_video_desc_from_mode(const char *string)
         } else if (strncasecmp(string, "4d", 2) == 0) {
                 ret.width = 4096;
                 ret.height = 2160;
+        } else if(strncasecmp(string, "8k", 2) == 0){
+                ret.width = 7680;
+                ret.height = 4320;
         }
 
         if (ret.width == 0) {
