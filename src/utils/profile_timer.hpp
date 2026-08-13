@@ -7,7 +7,7 @@
 
 #include "tracy/Tracy.hpp"
 
-#define PROFILE_FUNC ZoneScoped
+#define PROFILE_FUNC ZoneScoped /* NOLINT(*-reserved-identifier) */
 #define PROFILE_NAMED_SCOPE(name) ZoneScopedN(name)
 #define PROFILE_DETAIL(name) TracyMessage(name, (sizeof(name) - 1))
 
