@@ -47,6 +47,7 @@
 #include "pyrowave_common.hpp"
 #include "video_decompress.h"
 #include "utils/misc.h"
+#include "utils/profile_timer.hpp"
 
 #define MOD_NAME "[Pyrowave dec] "
 
@@ -110,6 +111,7 @@ int pyrowave_reconfigure(void *state, video_desc desc, int /*rshift*/, int /*gsh
 }
 
 void pyro_to_ug_frame(pyrowave_decompress_state *s, void *dst){
+        PROFILE_FUNC;
         from_planar_data conv_data{};
         conv_data.width = s->saved_desc.width;
         conv_data.height = s->saved_desc.height;
@@ -127,6 +129,7 @@ void pyro_to_ug_frame(pyrowave_decompress_state *s, void *dst){
 decompress_status pyrowave_decompress(void *state, unsigned char *dst, unsigned char *buffer,
         unsigned int src_len, int /*frame_seq*/, video_frame_callbacks */*callbacks*/, pixfmt_desc *internal_prop)
 {
+        PROFILE_FUNC;
         auto s = static_cast<pyrowave_decompress_state *>(state);
 
         pyrowave_frame_header hdr{};
