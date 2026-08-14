@@ -197,6 +197,17 @@ install_openapv() (
         fi
 )
 
+install_pyrowave() (
+        git clone --depth 1 https://github.com/Themaister/pyrowave.git
+        cd pyrowave
+        ./checkout_granite.sh
+        mkdir build
+        cd build
+        cmake -DCMAKE_INSTALL_PREFIX=/usr/local -G "Unix Makefiles" ..
+        make -j "$(nproc)"
+        sudo make install
+)
+
 install_pcp() {
         git clone https://github.com/libpcpnatpmp/libpcpnatpmp.git
         (
@@ -224,6 +235,10 @@ if ! is_arm && ! is_win; then
 fi
 if ! is_win; then
         install_items="$install_items omt"
+fi
+
+if [ ! "$(uname -s)" = Darwin ]; then
+        install_items="$install_items pyrowave"
 fi
 
 if [ $# -eq 1 ] && { [ "$1" = -h ] || [ "$1" = --help ] || [ "$1" = help ]; }; then
