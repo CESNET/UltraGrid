@@ -1162,6 +1162,10 @@ if test "$tracy_req" != no; then
                 COMMON_FLAGS="$COMMON_FLAGS -DBUILD_PROFILED -DTRACY_ENABLE"
                 OBJS="$OBJS $TRACY_PREFIX/public/TracyClient.o"
                 INC="$INC -I$TRACY_PREFIX/public"
+
+                if test "$system" = Windows; then
+                        LIBS="$LIBS -lsecur32"
+                fi
         fi
 fi
 
