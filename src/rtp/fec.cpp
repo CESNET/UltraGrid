@@ -253,3 +253,36 @@ fec_encode_audio_frame(struct fec *s, const struct audio_frame2 *f)
 {
         return new audio_frame2(s->encode(*f));
 }
+
+void
+fec_usage()
+{
+        color_printf("Usage:\n");
+        color_printf("\t" TBOLD("-f [A:|V:]{mult:count|ldgm[:params]|"
+                                "rs[:params]}[:nodup]")
+                     "\n");
+        color_printf("\nIf neither A: or V: is specified, FEC is set "
+                     "to the video (backward compat).\n");
+        color_printf("\nOption \"nodup\" - do not duplicate first packet for RS/LDGM.\n");
+
+        color_printf("\n" TBOLD("Available") " (compiled-in) FEC modules:\n");
+#ifdef HAVE_LDGM
+        color_printf("\t" TBOLD("- ldgm") "\n");
+#endif
+        color_printf("\t" TBOLD("- mult") "\n");
+#ifdef HAVE_ZFEC
+        color_printf("\t" TBOLD("- rs") "\n");
+#endif
+
+#if !defined HAVE_LDGM || !defined HAVE_ZFEC
+        color_printf("\n" TBOLD("Missing") " from this build:\n");
+#if !defined HAVE_LDGM
+        color_printf("\t" TBOLD("- ldgm") "\n");
+#endif
+#if !defined HAVE_ZFEC
+        color_printf("\t" TBOLD("- rs") "\n");
+#endif
+#endif // !defined HAVE_LDGM || !defined HAVE_ZFEC
+
+        color_printf("\n");
+}
