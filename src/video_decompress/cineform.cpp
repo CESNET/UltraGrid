@@ -53,6 +53,8 @@
 
 #define MOD_NAME "[cineform] "
 
+namespace{
+
 struct state_cineform_decompress {
         int pitch = 0;
         int rshift = 0;
@@ -76,6 +78,8 @@ struct state_cineform_decompress {
         CFHD_DecoderRef decoderRef = nullptr;
         CFHD_MetadataRef metadataRef = nullptr;
 };
+
+}
 
 static void *cineform_decompress_init(){
         auto s = std::make_unique<state_cineform_decompress>();
