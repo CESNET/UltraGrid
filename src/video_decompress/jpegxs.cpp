@@ -53,6 +53,14 @@
 
 #define MOD_NAME "[JPEG XS dec.] "
 
+namespace{
+
+struct jpegxs_to_uv_conversion {
+        ColourFormat_t src;
+        codec_t dst;
+        decode_planar_func_t *convert;
+};
+
 struct state_decompress_jpegxs {
         ~state_decompress_jpegxs() {
                 if (frame_pool) {
@@ -68,19 +76,15 @@ struct state_decompress_jpegxs {
         
         bool configured = 0;
 
-        const struct jpegxs_to_uv_conversion *convert_from_planar;
+        const jpegxs_to_uv_conversion *convert_from_planar{};
 
-        struct video_desc desc{};
-        int rshift, gshift, bshift;
-        int pitch;
-        codec_t out_codec;
+        video_desc desc{};
+        int rshift{}, gshift{}, bshift{};
+        int pitch{};
+        codec_t out_codec{};
 };
 
-struct jpegxs_to_uv_conversion {
-        ColourFormat_t src;
-        codec_t dst;
-        decode_planar_func_t *convert;
-};
+}
 
 static const struct jpegxs_to_uv_conversion jpegxs_to_uv_conversions[] = {
         { COLOUR_FORMAT_PLANAR_YUV422,        UYVY, yuv422pXX_to_uyvy  },
