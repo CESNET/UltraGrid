@@ -195,11 +195,10 @@ void TransferImageImpl::recreate(VulkanContext& context, ImageDescription descri
         buffer.init(context, get_buffer_size(description), description.format_info().buffer_format, vk::ImageUsageFlagBits::eSampled, vk::AccessFlagBits::eHostWrite,
                 InitialImageData::preinitialised, MemoryLocation::host_local);
         
-        void* void_ptr = device.mapMemory(buffer.memory, 0, buffer.byte_size);
-        if (void_ptr == nullptr) {
+        ptr = static_cast<unsigned char *>(device.mapMemory(buffer.memory, 0, buffer.byte_size));
+        if (!ptr) {
                 throw VulkanError{"Image memory cannot be mapped."};
         }
-        ptr = reinterpret_cast<unsigned char*>(void_ptr);
 
         vk::ImageSubresource subresource{ vk::ImageAspectFlagBits::eColor, 0, 0 };
         row_pitch = device.getImageSubresourceLayout(buffer.image, subresource).rowPitch;

@@ -1011,7 +1011,7 @@ bool display_vulkan_get_property(void* state, int property, void* val, size_t* l
 }
 
 void display_vulkan_new_message(module* mod) {
-        auto s = reinterpret_cast<state_vulkan_sdl3*>(mod->priv_data);
+        auto s = static_cast<state_vulkan_sdl3*>(mod->priv_data);
         assert(s->magic == magic_vulkan_sdl3);
 
         SDL_Event event{};
