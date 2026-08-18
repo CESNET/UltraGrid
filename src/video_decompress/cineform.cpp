@@ -67,7 +67,7 @@ struct state_cineform_decompress {
         int decode_linesize = 0;
 
         using convert_fun_t = void (*)(unsigned char *dst_buffer,
-                        unsigned char *src_buffer,
+                        const unsigned char *src_buffer,
                         int width, int height, int pitch);
         convert_fun_t convert = nullptr;
 
@@ -84,8 +84,7 @@ struct state_cineform_decompress {
 static void *cineform_decompress_init(){
         auto s = std::make_unique<state_cineform_decompress>();
 
-        CFHD_Error status;
-        status = CFHD_OpenDecoder(&s->decoderRef, nullptr);
+        CFHD_Error status = CFHD_OpenDecoder(&s->decoderRef, nullptr);
         if(status != CFHD_ERROR_OKAY){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to open decoder\n");
                 return nullptr;
@@ -110,7 +109,7 @@ static void cineform_decompress_done(void *state)
 }
 
 static void rg48_to_r12l(unsigned char *dst_buffer,
-                unsigned char *src_buffer,
+                const unsigned char *src_buffer,
                 int width, int height, int pitch)
 {
         int src_pitch = vc_get_linesize(width, RG48);
@@ -125,7 +124,7 @@ static void rg48_to_r12l(unsigned char *dst_buffer,
 }
 
 static void abgr_to_rgba(unsigned char *dst_buffer,
-                unsigned char *src_buffer,
+                const unsigned char *src_buffer,
                 int width, int height, int pitch)
 {
         int linesize = vc_get_linesize(width, RGBA);
@@ -138,7 +137,7 @@ static void abgr_to_rgba(unsigned char *dst_buffer,
 }
 
 static void bgr_to_rgb_invert(unsigned char *dst_buffer,
-                unsigned char *src_buffer,
+                const unsigned char *src_buffer,
                 int width, int height, int pitch)
 {
         int linesize = vc_get_linesize(width, RGB);
@@ -156,16 +155,16 @@ static const struct {
         codec_t ug_codec;
         CFHD_PixelFormat cfhd_pixfmt;
         void (*convert)(unsigned char *dst_buffer,
-                        unsigned char *src_buffer,
+                        const unsigned char *src_buffer,
                         int width, int height, int pitch);
 } decode_codecs[] = {
-        {R12L, CFHD_PIXEL_FORMAT_RG48, rg48_to_r12l},
-        {RG48, CFHD_PIXEL_FORMAT_RG48, nullptr},
-        {UYVY, CFHD_PIXEL_FORMAT_2VUY, nullptr},
-        {R10k, CFHD_PIXEL_FORMAT_DPX0, nullptr},
-        {v210, CFHD_PIXEL_FORMAT_V210, nullptr},
-        {RGB, CFHD_PIXEL_FORMAT_RG24, bgr_to_rgb_invert},
-        {RGBA, CFHD_PIXEL_FORMAT_BGRa, abgr_to_rgba},
+        {.ug_codec = R12L, .cfhd_pixfmt = CFHD_PIXEL_FORMAT_RG48, .convert = rg48_to_r12l},
+        {.ug_codec = RG48, .cfhd_pixfmt = CFHD_PIXEL_FORMAT_RG48, .convert = nullptr},
+        {.ug_codec = UYVY, .cfhd_pixfmt = CFHD_PIXEL_FORMAT_2VUY, .convert = nullptr},
+        {.ug_codec = R10k, .cfhd_pixfmt = CFHD_PIXEL_FORMAT_DPX0, .convert = nullptr},
+        {.ug_codec = v210, .cfhd_pixfmt = CFHD_PIXEL_FORMAT_V210, .convert = nullptr},
+        {.ug_codec = RGB, .cfhd_pixfmt = CFHD_PIXEL_FORMAT_RG24, .convert = bgr_to_rgb_invert},
+        {.ug_codec = RGBA, .cfhd_pixfmt = CFHD_PIXEL_FORMAT_BGRa, .convert = abgr_to_rgba},
 };
 
 static int cineform_decompress_reconfigure(void *state, struct video_desc desc,
@@ -422,13 +421,15 @@ static int cineform_decompress_get_priority(codec_t compression, struct pixfmt_d
         return VDEC_PRIO_PREFERRED;
 }
 
-static const struct video_decompress_info cineform_info = {
-        cineform_decompress_init,
-        cineform_decompress_reconfigure,
-        cineform_decompress,
-        cineform_decompress_get_property,
-        cineform_decompress_done,
-        cineform_decompress_get_priority,
-};
+static constexpr video_decompress_info cineform_info = []{
+        video_decompress_info info{};
+        info.init = cineform_decompress_init;
+        info.reconfigure = cineform_decompress_reconfigure;
+        info.decompress = cineform_decompress;
+        info.get_property = cineform_decompress_get_property;
+        info.done = cineform_decompress_done;
+        info.get_decompress_priority = cineform_decompress_get_priority;
+        return info;
+}();
 
 REGISTER_MODULE(cineform, &cineform_info, LIBRARY_CLASS_VIDEO_DECOMPRESS, VIDEO_DECOMPRESS_ABI_VERSION);
