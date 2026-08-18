@@ -35,7 +35,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <assert.h>
+#include <cassert>
 #include <svt-jpegxs/SvtJpegxs.h>
 #include <svt-jpegxs/SvtJpegxsDec.h>
 #include <svt-jpegxs/SvtJpegxsImageBufferTools.h>
@@ -74,7 +74,7 @@ struct state_decompress_jpegxs {
         svt_jpeg_xs_image_config_t image_config{};
         svt_jpeg_xs_frame_pool_t *frame_pool{};
         
-        bool configured = 0;
+        bool configured = false;
 
         const jpegxs_to_uv_conversion *convert_from_planar{};
 
@@ -86,16 +86,16 @@ struct state_decompress_jpegxs {
 
 }
 
-static const struct jpegxs_to_uv_conversion jpegxs_to_uv_conversions[] = {
-        { COLOUR_FORMAT_PLANAR_YUV422,        UYVY, yuv422pXX_to_uyvy  },
-        { COLOUR_FORMAT_PLANAR_YUV422,        YUYV, yuv422p_to_yuyv  },
-        { COLOUR_FORMAT_PLANAR_YUV420,        I420, yuv420_to_i420   },
-        { COLOUR_FORMAT_PLANAR_YUV420,        UYVY, yuv420p_to_uyvy  },
-        { COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, RGB,  rgbpXX_to_rgb    },
-        { COLOUR_FORMAT_PLANAR_YUV422,        v210, yuv422p10le_to_v210},
-        { COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, R10k, rgbpXXle_to_r10k },
-        { COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, R12L, rgbpXXle_to_r12l },
-        { COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, RG48, rgbpXXle_to_rg48 },
+static const jpegxs_to_uv_conversion jpegxs_to_uv_conversions[] = {
+        { .src = COLOUR_FORMAT_PLANAR_YUV422,        .dst = UYVY, .convert = yuv422pXX_to_uyvy  },
+        { .src = COLOUR_FORMAT_PLANAR_YUV422,        .dst = YUYV, .convert = yuv422p_to_yuyv  },
+        { .src = COLOUR_FORMAT_PLANAR_YUV420,        .dst = I420, .convert = yuv420_to_i420   },
+        { .src = COLOUR_FORMAT_PLANAR_YUV420,        .dst = UYVY, .convert = yuv420p_to_uyvy  },
+        { .src = COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, .dst = RGB,  .convert = rgbpXX_to_rgb    },
+        { .src = COLOUR_FORMAT_PLANAR_YUV422,        .dst = v210, .convert = yuv422p10le_to_v210},
+        { .src = COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, .dst = R10k, .convert = rgbpXXle_to_r10k },
+        { .src = COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, .dst = R12L, .convert = rgbpXXle_to_r12l },
+        { .src = COLOUR_FORMAT_PLANAR_YUV444_OR_RGB, .dst = RG48, .convert = rgbpXXle_to_rg48 },
 };
 
 static enum subsampling get_jxs_subsampling_to_ug(ColourFormat_t jxs_ss);
@@ -124,21 +124,19 @@ get_jpegxs_to_uv_conversion(codec_t codec, enum subsampling ug_ss)
         return nullptr;
 }
 
-static void
-jpegxs_to_uv_convert(struct state_decompress_jpegxs *s,
-                     const svt_jpeg_xs_image_buffer_t *src, int width,
-                     int height, uint8_t *dst)
+static void jpegxs_to_uv_convert(const state_decompress_jpegxs *s,
+        const svt_jpeg_xs_image_buffer_t *src, int width, int height, uint8_t *dst)
 {
-        const struct jpegxs_to_uv_conversion *conv = s->convert_from_planar;
+        const jpegxs_to_uv_conversion *conv = s->convert_from_planar;
         const int in_bpp = s->image_config.bit_depth > 8 ? 2 : 1;
-        struct from_planar_data d = {};
+        from_planar_data d = {};
         d.width          = width;
         d.height         = height;
         d.out_data       = dst;
         d.out_pitch      = s->pitch;
-        d.in_data[0]     = (const unsigned char *) src->data_yuv[0];
-        d.in_data[1]     = (const unsigned char *) src->data_yuv[1];
-        d.in_data[2]     = (const unsigned char *) src->data_yuv[2];
+        d.in_data[0]     = static_cast<const unsigned char *>(src->data_yuv[0]);
+        d.in_data[1]     = static_cast<const unsigned char *>(src->data_yuv[1]);
+        d.in_data[2]     = static_cast<const unsigned char *>(src->data_yuv[2]);
         d.in_linesize[0] = src->stride[0] * in_bpp;
         d.in_linesize[1] = src->stride[1] * in_bpp;
         d.in_linesize[2] = src->stride[2] * in_bpp;
@@ -154,13 +152,13 @@ jpegxs_to_uv_convert(struct state_decompress_jpegxs *s,
         decode_planar_parallel(conv->convert, d, num_threads);
 }
 
-static void *jpegxs_decompress_init(void) {
-        struct state_decompress_jpegxs *s = new state_decompress_jpegxs();
+static void *jpegxs_decompress_init() {
+        auto *s = new state_decompress_jpegxs();
 
         return s;
 }
 
-static bool configure_with(struct state_decompress_jpegxs *s, unsigned char *bitstream_buffer, size_t codestream_size)
+static bool configure_with(state_decompress_jpegxs *s, unsigned char *bitstream_buffer, size_t codestream_size)
 {
         assert(s->out_codec != VC_NONE);
 
@@ -193,14 +191,15 @@ static bool configure_with(struct state_decompress_jpegxs *s, unsigned char *bit
 static int jpegxs_decompress_reconfigure(void *state, struct video_desc desc,
         int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
 {
-        struct state_decompress_jpegxs *s = (struct state_decompress_jpegxs *) state;
+        auto s = static_cast<struct state_decompress_jpegxs *>(state);
 
-        if (s->out_codec == out_codec &&
+        if(s->out_codec == out_codec &&
                 s->pitch == pitch &&
                 s->rshift == rshift &&
                 s->gshift == gshift &&
                 s->bshift == bshift &&
-                video_desc_eq_excl_param(s->desc, desc, PARAM_INTERLACING)) {
+                video_desc_eq_excl_param(s->desc, desc, PARAM_INTERLACING))
+        {
                 return true;
         }
 
@@ -226,7 +225,7 @@ static int jpegxs_decompress_reconfigure(void *state, struct video_desc desc,
         return true;
 }
 
-static decompress_status jpegxs_probe_internal_codec(struct state_decompress_jpegxs *s, struct pixfmt_desc *internal_prop, unsigned char *buffer, size_t buffer_size)
+static decompress_status jpegxs_probe_internal_codec(state_decompress_jpegxs *s, pixfmt_desc *internal_prop, unsigned char *buffer, size_t buffer_size)
 {
         uint32_t size;
         SvtJxsErrorType_t err = svt_jpeg_xs_decoder_get_single_frame_size(buffer, buffer_size, &s->image_config, &size, 0);
@@ -259,11 +258,9 @@ static decompress_status jpegxs_probe_internal_codec(struct state_decompress_jpe
 }
 
 static decompress_status jpegxs_decompress(void *state, unsigned char *dst, unsigned char *buffer, 
-        unsigned int src_len, int frame_seq, struct video_frame_callbacks *callbacks, struct pixfmt_desc *internal_prop)
+        unsigned int src_len, int /*frame_seq*/, video_frame_callbacks * /*callbacks*/, struct pixfmt_desc *internal_prop)
 {
-        UNUSED(frame_seq);
-        UNUSED(callbacks);
-        auto *s = (struct state_decompress_jpegxs *) state;
+        auto *s = static_cast<struct state_decompress_jpegxs *>(state);
 
         if (s->out_codec == VIDEO_CODEC_NONE) {
                 return jpegxs_probe_internal_codec(s, internal_prop, buffer, src_len);
@@ -311,10 +308,8 @@ static decompress_status jpegxs_decompress(void *state, unsigned char *dst, unsi
         return DECODER_GOT_FRAME;
 }
 
-static int jpegxs_decompress_get_property(void *state, int property, void *val, size_t *len)
+static int jpegxs_decompress_get_property(void */*state*/, int property, void *val, size_t *len)
 {
-        struct state_decompress *s = (struct state_decompress *) state;
-        UNUSED(s);
         int ret = false;
 
         switch(property) {
@@ -333,7 +328,8 @@ static int jpegxs_decompress_get_property(void *state, int property, void *val, 
 }
 
 static void jpegxs_decompress_done(void *state) {
-       delete (struct state_decompress_jpegxs *) state;
+        auto s = static_cast<state_decompress_jpegxs *>(state);
+        delete s;
 }
 
 static enum subsampling
@@ -380,7 +376,7 @@ static int jpegxs_decompress_get_priority(codec_t compression, struct pixfmt_des
         return VDEC_PRIO_PREFERRED;
 }
 
-static const struct video_decompress_info jpegxs_info = {
+static constexpr video_decompress_info jpegxs_info = {
         jpegxs_decompress_init,
         jpegxs_decompress_reconfigure,
         jpegxs_decompress,
