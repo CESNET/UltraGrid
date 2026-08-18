@@ -163,6 +163,7 @@ rs::encode_video_frame(const struct video_frame *in)
 
         struct video_frame *out = vf_alloc_desc(video_desc_from_frame(in));
         out->callbacks.dispose = vf_free;
+        out->callbacks.data_deleter = vf_data_deleter;
 
         for (unsigned i = 0; i < in->tile_count; ++i) {
                 size_t len = in->tiles[i].data_len;
