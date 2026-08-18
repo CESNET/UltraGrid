@@ -48,7 +48,7 @@ m=$MINGW_PACKAGE_PREFIX
 $PACMAN_INSTALL automake autoconf git make pkgconf \
         $m-clang $m-lld $m-winpthreads \
         $m-gcc-compat \
-        unzip zip
+        zip
 $PACMAN_INSTALL $m-asciidoc \
         $m-libcaca\
         $m-ffmpeg \
@@ -56,6 +56,7 @@ $PACMAN_INSTALL $m-asciidoc \
         $m-glew $m-glfw\
         $m-libnatpmp \
         $m-vulkan-headers $m-vulkan-loader \
+        $m-7zip \
 
 $PACMAN_INSTALL $m-libsoxr $m-speexdsp
 $PACMAN_INSTALL $m-sdl3 $m-sdl3-ttf
@@ -82,7 +83,7 @@ install_deltacast() {(
         if curl -f -S "$SDK_URL/$filename" -o $filename; then
                 FEATURES="$FEATURES --enable-deltacast"
                 echo "FEATURES=$FEATURES" >> "$GITHUB_ENV"
-                unzip "$filename"
+                7z x "$filename"
                 cp resources/lib/*dll /usr/local/bin/
                 cp resources/lib/*lib /usr/local/lib/
                 cp -r resources/include/* /usr/local/include/
@@ -95,7 +96,7 @@ install_gpujpeg() {(
         fname=GPUJPEG-Windows.zip
         wget --no-verbose \
 https://github.com/CESNET/GPUJPEG/releases/download/continuous/"$fname"
-        unzip "./$fname"
+        7z x "$fname"
         cp -r GPUJPEG/* /usr/local/
 )}
 
