@@ -660,33 +660,6 @@ yuv422p_to_v210(struct av_conv_data d)
         }
 }
 
-#if VUYX_PRESENT
-static void
-yuv444p_to_vuya(struct av_conv_data d)
-{
-        const int      width    = d.in_frame->width;
-        const int      height   = d.in_frame->height;
-        const AVFrame *in_frame = d.in_frame;
-        for (ptrdiff_t y = 0; y < height; ++y) {
-                unsigned char *src_y = (unsigned char *) in_frame->data[0] +
-                                       (in_frame->linesize[0] * y);
-                unsigned char *src_cb = (unsigned char *) in_frame->data[1] +
-                                        (in_frame->linesize[1] * y);
-                unsigned char *src_cr = (unsigned char *) in_frame->data[2] +
-                                        (in_frame->linesize[2] * y);
-                unsigned char *dst =
-                    (unsigned char *) d.dst_buffer + (d.pitch * y);
-                OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-                        enum { ALPHA = 0xFF };
-                        *dst++ = *src_cr++;
-                        *dst++ = *src_cb++;
-                        *dst++ = *src_y++;
-                        *dst++ = ALPHA;
-                }
-        }
-}
-#endif // VUYX_PRESENT
-
 static void
 yuv444p_to_uyvy(struct av_conv_data d)
 {
@@ -2149,8 +2122,8 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
         { AV_PIX_FMT_VUYX,        UYVY,      vuya_to_uyvy,                 nullptr },
         { AV_PIX_FMT_VUYA,        Y416,      vuya_to_y416,                 nullptr },
         { AV_PIX_FMT_VUYX,        Y416,      vuyx_to_y416,                 nullptr },
-        { AV_PIX_FMT_YUV444P,     VUYA,      yuv444p_to_vuya,              nullptr },
-        { AV_PIX_FMT_YUVJ444P,    VUYA,      yuv444p_to_vuya,              nullptr },
+        { AV_PIX_FMT_YUV444P,     VUYA,      from_planar_conversion,       yuv444p_to_vuya },
+        { AV_PIX_FMT_YUVJ444P,    VUYA,      from_planar_conversion,       yuv444p_to_vuya },
 #endif
         // 8-bit YUV (NV12)
         { AV_PIX_FMT_NV12,        UYVY,      nv12_to_uyvy,                 nullptr },

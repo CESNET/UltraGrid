@@ -562,6 +562,23 @@ rgbpXX_to_rgb(const struct from_planar_data d)
         }
 }
 
+void yuv444p_to_vuya(const struct from_planar_data d){
+        for(int i = 0; i < d.height; i++){
+                const unsigned char *src_y = d.in_data[0] + d.in_linesize[0] * i;
+                const unsigned char *src_cb = d.in_data[1] + d.in_linesize[1] * i;
+                const unsigned char *src_cr = d.in_data[2] + d.in_linesize[2] * i;
+                unsigned char *dst = d.out_data + i * d.out_pitch;
+
+                OPTIMIZED_FOR(int j = 0; j < d.width; j++){
+                        enum { ALPHA = 0xFF };
+                        *dst++ = *src_cr++;
+                        *dst++ = *src_cb++;
+                        *dst++ = *src_y++;
+                        *dst++ = ALPHA;
+                }
+        }
+}
+
 void
 yuv420p_to_uyvy(const struct from_planar_data d)
 {

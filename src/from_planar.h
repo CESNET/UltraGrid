@@ -103,6 +103,7 @@ decode_planar_func_t rgbpXX_to_rgb;
 decode_planar_func_t rgbpXXle_to_rg48;
 decode_planar_func_t rgbpXXle_to_r10k;
 decode_planar_func_t rgbpXXle_to_r12l;
+decode_planar_func_t yuv444p_to_vuya;
 decode_planar_func_t yuv420p_to_uyvy;
 decode_planar_func_t yuv420_to_i420;
 decode_planar_func_t yuv422p_to_uyvy;
