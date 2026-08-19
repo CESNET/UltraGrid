@@ -13,7 +13,7 @@ but it should be actually
 `PE32+ executable for MS Windows 6.00 (DLL), x86-64, 8 sections`
 
 another instance is with GPUJPEG where stuffed CR causes problems (in libgpujpeg_common.h):
-`````
+````
 In file included from src/video_compress/gpujpeg.cpp:46:
 C:\msys64\usr\local\include/libgpujpeg/gpujpeg_common.h:471:120: error: missing ')' in macro parameter list
   471 | #define MK_SUBSAMPLING(comp1_factor_h, comp1_factor_v, comp2_factor_h, comp2_factor_v, comp3_factor_h, comp3_factor_v, \
@@ -30,4 +30,10 @@ C:\msys64\usr\local\include/libgpujpeg/gpujpeg_version.h:85:17: error: expected 
    85 |                 GPUJPEG_VERSION_MINOR)
 
 [...]
-`````
+````
+
+When debugging some strange behavior occured that when moving the unzip
+earlier in the prepare_msys.sh script, it didn't occur... even just a dry
+run. This is because bash caches looked-up paths so that it fixed
+/usr/bin for unzip.exe while the pacman later installed as a dependency
+broken unzip from CLANG64 repo.
