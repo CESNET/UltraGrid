@@ -60,7 +60,7 @@ struct pyrowave_cpu_frame{
         pyrowave_cpu_buffer f{};
 };
 
-void configure_pyro_frame(pyrowave_cpu_frame &f, const video_desc& desc);
+void configure_pyro_frame(pyrowave_cpu_frame& f, int width, int height, pyrowave_chroma_subsampling subs);
 
 constexpr subsampling pyro_subsampling_to_ug(const pyrowave_chroma_subsampling chroma_subsampling){
         switch (chroma_subsampling){

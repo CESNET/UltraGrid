@@ -40,26 +40,40 @@
 #include <cassert>
 #include <memory>
 
-void configure_pyro_frame(pyrowave_cpu_frame& f, const video_desc &desc){
+void configure_pyro_frame(pyrowave_cpu_frame& f, int width, int height, pyrowave_chroma_subsampling subs){
+        pyrowave_cpu_buffer_format buf_format = PYROWAVE_CPU_BUFFER_FORMAT_INT_MAX;
+        int luma_width = width;
+        int luma_height = height;
+        int chroma_width = luma_width;
+        int chroma_height = luma_height;
+        if(subs == PYROWAVE_CHROMA_SUBSAMPLING_420){
+                buf_format = PYROWAVE_CPU_BUFFER_FORMAT_YUV420P;
+                chroma_width /= 2;
+                chroma_height /= 2;
+        } else if(subs == PYROWAVE_CHROMA_SUBSAMPLING_444){
+                buf_format = PYROWAVE_CPU_BUFFER_FORMAT_YUV444P;
+        }
+
         f.f = {};
-        f.f.format = PYROWAVE_CPU_BUFFER_FORMAT_YUV420P;
-        f.f.width = static_cast<int>(desc.width);
-        f.f.height = static_cast<int>(desc.height);
+        f.f.format = buf_format;
+        f.f.width = luma_width;
+        f.f.height = luma_height;
 
         constexpr size_t alignment = 256;
 
         f.plane_datas.resize(3);
 
-        size_t luma_stride = ((desc.width + alignment - 1) / alignment) * alignment;
-        size_t luma_size = luma_stride * desc.height;
+        size_t luma_stride = ((luma_width + alignment - 1) / alignment) * alignment;
+        size_t luma_size = luma_stride * luma_height;
+
         f.plane_datas[0].resize(luma_size + alignment - 1);
         f.f.data[0] = f.plane_datas[0].data();
         f.f.row_stride_in_bytes[0] = luma_stride;
         f.f.plane_size_in_bytes[0] = f.plane_datas[0].size();
         assert(std::align(alignment, luma_size, f.f.data[0], f.f.plane_size_in_bytes[0]));
 
-        size_t chroma_stride = ((desc.width / 2 + alignment - 1) / alignment) * alignment;
-        size_t chroma_size = chroma_stride * desc.height;
+        size_t chroma_stride = ((chroma_width + alignment - 1) / alignment) * alignment;
+        size_t chroma_size = chroma_stride * chroma_height;
 
         f.plane_datas[1].resize(chroma_size + alignment - 1);
         f.f.data[1] = f.plane_datas[1].data();
