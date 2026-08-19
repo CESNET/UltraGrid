@@ -318,6 +318,23 @@ rgba_to_bgra(struct to_planar_data d)
         }
 }
 
+void vuya_to_i444(struct to_planar_data d){
+        size_t src_linesize = vc_get_linesize(d.width, VUYA);
+        for(int i = 0; i < d.height; ++i){
+                const unsigned char *in = d.in_data + i * src_linesize;
+                unsigned char *y = d.out_data[0] + (i * d.out_linesize[0]);
+                unsigned char *u  = d.out_data[1] + (i * d.out_linesize[1]);
+                unsigned char *v  = d.out_data[2] + (i * d.out_linesize[2]);
+
+                for(int j = 0; j < d.width; j++){
+                        *v++ = in[0];
+                        *u++ = in[1];
+                        *y++ = in[2];
+                        in += 4;
+                }
+        }
+}
+
 /**
  * converts UYVY to planar YUV 4:2:0
  *
