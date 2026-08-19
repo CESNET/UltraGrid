@@ -37,13 +37,11 @@
 
 #include <cassert>
 #include <climits>
-#include <vulkan/vulkan.h>
-#include <pyrowave/pyrowave.h>
 
+#include "pyrowave_common.hpp"
 #include "debug.h"
 #include "video_compress.h"
 #include "lib_common.h"
-#include "pyrowave_common.hpp"
 #include "to_planar.h"
 #include "video_codec.h"
 #include "video_frame.h"
@@ -55,9 +53,6 @@
 #define MOD_NAME "[Pyrowave enc] "
 
 namespace{
-
-using pyrowave_encoder_unique = std::unique_ptr<pyrowave_encoder_opaque, deleter_from_fcn<pyrowave_encoder_destroy>>;
-using pyrowave_device_unique = std::unique_ptr<pyrowave_device_opaque, deleter_from_fcn<pyrowave_device_destroy>>;
 
 struct pyrowave_compress_state{
         pyrowave_device_unique device;

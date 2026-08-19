@@ -38,23 +38,17 @@
 #include <cassert>
 #include <memory>
 #include <vector>
-#include <vulkan/vulkan.h>
-#include <pyrowave/pyrowave.h>
 
+#include "pyrowave_common.hpp"
 #include "debug.h"
 #include "from_planar.h"
 #include "lib_common.h"
-#include "pyrowave_common.hpp"
 #include "video_decompress.h"
-#include "utils/misc.h"
 #include "utils/profile_timer.hpp"
 
 #define MOD_NAME "[Pyrowave dec] "
 
 namespace{
-
-using pyrowave_decoder_unique = std::unique_ptr<pyrowave_decoder_opaque, deleter_from_fcn<pyrowave_decoder_destroy>>;
-using pyrowave_device_unique = std::unique_ptr<pyrowave_device_opaque, deleter_from_fcn<pyrowave_device_destroy>>;
 
 struct pyrowave_decompress_state{
         pyrowave_device_unique device;

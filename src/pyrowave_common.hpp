@@ -38,11 +38,17 @@
 #ifndef PYROWAVE_COMMON_HPP_50FC25A68E8E4E38B52C08E56A7C3311
 #define PYROWAVE_COMMON_HPP_50FC25A68E8E4E38B52C08E56A7C3311
 
+#include <memory>
 #include <vector>
 #include <vulkan/vulkan.h>
 #include <pyrowave/pyrowave.h>
 
 #include "types.h"
+#include "utils/misc.h"
+
+using pyrowave_device_unique = std::unique_ptr<pyrowave_device_opaque, deleter_from_fcn<pyrowave_device_destroy>>;
+using pyrowave_encoder_unique = std::unique_ptr<pyrowave_encoder_opaque, deleter_from_fcn<pyrowave_encoder_destroy>>;
+using pyrowave_decoder_unique = std::unique_ptr<pyrowave_decoder_opaque, deleter_from_fcn<pyrowave_decoder_destroy>>;
 
 struct pyrowave_frame_header{
         subsampling subs;
