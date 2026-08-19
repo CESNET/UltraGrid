@@ -43,6 +43,7 @@
 #include "debug.h"
 #include "from_planar.h"
 #include "lib_common.h"
+#include "video_codec.h"
 #include "video_decompress.h"
 #include "utils/profile_timer.hpp"
 
@@ -59,6 +60,8 @@ struct pyrowave_decompress_state{
         int pitch = 0;
 
         pyrowave_cpu_frame pyro_frame;
+
+        decode_planar_func_t *from_planar_conv = nullptr;
 };
 
 void *pyrowave_decompress_init(){
@@ -82,9 +85,29 @@ void pyrowave_done(void *state){
 int pyrowave_reconfigure(void *state, video_desc desc, int /*rshift*/, int /*gshift*/, int /*bshift*/, int pitch, codec_t out_codec){
         auto s = static_cast<pyrowave_decompress_state *>(state);
         s->saved_desc = desc;
+        s->out_codec = out_codec;
+        s->pitch = pitch;
+
+        if(out_codec == VIDEO_CODEC_NONE){
+                return true;
+        }
+
+        auto pyro_subs = PYROWAVE_CHROMA_SUBSAMPLING_INT_MAX;
+
+        if(out_codec == UYVY){
+                pyro_subs = PYROWAVE_CHROMA_SUBSAMPLING_420;
+                s->from_planar_conv = yuv420p_to_uyvy;
+        } else if(out_codec == VUYA){
+                pyro_subs = PYROWAVE_CHROMA_SUBSAMPLING_444;
+                s->from_planar_conv = yuv444p_to_vuya;
+        } else{
+                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported out codec (%s)\n", get_codec_name(out_codec));
+                return false;
+        }
+
 
         pyrowave_decoder_create_info decoder_info{};
-        decoder_info.chroma = PYROWAVE_CHROMA_SUBSAMPLING_420; //TODO
+        decoder_info.chroma = pyro_subs;
         decoder_info.device = s->device.get();
         decoder_info.width = static_cast<int>(desc.width);
         decoder_info.height = static_cast<int>(desc.height);
@@ -96,10 +119,7 @@ int pyrowave_reconfigure(void *state, video_desc desc, int /*rshift*/, int /*gsh
                 return false;
         }
 
-        s->out_codec = out_codec;
-        s->pitch = pitch;
-
-        configure_pyro_frame(s->pyro_frame, desc);
+        configure_pyro_frame(s->pyro_frame, desc.width, desc.height, pyro_subs);
 
         return true;
 }
@@ -117,7 +137,7 @@ void pyro_to_ug_frame(pyrowave_decompress_state *s, void *dst){
                 conv_data.in_linesize[i] = s->pyro_frame.f.row_stride_in_bytes[i];
         }
 
-        yuv420p_to_uyvy(conv_data);
+        s->from_planar_conv(conv_data);
 }
 
 decompress_status pyrowave_decompress(void *state, unsigned char *dst, unsigned char *buffer,
@@ -133,7 +153,7 @@ decompress_status pyrowave_decompress(void *state, unsigned char *dst, unsigned 
         if(s->out_codec == VIDEO_CODEC_NONE){
                 *internal_prop = {
                         .depth = 8,
-                        .subsampling = hdr.subs,
+                        .subsampling = pyro_subsampling_to_ug(hdr.subs),
                         .rgb = false,
                         .accel_type = HWACCEL_NONE,
                 };
@@ -178,7 +198,7 @@ int pyrowave_decompress_get_property(void */*state*/, int property, void *val, s
         return ret;
 }
 
-int pyrowave_get_decompress_priority(codec_t codec, pixfmt_desc /*internal*/, codec_t ugc){
+int pyrowave_get_decompress_priority(codec_t codec, pixfmt_desc internal, codec_t ugc){
         if (codec != PYROWAVE) {
                 return VDEC_PRIO_NA;
         }
@@ -186,7 +206,9 @@ int pyrowave_get_decompress_priority(codec_t codec, pixfmt_desc /*internal*/, co
                 return VDEC_PRIO_PROBE_HI;
         }
 
-        return ugc == UYVY ? VDEC_PRIO_PREFERRED : VDEC_PRIO_NA;
+        const auto preferred_codec = internal.subsampling == SUBS_444 ? VUYA : UYVY;
+
+        return ugc == preferred_codec ? VDEC_PRIO_PREFERRED : VDEC_PRIO_NA;
 }
 
 constexpr video_decompress_info info = []{

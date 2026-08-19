@@ -61,11 +61,14 @@ struct pyrowave_compress_state{
         video_desc saved_desc{};
         size_t max_frame_size = 0;
 
+        pyrowave_chroma_subsampling pyro_subs = PYROWAVE_CHROMA_SUBSAMPLING_INT_MAX;
         pyrowave_cpu_frame pyro_frame;
 
         video_frame_pool compressed_frame_pool;
         video_desc compressed_desc{};
         uint32_t bitrate = 20'000'000;
+
+        decode_buffer_func_t *to_planar_conv = nullptr;
 };
 
 void pyrowave_print_help(){
@@ -130,7 +133,7 @@ bool create_pyro_encoder(pyrowave_compress_state *s, const video_desc& desc){
                 .device = s->device.get(),
                 .width = static_cast<int>(desc.width),
                 .height = static_cast<int>(desc.height),
-                .chroma = PYROWAVE_CHROMA_SUBSAMPLING_420,
+                .chroma = s->pyro_subs,
         };
 
         const auto res = pyrowave_encoder_create(&info, out_ptr(s->encoder));
@@ -138,14 +141,21 @@ bool create_pyro_encoder(pyrowave_compress_state *s, const video_desc& desc){
 }
 
 bool configure_with(pyrowave_compress_state *s, const video_desc& desc){
-        if(desc.color_spec != UYVY){
+        if(desc.color_spec == UYVY){
+                s->pyro_subs = PYROWAVE_CHROMA_SUBSAMPLING_420;
+                s->to_planar_conv = uyvy_to_i420;
+        } else if(desc.color_spec == VUYA){
+                s->pyro_subs = PYROWAVE_CHROMA_SUBSAMPLING_444;
+                s->to_planar_conv = vuya_to_i444;
+        } else{
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported color spec (%s)\n", get_codec_name(desc.color_spec));
                 return false;
         }
+
         s->saved_desc = desc;
         s->max_frame_size = static_cast<size_t>(s->bitrate / desc.fps);
         log_msg(LOG_LEVEL_INFO, MOD_NAME "Computed max frame size to be %lu\n", s->max_frame_size);
-        configure_pyro_frame(s->pyro_frame, desc);
+        configure_pyro_frame(s->pyro_frame, desc.width, desc.height, s->pyro_subs);
         bool res = create_pyro_encoder(s, desc);
         s->compressed_desc = desc;
         s->compressed_desc.color_spec = PYROWAVE;
@@ -164,7 +174,7 @@ void ug_to_pyro_frame(const pyrowave_compress_state *s, const std::shared_ptr<vi
                 conv_data.out_linesize[i] = s->pyro_frame.f.row_stride_in_bytes[i];
         }
 
-        uyvy_to_i420(conv_data);
+        s->to_planar_conv(conv_data);
 }
 
 std::shared_ptr<video_frame> pyrowave_compress_tile(void *state, std::shared_ptr<video_frame> video_frame){
@@ -215,7 +225,7 @@ std::shared_ptr<video_frame> pyrowave_compress_tile(void *state, std::shared_ptr
         }
 
         pyrowave_frame_header hdr{
-                .subs = SUBS_420, //TODO
+                .subs = s->pyro_subs,
         };
         memcpy(out_frame->tiles[0].data, &hdr, sizeof(hdr));
 

@@ -51,7 +51,7 @@ using pyrowave_encoder_unique = std::unique_ptr<pyrowave_encoder_opaque, deleter
 using pyrowave_decoder_unique = std::unique_ptr<pyrowave_decoder_opaque, deleter_from_fcn<pyrowave_decoder_destroy>>;
 
 struct pyrowave_frame_header{
-        subsampling subs;
+        pyrowave_chroma_subsampling subs;
 };
 
 
