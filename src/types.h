@@ -134,6 +134,7 @@ enum depth {
  * @anchor enum_subsampling
  */
 enum subsampling {
+        SUBS_UNKNOWN = 0,
         SUBS_420  = 4200,
         SUBS_422  = 4220,
         SUBS_444  = 4440,
