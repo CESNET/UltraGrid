@@ -62,5 +62,21 @@ struct pyrowave_cpu_frame{
 
 void configure_pyro_frame(pyrowave_cpu_frame &f, const video_desc& desc);
 
+constexpr subsampling pyro_subsampling_to_ug(const pyrowave_chroma_subsampling chroma_subsampling){
+        switch (chroma_subsampling){
+        case PYROWAVE_CHROMA_SUBSAMPLING_420: return SUBS_420;
+        case PYROWAVE_CHROMA_SUBSAMPLING_444: return SUBS_444;
+        default: return SUBS_UNKNOWN;
+        }
+}
+
+constexpr pyrowave_chroma_subsampling ug_subsampling_to_pyro(const subsampling subsampling){
+        switch (subsampling){
+        case SUBS_420: return PYROWAVE_CHROMA_SUBSAMPLING_420;
+        case SUBS_444: return PYROWAVE_CHROMA_SUBSAMPLING_444;
+        default: return PYROWAVE_CHROMA_SUBSAMPLING_INT_MAX;
+        }
+}
+
 
 #endif //PYROWAVE_COMMON_HPP_50FC25A68E8E4E38B52C08E56A7C3311
