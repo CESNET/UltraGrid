@@ -84,15 +84,12 @@ static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int li
 static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines);
 #endif
 
-enum {
-        VC_OPAQUE = 0, ///< codec is not a raw pixelformat
-};
-
 enum video_codec_flag {
         VCF_NONE       = 0,      ///< none of the flags below
         VCF_RGB        = 1 << 0, ///< Whether pixelformat is RGB [pf only]
         VCF_INTERFRAME = 1 << 1, ///< Indicates if compression is interframe
         VCF_CONST_SIZE = 1 << 2, ///< Indicates if data length is constant for all resolutions (hw surfaces)
+        VCF_OPAQUE     = 1 << 3, ///< codec is not a raw pixelformat
 };
 
 /**
@@ -110,7 +107,7 @@ struct codec_info_t {
         int h_align;                     ///< Number of pixels each line is aligned to
         int bits_per_channel;            ///< Number of bits per color channel
         unsigned flags;                  ///< bitwise OR of flags in @ref video_codec_flag
-        int subsampling;                 ///< @ref enum_subsampling "enum subsampling" for PF, @ref VC_OPAQUE otherwise
+        enum subsampling subsampling;    ///< @ref enum_subsampling "enum subsampling" for PF, SUBS_UNKNOWN otherwise
         const char *file_extension;      ///< Extension that should be added to name if frame is saved to file.
 };
 
@@ -122,7 +119,7 @@ struct codec_info_t {
 
 static const struct codec_info_t codec_info[] = {
         [VIDEO_CODEC_NONE] = {"(none)", "Undefined Codec",
-                0, 0, 0, 0, 0, VCF_NONE, VC_OPAQUE, NULL},
+                0, 0, 0, 0, 0, VCF_OPAQUE, SUBS_UNKNOWN, NULL},
         [RGBA] = {"RGBA", "Red Green Blue Alpha 32bit",
                 to_fourcc('R','G','B','A'), 4, 1, 1, 8, VCF_RGB, SUBS_4444, "rgba"},
         [UYVY] = {"UYVY", "YUV 4:2:2",
@@ -140,46 +137,46 @@ static const struct codec_info_t codec_info[] = {
         [DVS10] = {"DVS10", "Centaurus 10bit YUV 4:2:2",
                 to_fourcc('D','S','1','0'), 16, 6, 48, 10, VCF_NONE, SUBS_422, "dvs10"},
         [DXT1] = {"DXT1", "S3 Compressed Texture DXT1",
-                to_fourcc('D','X','T','1'), 1, 2, 0, 2, VCF_RGB, VC_OPAQUE, "dxt1"},
+                to_fourcc('D','X','T','1'), 1, 2, 0, 2, VCF_RGB | VCF_OPAQUE, SUBS_UNKNOWN, "dxt1"},
         /// packed YCbCr inside DXT1 channels
         [DXT1_YUV] = {"DXT1_YUV", "S3 Compressed Texture DXT1 YUV",
-                to_fourcc('D','X','T','Y'), 1, 2, 0, 2, VCF_NONE, VC_OPAQUE, "dxt1y"},
+                to_fourcc('D','X','T','Y'), 1, 2, 0, 2, VCF_OPAQUE, SUBS_UNKNOWN, "dxt1y"},
         [DXT5] = {"DXT5", "S3 Compressed Texture DXT5 YCoCg",
-                to_fourcc('D','X','T','5'), 1, 1, 0, 4, VCF_NONE, VC_OPAQUE, "yog"},/* DXT5 YCoCg */
+                to_fourcc('D','X','T','5'), 1, 1, 0, 4, VCF_OPAQUE, SUBS_UNKNOWN, "yog"},/* DXT5 YCoCg */
         [RGB] = {"RGB", "Red Green Blue 24bit",
                 to_fourcc('R','G','B','2'), 3, 1, 1, 8, VCF_RGB, SUBS_444, "rgb"},
         [JPEG] = {"JPEG",  "JPEG",
-                to_fourcc('J','P','E','G'), 1, 1, 0, 8, VCF_NONE, VC_OPAQUE, "jpg"},
+                to_fourcc('J','P','E','G'), 1, 1, 0, 8, VCF_OPAQUE, SUBS_UNKNOWN, "jpg"},
         [JPEG_XS] = {"JPEG_XS", "JPEG XS",
-                to_fourcc('J', 'X', 'S', 'S'), 1, 1, 0, 8, VCF_NONE, VC_OPAQUE, "jxs"},
+                to_fourcc('J', 'X', 'S', 'S'), 1, 1, 0, 8, VCF_OPAQUE, SUBS_UNKNOWN, "jxs"},
         [RAW] = {"raw", "Raw SDI video",
-                to_fourcc('r','a','w','s'), 1, 1, 0, 0, VCF_NONE, VC_OPAQUE, "raw"}, /* raw SDI */
+                to_fourcc('r','a','w','s'), 1, 1, 0, 0, VCF_OPAQUE, SUBS_UNKNOWN, "raw"}, /* raw SDI */
         [H264] = {"H.264", "H.264/AVC",
-                to_fourcc('A','V','C','1'), 1, 1, 0, 8, VCF_INTERFRAME, VC_OPAQUE, "h264"},
+                to_fourcc('A','V','C','1'), 1, 1, 0, 8, VCF_INTERFRAME | VCF_OPAQUE, SUBS_UNKNOWN, "h264"},
         [H265] = {"H.265", "H.265/HEVC",
-                to_fourcc('H','E','V','C'), 1, 1, 0, 8, VCF_INTERFRAME, VC_OPAQUE, "h265"},
+                to_fourcc('H','E','V','C'), 1, 1, 0, 8, VCF_INTERFRAME | VCF_OPAQUE, SUBS_UNKNOWN, "h265"},
         [VP8] = {"VP8", "Google VP8",
-                to_fourcc('V','P','8','0'), 1, 1, 0, 8, VCF_INTERFRAME, VC_OPAQUE, "vp8"},
+                to_fourcc('V','P','8','0'), 1, 1, 0, 8, VCF_INTERFRAME | VCF_OPAQUE, SUBS_UNKNOWN, "vp8"},
         [VP9] = {"VP9", "Google VP9",
-                to_fourcc('V','P','9','0'), 1, 1, 0, 8, VCF_INTERFRAME, VC_OPAQUE, "vp9"},
+                to_fourcc('V','P','9','0'), 1, 1, 0, 8, VCF_INTERFRAME | VCF_OPAQUE, SUBS_UNKNOWN, "vp9"},
         [BGR] = {"BGR", "Blue Green Red 24bit",
                 to_fourcc('B','G','R','2'), 3, 1, 1, 8, VCF_RGB, SUBS_444, "bgr"},
         [J2K] = {"J2K", "JPEG 2000",
-                to_fourcc('M','J','2','C'), 1, 1, 0, 8, VCF_NONE, VC_OPAQUE, "j2k"},
+                to_fourcc('M','J','2','C'), 1, 1, 0, 8, VCF_OPAQUE, SUBS_UNKNOWN, "j2k"},
         [J2KR] = {"J2KR", "JPEG 2000 RGB",
-                to_fourcc('M','J','2','R'), 1, 1, 0, 8, VCF_NONE, VC_OPAQUE, "j2k"},
+                to_fourcc('M','J','2','R'), 1, 1, 0, 8, VCF_OPAQUE, SUBS_UNKNOWN, "j2k"},
         [HW_VDPAU] = {"HW_VDPAU", "VDPAU hardware surface",
-                to_fourcc('V', 'D', 'P', 'S'), HW_VDPAU_FRAME_SZ, 1, 0, 8, VCF_CONST_SIZE, VC_OPAQUE, "vdpau"},
+                to_fourcc('V', 'D', 'P', 'S'), HW_VDPAU_FRAME_SZ, 1, 0, 8, VCF_CONST_SIZE | VCF_OPAQUE, SUBS_UNKNOWN, "vdpau"},
         [HFYU] = {"HFYU", "HuffYUV",
-                to_fourcc('H','F','Y','U'), 1, 1, 0, 8, VCF_NONE, VC_OPAQUE, "hfyu"},
+                to_fourcc('H','F','Y','U'), 1, 1, 0, 8, VCF_OPAQUE, SUBS_UNKNOWN, "hfyu"},
         [FFV1] = {"FFV1", "FFV1",
-                to_fourcc('F','F','V','1'), 1, 1, 0, 8, VCF_NONE, VC_OPAQUE, "ffv1"},
+                to_fourcc('F','F','V','1'), 1, 1, 0, 8, VCF_OPAQUE, SUBS_UNKNOWN, "ffv1"},
         [CFHD] = {"CFHD", "Cineform",
-                to_fourcc('C','F','H','D'), 1, 1, 0, 8, VCF_NONE, VC_OPAQUE, "cfhd"},
+                to_fourcc('C','F','H','D'), 1, 1, 0, 8, VCF_OPAQUE, SUBS_UNKNOWN, "cfhd"},
         [RG48] = {"RG48", "16-bit RGB little-endian",
                 to_fourcc('R','G','4','8'), 6, 1, 1, 16, VCF_RGB, SUBS_444, "rg48"},
         [AV1] =  {"AV1", "AOMedia Video 1",
-                to_fourcc('a','v','0','1'), 1, 1, 0, 8, VCF_RGB, VC_OPAQUE, "av1"},
+                to_fourcc('a','v','0','1'), 1, 1, 0, 8, VCF_RGB | VCF_OPAQUE, SUBS_UNKNOWN, "av1"},
         [I420] =  {"I420", "planar YUV 4:2:0",
                 to_fourcc('I','4','2','0'), 3, 2, 2, 8, VCF_NONE, SUBS_420, "yuv"},
         [Y216] =  {"Y216", "Packed 16-bit YUV 4:2:2 little-endian",
@@ -187,25 +184,25 @@ static const struct codec_info_t codec_info[] = {
         [Y416] =  {"Y416", "Packed 16-bit YUV 4:4:4:4 little-endian",
                 to_fourcc('Y','4','1','6'), 8, 1, 1, 16, VCF_NONE, SUBS_4444, "y416"},
         [PRORES] =  {"PRORES", "Apple ProRes",
-                0, 1, 1, 0, 8, VCF_NONE, VC_OPAQUE, "pror"},
+                0, 1, 1, 0, 8, VCF_OPAQUE, SUBS_UNKNOWN, "pror"},
         [PRORES_4444] =  {"PRORES_4444", "Apple ProRes 4444",
-                to_fourcc('a','p','4','h'), 1, 1, 0, 8, VCF_NONE, VC_OPAQUE, "ap4h"},
+                to_fourcc('a','p','4','h'), 1, 1, 0, 8, VCF_OPAQUE, SUBS_UNKNOWN, "ap4h"},
         [PRORES_4444_XQ] =  {"PRORES_4444_XQ", "Apple ProRes 4444 (XQ)",
-                to_fourcc('a','p','4','x'), 1, 1, 0, 8, VCF_NONE, VC_OPAQUE, "ap4x"},
+                to_fourcc('a','p','4','x'), 1, 1, 0, 8, VCF_OPAQUE, SUBS_UNKNOWN, "ap4x"},
         [PRORES_422_HQ] =  {"PRORES_422_HQ", "Apple ProRes 422 (HQ)",
-                to_fourcc('a','p','c','h'), 1, 1, 0, 8, VCF_NONE, VC_OPAQUE, "apch"},
+                to_fourcc('a','p','c','h'), 1, 1, 0, 8, VCF_OPAQUE, SUBS_UNKNOWN, "apch"},
         [PRORES_422] =  {"PRORES_422", "Apple ProRes 422",
-                to_fourcc('a','p','c','n'), 1, 1, 0, 8, VCF_NONE, VC_OPAQUE, "apcn"},
+                to_fourcc('a','p','c','n'), 1, 1, 0, 8, VCF_OPAQUE, SUBS_UNKNOWN, "apcn"},
         [PRORES_422_PROXY] =  {"PRORES_422_PROXY", "Apple ProRes 422 (Proxy)",
-                to_fourcc('a','p','c','o'), 1, 1, 0, 8, VCF_NONE, VC_OPAQUE, "apco"},
+                to_fourcc('a','p','c','o'), 1, 1, 0, 8, VCF_OPAQUE, SUBS_UNKNOWN, "apco"},
         [PRORES_422_LT] =  {"PRORES_422_LT", "Apple ProRes 422 (LT)",
-                to_fourcc('a','p','c','s'), 1, 1, 0, 8, VCF_NONE, VC_OPAQUE, "apcs"},
+                to_fourcc('a','p','c','s'), 1, 1, 0, 8, VCF_OPAQUE, SUBS_UNKNOWN, "apcs"},
         [APV] =  {"APV", "Advanceed Professional Video",
-                to_fourcc('a','p','v','1'), 1, 1, 0, 0, VCF_NONE, VC_OPAQUE, "apv"},
+                to_fourcc('a','p','v','1'), 1, 1, 0, 0, VCF_OPAQUE, SUBS_UNKNOWN, "apv"},
         [PYROWAVE] =  {"PYROWAVE", "Pyrowave",
-                to_fourcc('P','R','W','V'), 1, 1, 0, 8, VCF_NONE, VC_OPAQUE, "pyro"},
+                to_fourcc('P','R','W','V'), 1, 1, 0, 8, VCF_OPAQUE, SUBS_UNKNOWN, "pyro"},
         [DRM_PRIME] = {"DRM_PRIME", "DRM Prime buffer",
-                to_fourcc('D', 'R', 'M', 'P'), sizeof(struct drm_prime_frame), 1, 0, 8, VCF_CONST_SIZE, VC_OPAQUE, "drm_prime"},
+                to_fourcc('D', 'R', 'M', 'P'), sizeof(struct drm_prime_frame), 1, 0, 8, VCF_CONST_SIZE | VCF_OPAQUE, SUBS_UNKNOWN, "drm_prime"},
 };
 
 /// for planar pixel formats
@@ -299,7 +296,7 @@ int get_bits_per_component(codec_t codec)
 }
 
 /// @returns subsampling in format (int) JabA (A is alpha), eg 4440
-int get_subsampling(codec_t codec)
+enum subsampling get_subsampling(codec_t codec)
 {
         int subsampling = 0;
         if (codec < sizeof codec_info / sizeof(struct codec_info_t)) {
@@ -446,7 +443,7 @@ bool is_codec_opaque(codec_t codec)
         unsigned int i = (unsigned int) codec;
 
         if (i < sizeof codec_info / sizeof(struct codec_info_t)) {
-                return codec_info[i].subsampling == VC_OPAQUE;
+                return (codec_info[i].flags & VCF_OPAQUE) != 0;
         }
         return false;
 }

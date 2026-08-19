@@ -67,7 +67,7 @@ extern "C" {
 void             show_codec_help(const char *module, const codec_t *codecs8, const codec_t *codecs10, const codec_t *codecs_ge12);
 /// @returns number of bits per color component
 [[gnu::const]] int get_bits_per_component(codec_t codec);
-[[gnu::const]] int get_subsampling(codec_t codec);
+[[gnu::const]] enum subsampling get_subsampling(codec_t codec);
 /// @returns number of bytes per pixel
 [[gnu::const]] double      get_bpp(codec_t codec);
 [[gnu::const]] uint32_t    get_fourcc(codec_t codec);
