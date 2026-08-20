@@ -116,7 +116,6 @@ build_install() (
                 --enable-libdav1d \
                 --enable-libde265 \
                 --enable-libmp3lame \
-                --enable-liboapv \
                 --enable-libopenh264 \
                 --enable-libopus \
                 --enable-librav1e \
@@ -131,6 +130,7 @@ build_install() (
                 --enable-libx265 \
                 --enable-nvenc \
                 --enable-vulkan \
+                # --enable-liboapv \
 
         make -j "$(nproc)"
         sudo make install
