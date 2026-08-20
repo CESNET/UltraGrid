@@ -147,6 +147,9 @@ bool configure_with(pyrowave_compress_state *s, const video_desc& desc){
         } else if(desc.color_spec == VUYA){
                 s->pyro_subs = PYROWAVE_CHROMA_SUBSAMPLING_444;
                 s->to_planar_conv = vuya_to_i444;
+        } else if(desc.color_spec == RGBA){
+                s->pyro_subs = PYROWAVE_CHROMA_SUBSAMPLING_444;
+                s->to_planar_conv = vuya_to_i444;
         } else{
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported color spec (%s)\n", get_codec_name(desc.color_spec));
                 return false;
@@ -225,6 +228,7 @@ std::shared_ptr<video_frame> pyrowave_compress_tile(void *state, std::shared_ptr
         }
 
         pyrowave_frame_header hdr{
+                .internal = s->saved_desc.color_spec,
                 .subs = s->pyro_subs,
         };
         memcpy(out_frame->tiles[0].data, &hdr, sizeof(hdr));

@@ -100,6 +100,9 @@ int pyrowave_reconfigure(void *state, video_desc desc, int /*rshift*/, int /*gsh
         } else if(out_codec == VUYA){
                 pyro_subs = PYROWAVE_CHROMA_SUBSAMPLING_444;
                 s->from_planar_conv = yuv444p_to_vuya;
+        } else if(out_codec == RGBA){
+                pyro_subs = PYROWAVE_CHROMA_SUBSAMPLING_444;
+                s->from_planar_conv = yuv444p_to_vuya;
         } else{
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unsupported out codec (%s)\n", get_codec_name(out_codec));
                 return false;
@@ -154,7 +157,7 @@ decompress_status pyrowave_decompress(void *state, unsigned char *dst, unsigned 
                 *internal_prop = {
                         .depth = 8,
                         .subsampling = pyro_subsampling_to_ug(hdr.subs),
-                        .rgb = false,
+                        .rgb = codec_is_a_rgb(hdr.internal),
                         .accel_type = HWACCEL_NONE,
                 };
                 return DECODER_GOT_CODEC;
@@ -206,7 +209,9 @@ int pyrowave_get_decompress_priority(codec_t codec, pixfmt_desc internal, codec_
                 return VDEC_PRIO_PROBE_HI;
         }
 
-        const auto preferred_codec = internal.subsampling == SUBS_444 ? VUYA : UYVY;
+        auto preferred_codec = internal.subsampling == SUBS_444 ? VUYA : UYVY;
+        if(internal.rgb)
+                preferred_codec = RGBA;
 
         return ugc == preferred_codec ? VDEC_PRIO_PREFERRED : VDEC_PRIO_NA;
 }
