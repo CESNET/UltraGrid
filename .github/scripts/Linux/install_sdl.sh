@@ -39,7 +39,7 @@ build_install() {
 
         git clone --recurse-submodules --depth 1\
          https://github.com/Fluidsynth/fluidsynth
-        cmake -S fluidsynth -B fluidsynth/build
+        cmake -Denable-pipewire=OFF -S fluidsynth -B fluidsynth/build
         cmake --build fluidsynth/build -j "$(nproc)"
         sudo cmake --install fluidsynth/build
 }
