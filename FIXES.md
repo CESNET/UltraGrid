@@ -1,3 +1,9 @@
+#### 1.10.8
+
+* Windows CI build fix
+* fix GUI default random control port
+* fix PipeWire crash when server not running
+
 #### 1.10.7
 
 * decklink - fix 2 opts parsing - :profile=1dfd (parsed to a wrong val)
