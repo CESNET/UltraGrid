@@ -2353,7 +2353,8 @@ get_av_to_uv_conversion(int av_codec, codec_t uv_codec)
         if (ret == NULL) {
                 return NULL;
         }
-        if (ret->dst_pixfmt == ret->conversion->uv_codec) {
+        if (ret->conversion == NULL ||
+            ret->dst_pixfmt == ret->conversion->uv_codec) {
                 MSG(VERBOSE, "converting %s to %s\n",
                     av_get_pix_fmt_name(av_codec),
                     get_codec_name(ret->dst_pixfmt));
