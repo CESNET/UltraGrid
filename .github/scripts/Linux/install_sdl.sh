@@ -27,7 +27,8 @@ build_install() {
         cd $cache_dir
 
         git clone --depth 1 https://github.com/libsdl-org/SDL
-        cmake -S SDL -B SDL/build
+        # shellcheck disable=SC2086 # intentional
+        cmake $features -S SDL -B SDL/build
         cmake --build SDL/build -j "$(nproc)"
         sudo cmake --install SDL/build
 
@@ -38,8 +39,7 @@ build_install() {
 
         git clone --recurse-submodules --depth 1\
          https://github.com/Fluidsynth/fluidsynth
-        # shellcheck disable=SC2086 # intentional
-        cmake $features -S fluidsynth -B fluidsynth/build
+        cmake -S fluidsynth -B fluidsynth/build
         cmake --build fluidsynth/build -j "$(nproc)"
         sudo cmake --install fluidsynth/build
 }
