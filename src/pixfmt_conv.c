@@ -899,6 +899,22 @@ static void vc_copylineRGBAtoRGB(unsigned char * __restrict dst, const unsigned 
 #endif
 }
 
+static void
+vc_copylineRGBAtoBGR(unsigned char *__restrict dst,
+                     const unsigned char *__restrict src, int dst_len,
+                     int rshift, int gshift, int bshift)
+{
+        (void) rshift, (void) gshift, (void) bshift;
+        const unsigned char *end = dst + dst_len;
+        end -= 2; // for safety if dst_len not divisible by 3
+        while (dst < end) {
+                *dst++ = src[2];
+                *dst++ = src[1];
+                *dst++ = src[0];
+                src += 4;
+        }
+}
+
 /**
  * @brief Converts RGBA with different shifts to RGBA
  *
@@ -3070,6 +3086,7 @@ static const struct decoder_item decoders[] = {
         { vc_copylineRGBA,        RGBA,  RGBA },
         { vc_copylineDVS10toV210, DVS10, v210 },
         { vc_copylineRGBAtoRGB,   RGBA,  RGB },
+        { vc_copylineRGBAtoBGR,   RGBA,  BGR },
         { vc_copylineRGBtoRGBA,   RGB,   RGBA },
         { vc_copylineRGBtoUYVY,   RGB,   UYVY },
         { vc_copylineRGBAtoVUYA,  RGBA,  VUYA},
