@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
 
-#TODO: Set MacOS bundle prefix
-
 project(ultragrid-gui
         LANGUAGES CXX C
         VERSION 0.0.1
@@ -82,5 +80,12 @@ set(SOURCES
 )
 
 qt_add_executable(ultragrid-gui ${SOURCES})
+
+set_target_properties(ultragrid-gui PROPERTIES
+        MACOSX_BUNDLE_INFO_PLIST MacOSXBundleInfo.plist.in
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_GUI_IDENTIFIER cz.cesnet.ultragrid
+        MACOSX_BUNDLE_ICON_FILE icon.icns
+)
 
 target_link_libraries(ultragrid-gui PRIVATE Qt6::Core Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Network)
