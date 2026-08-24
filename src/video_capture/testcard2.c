@@ -316,7 +316,7 @@ get_sdl_render_font()
 }
 #endif
 
-static void
+static bool
 fill_bg_buffer(struct testcard_state2 *s)
 {
         unsigned int rect_size = (s->desc.width + COL_NUM - 1) / COL_NUM;
@@ -338,8 +338,11 @@ fill_bg_buffer(struct testcard_state2 *s)
         }
         s->bg = malloc(
             vc_get_datalen(s->desc.width, s->desc.height, s->desc.color_spec));
-        testcard_convert_buffer(RGBA, s->desc.color_spec, s->bg, surface.data,
-                                s->desc.width, s->desc.height);
+        if (!testcard_convert_buffer(RGBA, s->desc.color_spec, s->bg, surface.data,
+                                s->desc.width, s->desc.height)) {
+                free(surface.data);
+                return false;
+        }
 
         if (s->grab_audio) { // if using audio, rotate RGB to GBR when tone
                 for (size_t i = 0; i < s->desc.width * s->desc.height; ++i) {
@@ -356,6 +359,7 @@ fill_bg_buffer(struct testcard_state2 *s)
         }
 
         free(surface.data);
+        return true;
 }
 
 static int vidcap_testcard2_init(const struct vidcap_params *params, void **state)
@@ -413,7 +417,10 @@ static int vidcap_testcard2_init(const struct vidcap_params *params, void **stat
                 configure_audio(s);
         }
 
-        fill_bg_buffer(s);
+        if (!fill_bg_buffer(s)) {
+                vidcap_testcard2_done(s);
+                return VIDCAP_INIT_FAIL;
+        }
 
         s->count = 0;
         s->audio_remained = 0.0;

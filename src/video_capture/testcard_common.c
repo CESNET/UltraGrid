@@ -95,7 +95,9 @@ toI420(unsigned char *out, const unsigned char *input, int width, int height)
         uyvy_to_i420(d);
 }
 
-void testcard_convert_buffer(codec_t in_c, codec_t out_c, unsigned char *out, unsigned const char *in, int width, int height)
+bool
+testcard_convert_buffer(codec_t in_c, codec_t out_c, unsigned char *out,
+                        unsigned const char *in, int width, int height)
 {
         unsigned char *tmp_buffer = NULL;
         if (out_c == I420 || out_c == YUYV || (in_c == RGBA && out_c == v210)) {
@@ -112,13 +114,14 @@ void testcard_convert_buffer(codec_t in_c, codec_t out_c, unsigned char *out, un
         if (out_c == I420) {
                 toI420(out, in, width, height);
                 free(tmp_buffer);
-                return;
+                return true;
         }
         decoder_t decoder = get_decoder_from_to(in_c, out_c);
         if (decoder == NULL) {
                 MSG(FATAL, "No decoder from %s to %s!\n", get_codec_name(in_c),
                     get_codec_name(out_c));
-                abort();
+                free(tmp_buffer);
+                return false;
         }
         long out_linesize = vc_get_linesize(width, out_c);
         long in_linesize = vc_get_linesize(width, in_c);
@@ -126,6 +129,7 @@ void testcard_convert_buffer(codec_t in_c, codec_t out_c, unsigned char *out, un
                 decoder(out + i * out_linesize, in + i * in_linesize, vc_get_size(width, out_c), DEFAULT_R_SHIFT, DEFAULT_G_SHIFT, DEFAULT_B_SHIFT);
         }
         free(tmp_buffer);
+        return true;
 }
 
 static bool testcard_conv_handled_internally(codec_t c)

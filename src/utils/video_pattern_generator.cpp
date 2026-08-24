@@ -789,7 +789,10 @@ struct still_image_video_pattern_generator : public video_pattern_generator {
                 data.swap(src);
                 long data_len = vc_get_datalen(width, height, color_spec);
                 data.resize(data_len * 2);
-                testcard_convert_buffer(codec_src, color_spec, data.data(), src.data(), width, height);
+                if (!testcard_convert_buffer(codec_src, color_spec, data.data(),
+                                             src.data(), width, height)) {
+                        throw 3;
+                }
 
                 if (auto *raw_generator = dynamic_cast<image_pattern_raw *>(generator.get())) {
                         raw_generator->raw_fill(data.data(), data_len);
