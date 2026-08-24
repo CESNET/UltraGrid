@@ -84,7 +84,7 @@ qt_add_executable(ultragrid-gui ${SOURCES})
 set_target_properties(ultragrid-gui PROPERTIES
         MACOSX_BUNDLE_INFO_PLIST MacOSXBundleInfo.plist.in
         MACOSX_BUNDLE TRUE
-        MACOSX_BUNDLE_GUI_IDENTIFIER cz.cesnet.ultragrid
+        MACOSX_BUNDLE_GUI_IDENTIFIER cz.cesnet.ultragrid.ultragrid-gui
         MACOSX_BUNDLE_ICON_FILE icon.icns
 )
 
