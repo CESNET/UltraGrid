@@ -146,8 +146,6 @@ else
         cross_compile=no
 fi
 
-COMMON_FLAGS="${COMMON_FLAGS:+$COMMON_FLAGS }-D_POSIX_C_SOURCE=202405L"
-
 if test $system = Linux; then
 	LDFLAGS="$LDFLAGS -Wl,--dynamic-list-data"
         COMMON_FLAGS="${COMMON_FLAGS:+$COMMON_FLAGS }-D_GNU_SOURCE"
@@ -186,7 +184,8 @@ if test $system = Windows; then
                 UG_MSG_WARN([Windows stacktrace will not be available.])
         fi
         # _GNU_SOURCE adds additional functions with MinGW-w64 like asprintf
-        COMMON_FLAGS="${COMMON_FLAGS:+$COMMON_FLAGS }-D_GNU_SOURCE"
+        COMMON_FLAGS="${COMMON_FLAGS:+$COMMON_FLAGS }-D_GNU_SOURCE \
+-D_POSIX_C_SOURCE=202405L"
 fi
 
 # replace C++ standard for older Clang ver that need gnu++2b
