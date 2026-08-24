@@ -88,4 +88,16 @@ set_target_properties(ultragrid-gui PROPERTIES
         MACOSX_BUNDLE_ICON_FILE icon.icns
 )
 
+install(TARGETS ultragrid-gui
+    BUNDLE  DESTINATION .
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+qt_generate_deploy_app_script(
+    TARGET ultragrid-gui
+    OUTPUT_SCRIPT deploy_script
+)
+
+install(SCRIPT ${deploy_script})
+
 target_link_libraries(ultragrid-gui PRIVATE Qt6::Core Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Network)
