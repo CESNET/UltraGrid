@@ -1,4 +1,4 @@
-#!/bin/sh -eu
+#!/bin/sh -eux
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
 #
@@ -45,6 +45,7 @@ case "${RUNNER_OS-}" in
                 run_reflector=$(echo UltraGrid-*-win64/hd-rum-transcode.exe)
                 ;;
         macOS)
+                export HOMEBREW_GITHUB_API_TOKEN="$GITHUB_TOKEN"
                 continuous_build_file=UltraGrid-continuous-arm64.dmg
                 release_pattern=arm64
                 prepare() {
@@ -62,7 +63,8 @@ if [ "${RUNNER_OS-}" ]; then
                 "$origdir"/.github/scripts/download-gh-asset.sh \
                         CESNET/UltraGrid '.*'"${release_pattern?}"'.*'
         else
-                curl -LOf https://github.com/CESNET/UltraGrid/releases/\
+                curl -LOf -H "Authorization: token $GITHUB_TOKEN" \
+https://github.com/CESNET/UltraGrid/releases/\
 download/continuous/"${continuous_build_file?}"
         fi
         prepare

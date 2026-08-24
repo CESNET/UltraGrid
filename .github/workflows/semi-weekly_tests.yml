@@ -16,6 +16,8 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     runs-on: ${{ matrix.os }}
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     defaults:
       run:
         shell: ${{ matrix.os == 'windows-latest' && 'C:\shells\msys2bash.cmd {0}' || 'bash {0}' }}
