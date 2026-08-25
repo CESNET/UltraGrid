@@ -3165,7 +3165,7 @@ static_qt=no
 GUI_EXE=
 GUI_TARGET=
 
-QMAKE=
+CMAKE=
 #qmake # default for most distributions
 
 AC_ARG_ENABLE(qt,
@@ -3182,10 +3182,8 @@ AC_ARG_ENABLE(static-qt,
     )
 
 if test "$qt_req" != no; then
-        AC_PATH_PROGS(QMAKE, [qmake qmake6 qmake-qt5], [:],
-                [/usr/lib/qt5/bin:$PATH])
-        #AC_MSG_NOTICE("Qmake: $QMAKE")
-        if test $QMAKE != :; then
+        AC_PATH_PROGS(CMAKE, cmake, [:])
+        if test $CMAKE != :; then
                 GUI_TARGET=gui/QT/uv-qt$APPEXT
                 GUI_EXE=$GUI_TARGET
                 if test $system = MacOSX; then
@@ -3195,24 +3193,9 @@ if test "$qt_req" != no; then
         fi
 fi
 
-# macOS only - export MAC_QT_PATH + check if macdeployqt present
-if test "${qt_gui?}" = yes && test "${system?}" = MacOSX; then
-        # realpath command is not present until macOS 13 - use Python workaround
-        MAC_QT_PATH=$(python3 -c "import os; \
-print(os.path.realpath(os.path.dirname(os.path.realpath(\
-\"$(command -v ${QMAKE?})\")) + \"/..\"))")
-        if test -f "${MAC_QT_PATH?}/plugins/platforms/libqminimal.dylib" &&
-                ! command -v macdeployqt >/dev/null; then
-                UG_MSG_WARN([macdeployqt is missing and Qt build is ]dnl
-[dynamically linked.]
-[The GUI bundle won't be most likely portable!])
-        fi
-fi
-
 AC_SUBST(GUI_EXE)
 AC_SUBST(GUI_TARGET)
-AC_SUBST(MAC_QT_PATH)
-AC_SUBST(QMAKE)
+AC_SUBST(CMAKE)
 
 ENSURE_FEATURE_PRESENT([$qt_req], [$qt_gui], [Qt libraries are required.])
 
