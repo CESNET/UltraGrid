@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(ultragrid-gui
+set(UG_GUI_PROJ_NAME uv-qt CACHE STRING "Name of the executable")
+
+project(${UG_GUI_PROJ_NAME}
         LANGUAGES CXX C
         VERSION 0.0.1
 )
@@ -79,16 +81,16 @@ set(SOURCES
         main.cpp
 )
 
-qt_add_executable(ultragrid-gui ${SOURCES})
+qt_add_executable(${UG_GUI_PROJ_NAME} ${SOURCES})
 
-set_target_properties(ultragrid-gui PROPERTIES
+set_target_properties(${UG_GUI_PROJ_NAME} PROPERTIES
         MACOSX_BUNDLE_INFO_PLIST MacOSXBundleInfo.plist.in
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_GUI_IDENTIFIER cz.cesnet.ultragrid.ultragrid-gui
         MACOSX_BUNDLE_ICON_FILE icon.icns
 )
 
-install(TARGETS ultragrid-gui
+install(TARGETS ${UG_GUI_PROJ_NAME}
     BUNDLE  DESTINATION .
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
@@ -96,7 +98,7 @@ install(TARGETS ultragrid-gui
 if(APPLE OR NOT UNIX)
 
     qt_generate_deploy_app_script(
-            TARGET ultragrid-gui
+            TARGET ${UG_GUI_PROJ_NAME}
             OUTPUT_SCRIPT deploy_script
     )
 
@@ -104,4 +106,4 @@ if(APPLE OR NOT UNIX)
 
 endif()
 
-target_link_libraries(ultragrid-gui PRIVATE Qt6::Core Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Network)
+target_link_libraries(${UG_GUI_PROJ_NAME} PRIVATE Qt6::Core Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Network)
