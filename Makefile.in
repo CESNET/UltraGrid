@@ -486,7 +486,7 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 
 gui/QT/Makefile: gui/QT/CMakeLists.txt
 	@if test -z "$(CMAKE)"; then echo "Reconfigure with '--enable-qt'"; exit 1; fi
-	CFLAGS="$(CFLAGS_ORIG)" CXXFLAGS="$(CXXFLAGS_ORIG)" $(CMAKE) -G"Unix Makefiles" -B ./gui/QT/ -S $(srcdir)/gui/QT/
+	CFLAGS="$(CFLAGS_ORIG)" CXXFLAGS="$(CXXFLAGS_ORIG)" "$(CMAKE)" -G"Unix Makefiles" -B ./gui/QT/ -S $(srcdir)/gui/QT/
 
 
 .PHONY: $(GUI_TARGET)
