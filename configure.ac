@@ -3183,7 +3183,7 @@ AC_ARG_ENABLE(static-qt,
 
 if test "$qt_req" != no; then
         AC_PATH_PROGS(CMAKE, cmake, [:])
-        if test $CMAKE != :; then
+        if test "$CMAKE" != :; then
                 GUI_TARGET=gui/QT/uv-qt$APPEXT
                 GUI_EXE=$GUI_TARGET
                 if test $system = MacOSX; then
