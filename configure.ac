@@ -3849,6 +3849,7 @@ if test "$build_default" != no || test "$req_files" = all; then
         src/video_capture/testcard.o
         src/video_decompress/i420.o
         src/video_display/aggregate.o
+        src/video_display/blend.o
         src/video_display/dummy.o
         src/video_display/dump.o
         src/video_display/multiplier.o
