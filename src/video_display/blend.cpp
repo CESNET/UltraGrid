@@ -58,6 +58,8 @@
 #include <thread>
 #include <unordered_map>
 
+#include "utils/color_out.h"
+
 using namespace std;
 
 static constexpr int TRANSITION_COUNT = 10;
@@ -126,8 +128,22 @@ static void *display_blend_init(struct module *parent, const char *fmt, unsigned
         int ret;
 
         if (fmt == nullptr || strlen(fmt) == 0 || "help"s == fmt) {
-                cout << "blend is a helper display to combine (blend) multiple incoming streams.\n"
-                                "Please do not use directly, intended for internal purposes!\n";
+                color_printf(
+                    TBOLD("blend")
+                             " is a helper display to combine (blend) multiple "
+                             "incoming streams.\n");
+                color_printf("\n");
+                color_printf(TBOLD("Please do not use directly, intended for "
+                                   "internal purposes!")
+                             "\n");
+                color_printf("\n");
+                color_printf("Usage:\n");
+                color_printf("\t" TBOLD("-d blend:<real_display>[:disp_args]")
+                             "\n");
+                color_printf("\n");
+                color_printf("Real display can be plain :gl, or can be "
+                             "combined combination with the pipe display...\n");
+                color_printf("\n");
                 return nullptr;
         }
 
