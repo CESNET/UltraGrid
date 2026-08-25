@@ -38,7 +38,15 @@ include_directories(
         ${CMAKE_CURRENT_SOURCE_DIR}/../../src
 )
 
-qt_standard_project_setup()
+if(Qt6Core_VERSION VERSION_GREATER_EQUAL 6.3.0)
+    qt_standard_project_setup()
+else()
+    #Compat for Ubuntu 22.04, TODO: Remove once CI finally upgrades
+    set(CMAKE_AUTOMOC ON)
+    set(CMAKE_AUTOUIC ON)
+    include(GNUInstallDirs)
+    set(USE_FOLDERS ON)
+endif()
 
 set(UG_SOURCES
         ../../tools/astat.cpp
