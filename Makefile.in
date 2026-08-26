@@ -648,13 +648,6 @@ $(GUI_BUNDLE): $(BUNDLE) $(GUI_BUNDLE_DEP)
 				-x $(GUI_BUNDLE)/Contents/Frameworks/QtDBus.framework/QtDBus;\
 	fi
 
-	defaults write `pwd`/$(GUI_BUNDLE)/Contents/Info.plist NSCameraUsageDescription \
-		'Allow camera for video capture'
-	defaults write `pwd`/$(GUI_BUNDLE)/Contents/Info.plist NSMicrophoneUsageDescription \
-		'Allow microphone for audio capture'
-	defaults write `pwd`/$(GUI_BUNDLE)/Contents/Info.plist CFBundleIconFile icon.icns
-	plutil -convert xml1 $(GUI_BUNDLE)/Contents/Info.plist
-
 # aliases
 bundle: $(BUNDLE)
 gui-bundle: $(GUI_BUNDLE)
