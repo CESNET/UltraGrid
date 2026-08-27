@@ -95,7 +95,7 @@ set_target_properties(${UG_GUI_PROJ_NAME} PROPERTIES
         WIN32_EXECUTABLE TRUE
         MACOSX_BUNDLE_INFO_PLIST MacOSXBundleInfo.plist.in
         MACOSX_BUNDLE TRUE
-        MACOSX_BUNDLE_GUI_IDENTIFIER cz.cesnet.ultragrid.ultragrid-gui
+        MACOSX_BUNDLE_GUI_IDENTIFIER cz.cesnet.ultragrid.uv-qt
         MACOSX_BUNDLE_ICON_FILE icon.icns
 )
 
