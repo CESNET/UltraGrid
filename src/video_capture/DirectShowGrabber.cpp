@@ -225,12 +225,11 @@ static bool cleanup(struct vidcap_dshow_state *s) {
 }
 
 #define HANDLE_ERR_ACTION(res, action, msg, ...) \
-        do {\
-                if (res == S_OK) break;\
+        if (res == S_OK) { \
                 MSG(ERROR, msg ": %s\n", \
                     __VA_ARGS__ __VA_OPT__(, ) hresult_to_str(res)); \
                 action; \
-        } while(0)
+        } else {(void)0;}
 
 static bool common_init(struct vidcap_dshow_state *s) {
 #define HANDLE_ERR(msg, ...) \
