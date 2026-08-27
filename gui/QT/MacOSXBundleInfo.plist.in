@@ -24,5 +24,9 @@
         <string>Allow camera for video capture</string>
         <key>NSMicrophoneUsageDescription</key>
         <string>Allow microphone for audio capture</string>
+        <key>NSPrincipalClass</key>
+        <string>NSApplication</string>
+        <key>NSSupportsAutomaticGraphicsSwitching</key>
+        <true/>
 </dict>
 </plist>
