@@ -207,11 +207,13 @@ void rxtx::check_sender_messages() {
                         if (!m_video_desc.color_spec) {
                                 r = new_response(RESPONSE_NO_CONTENT, nullptr);
                         } else {
+                                char desc_buf[STR_LEN];
                                 char buf[STR_LEN];
                                 snprintf_ch(
                                     buf, "%s (input %s)",
                                     video_desc_to_string(m_video_desc,
-                                                         sizeof buf, buf),
+                                                         sizeof desc_buf,
+                                                         desc_buf),
                                     get_codec_name(m_input_video_codec));
                                 r = new_response(RESPONSE_OK, buf);
                         }
