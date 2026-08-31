@@ -93,10 +93,10 @@ install_rav1e() (
 # build FFmpeg deps + FFmpeg itself
 build_install() (
         rm -rf $cache_dir
-        FFMPEG_GIT_DEPTH=5000 # greater depth is useful for 3-way merges
-        git clone --depth $FFMPEG_GIT_DEPTH https://github.com/FFmpeg/FFmpeg.git \
-                $cache_dir
+        git clone --depth 1 https://github.com/FFmpeg/FFmpeg.git $cache_dir
         cd $cache_dir
+        # fetch enough history for our patches to apply
+        git fetch --shallow-since=2026-08-27
         install_aom
         install_dav1d
         install_libvpx
@@ -105,8 +105,6 @@ build_install() (
         install_rav1e
         install_svt
         # apply patches
-        # If patch apply fails, try increasing $FFMPEG_GIT_DEPTH or rebase our
-        # patches over current FFmpeg HEAD.
         find "$GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg-patches" \
                 -name '*.patch' -print0 | sort -z | xargs -0 -n 1 git am -3
         ./configure --disable-static --enable-shared --enable-gpl --enable-nonfree \
