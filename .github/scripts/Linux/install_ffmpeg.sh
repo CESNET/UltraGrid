@@ -56,11 +56,8 @@ install_svt() (
         ( git clone --depth 1 https://github.com/OpenVisualCloud/SVT-VP9.git &&
                 cd SVT-VP9/Build && cmake .. -DCMAKE_BUILD_TYPE=Release &&
                 cmake --build . --parallel && sudo cmake --install . || exit 1 )
-        # libsvtav1 in FFmpeg upstream, for SVT-HEVC now our custom patch in ffmpeg-patches
-        # if patch apply fails, try increasing $FFMPEG_GIT_DEPTH
-        # TODO TOREMOVE the next line when not needed
-        sed -i 's/\.p\.pix_fmts/.pix_fmts/' SVT-VP9/ffmpeg_plugin/master-*.patch
-        git am -3 SVT-VP9/ffmpeg_plugin/master-*.patch
+        # libsvtav1 in FFmpeg upstream, for SVT-HEVC and SVT-VP9 now our custom
+        # patch in ffmpeg-patches.
 )
 
 # The NV Video Codec SDK headers version 12.0 implies driver v520.56.06 in Linux
@@ -108,6 +105,8 @@ build_install() (
         install_rav1e
         install_svt
         # apply patches
+        # If patch apply fails, try increasing $FFMPEG_GIT_DEPTH or rebase our
+        # patches over current FFmpeg HEAD.
         find "$GITHUB_WORKSPACE/.github/scripts/Linux/ffmpeg-patches" \
                 -name '*.patch' -print0 | sort -z | xargs -0 -n 1 git am -3
         ./configure --disable-static --enable-shared --enable-gpl --enable-nonfree \
