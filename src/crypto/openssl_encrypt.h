@@ -51,8 +51,8 @@ enum openssl_mode {
         MODE_AES128_MAX = MODE_AES128_GCM,
 };
 
-#define CIPHER_INIT_FN_DECLARE(void_ptr) EVP_CIPHER *(*(void_ptr))(void)
-///@returns pointer to be given to CIPHER_INIT_FN_DECLARE
+#define CIPHER_INIT_FN_DECLARE(identifier) EVP_CIPHER *(*(identifier))(void)
+///@returns void ptr to be assigned to a var decl with CIPHER_INIT_FN_DECLARE()
 const void *get_cipher_init_callback(enum openssl_mode mode);
 
 const char *get_cipher_mode_name(enum openssl_mode mode);

@@ -219,7 +219,7 @@ static int openssl_encrypt(struct openssl_encrypt *encryption,
         int total_len = sizeof(uint32_t);
 
         unsigned char ivec[16];
-        if (RAND_bytes(ivec, 8) < 0) {
+        if (RAND_bytes(ivec, sizeof ivec) < 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cannot generate random bytes!\n");
                 return 0;
         }
