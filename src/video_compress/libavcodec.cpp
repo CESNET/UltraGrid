@@ -1993,13 +1993,8 @@ ADD_TO_PARAM(
 static void
 configure_x264_x265(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
-        const char *preset = "ultrafast";
-        if (strstr(codec_ctx->codec->name, "libx264") ==
-                codec_ctx->codec->name &&
-            (param->desc.width * param->desc.height * param->desc.fps <=
-             FLW_THRESH)) {
-                preset = "veryfast";
-        }
+        const char *preset =
+            codec_ctx->codec->id == AV_CODEC_ID_H264 ? "veryfast" : "ultrafast";
         check_av_opt_set<const char *>(codec_ctx->priv_data, "preset", preset);
 
         const char *tune = codec_ctx->codec->id == AV_CODEC_ID_H264 ? "zerolatency,fastdecode" : "zerolatency"; // x265 supports only single tune parameter
