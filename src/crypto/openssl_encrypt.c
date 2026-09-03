@@ -228,7 +228,7 @@ static int openssl_encrypt(struct openssl_encrypt *encryption,
 
         CHECK(EVP_CipherInit(encryption->ctx, encryption->cipher, encryption->key_hash, ivec, 1), "Cannot initialize cipher");
         /* Set IV length if default 12 bytes (96 bits) is not appropriate */
-        CHECK(EVP_CIPHER_CTX_ctrl(encryption->ctx, EVP_CTRL_GCM_SET_IVLEN, sizeof ivec, NULL), "set IV len");
+        // CHECK(EVP_CIPHER_CTX_ctrl(encryption->ctx, EVP_CTRL_GCM_SET_IVLEN, sizeof ivec, NULL), "set IV len");
         int out_len = 0;
         if (encryption->mode == MODE_AES128_GCM) {
                 if (aad_len > 0) {

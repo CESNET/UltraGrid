@@ -144,7 +144,7 @@ static int openssl_decrypt(struct openssl_decrypt *decrypt,
         ciphertext_len -= 20;
 
         CHECK(EVP_CipherInit(decrypt->ctx, cipher, decrypt->key_hash, iv, 0), "Unable to initialize cipher");
-        CHECK(EVP_CIPHER_CTX_ctrl(decrypt->ctx, EVP_CTRL_GCM_SET_IVLEN, 16, NULL), "set IV len"); // default IV len is presumably 12 bytes
+        // CHECK(EVP_CIPHER_CTX_ctrl(decrypt->ctx, EVP_CTRL_GCM_SET_IVLEN, 16, NULL), "set IV len"); // default IV len is presumably 12 bytes
 
         int out_len = 0;
         if (mode == MODE_AES128_GCM) {
