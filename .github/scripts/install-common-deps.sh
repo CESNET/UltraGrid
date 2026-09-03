@@ -167,6 +167,8 @@ install_omt() (
         git clone --depth 1 https://github.com/openmediatransport/libomtnet.git
 
         cd libvmx/build
+        # TODO TOREMOVE when not needed
+        sed -E 's/^(clang|g)\+\+/& -Wno-c++11-narrowing/' $build >FIXED && mv FIXED $build
         chmod +x $build
         ./$build
         cd ../..
