@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2024 CESNET
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -92,7 +92,7 @@ struct openssl_encrypt {
         unsigned char key_hash[16];
 };
 
-const struct {
+static const struct {
         enum openssl_mode mode;
         const char *name;
         const EVP_CIPHER *(*get_cipher)(void);
@@ -111,13 +111,26 @@ const struct {
         { MODE_AES128_GCM, "gcm", EVP_aes_128_gcm    },
 };
 
-const void *get_cipher(enum openssl_mode mode) {
+const void *
+get_cipher_init_callback(enum openssl_mode mode)
+{
         for (unsigned i = 0; i < sizeof ciphers / sizeof ciphers[0]; ++i) {
                 if (ciphers[i].mode == mode) {
-                        return ciphers[i].get_cipher();
+                        return ciphers[i].get_cipher;
                 }
         }
         return NULL;
+}
+
+const char *
+get_cipher_mode_name(enum openssl_mode mode)
+{
+        for (unsigned i = 0; i < sizeof ciphers / sizeof ciphers[0]; ++i) {
+                if (ciphers[i].mode == mode) {
+                        return ciphers[i].name;
+                }
+        }
+        return "(UNKNOWN!)";
 }
 
 static void
@@ -174,16 +187,18 @@ openssl_encrypt_init(struct openssl_encrypt **state, const char *passphrase)
                         strlen(pass));
         MD5Final(s->key_hash, &context);
 
-        s->cipher = get_cipher(mode);
-        if (s->cipher == NULL) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cipher %d not available!\n", (int) mode);
+        CIPHER_INIT_FN_DECLARE(init) = get_cipher_init_callback(mode);
+        if (init == NULL) {
+                MSG(ERROR, "Cipher %s not available!\n",
+                    get_cipher_mode_name(mode));
                 free(s);
                 return -1;
         }
+        s->cipher = init();
 
         s->ctx = EVP_CIPHER_CTX_new();
         s->mode = mode;
-        log_msg(LOG_LEVEL_INFO, MOD_NAME "Encryption set to mode %d\n", (int) mode);
+        MSG(INFO, "set to mode %s\n", get_cipher_mode_name(mode));
 
         *state = s;
         return 0;

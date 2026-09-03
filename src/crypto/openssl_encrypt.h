@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2014 CESNET, z. s. p. o.
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,7 +51,11 @@ enum openssl_mode {
         MODE_AES128_MAX = MODE_AES128_GCM,
 };
 
-const void *get_cipher(enum openssl_mode mode);
+#define CIPHER_INIT_FN_DECLARE(void_ptr) EVP_CIPHER *(*(void_ptr))(void)
+///@returns pointer to be given to CIPHER_INIT_FN_DECLARE
+const void *get_cipher_init_callback(enum openssl_mode mode);
+
+const char *get_cipher_mode_name(enum openssl_mode mode);
 
 #define MAX_CRYPTO_EXTRA_DATA 36 // == maximal overhead of available encryptions (datalen+IV+CRC/tag)
 #define MAX_CRYPTO_PAD 15 // ECB needs to be padded

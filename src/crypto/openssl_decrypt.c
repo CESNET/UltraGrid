@@ -3,7 +3,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2013-2024 CESNET
+ * Copyright (c) 2013-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -76,6 +76,9 @@ struct openssl_decrypt {
         unsigned char ivec[AES_BLOCK_SIZE];
         unsigned char ecount[AES_BLOCK_SIZE];
         unsigned int num;
+
+        enum openssl_mode saved_mode;
+        CIPHER_INIT_FN_DECLARE(cipher_init);
 };
 
 static int openssl_decrypt_init(struct openssl_decrypt **state,
@@ -121,11 +124,17 @@ static int openssl_decrypt(struct openssl_decrypt *decrypt,
                 const char *aad, int aad_len,
                 char *plaintext, enum openssl_mode mode)
 {
-        const EVP_CIPHER *cipher = get_cipher(mode);
-        if (cipher == NULL) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "Cipher %d not available!\n", (int) mode);
-                return 0;
+        if (decrypt->saved_mode != mode) {
+                decrypt->cipher_init = get_cipher_init_callback(mode);
+                if (!decrypt->cipher_init) {
+                        MSG(ERROR, "Cipher %s (%d) not available!\n",
+                            get_cipher_mode_name(mode), (int) mode);
+                        return 0;
+                }
+                MSG(INFO, "set to mode %s\n", get_cipher_mode_name(mode));
+                decrypt->saved_mode = mode;
         }
+        const EVP_CIPHER *cipher = decrypt->cipher_init();
         uint32_t data_len;
         memcpy(&data_len, ciphertext, sizeof(uint32_t));
         assert ((size_t) ciphertext_len >= data_len + sizeof(uint32_t) + 16 + sizeof(uint32_t));
