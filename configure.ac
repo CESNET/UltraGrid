@@ -3305,6 +3305,10 @@ if test -z "$crypto_impl" && test "$crypto_req" != no && test "$crypto_req" != o
         PKG_CHECK_MODULES([CRYPTO], [wolfssl], [crypto_impl=wolfSSL], [crypto_impl=])
         if test -n "$crypto_impl"; then
                 check_required_ciphers
+                if test ! "${crypto_impl?}"; then
+                        AC_MSG_WARN([wolfSSL lib found but required funcs not - ]dnl
+[the library is possibly compiled without OpenSSL compat layer, which isn't supported.])
+                fi
                 AC_DEFINE([HAVE_WOLFSSL], [1], [Using WolfSSL instead of OpenSSL])
         fi
 fi
