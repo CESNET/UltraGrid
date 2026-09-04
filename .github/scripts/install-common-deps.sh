@@ -239,7 +239,7 @@ if ! is_win; then
         install_items="$install_items omt"
 fi
 
-if [ ! "$(uname -s)" = Darwin ]; then
+if [ "$(uname -s)" != Darwin ] && [ "$(uname -m)" != armv7l ]; then
         install_items="$install_items pyrowave"
 fi
 
