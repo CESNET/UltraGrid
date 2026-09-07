@@ -3,8 +3,11 @@ next
 * added AES67 capture/playback
 * support for JPEG-XS
 * support for Open Media Transport
+* support for Pyrowave
 * added OpenAPV compress/decompress modules
+* vulkan display now prefers Wayland
 * GUI: Improve audio device list
+* size parameter now understands '8k' (testcard, testcard2, gl, sdl3)
 
 1.10
 ====
