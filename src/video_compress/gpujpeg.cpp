@@ -727,7 +727,7 @@ static compress_module_info get_gpujpeg_module_info(){
 
         for(const auto& opt : usage_opts){
                 std::string desc = opt.description;
-                desc.erase(std::remove(desc.begin(), desc.end(), '\t'), desc.end());
+                std::erase(desc, '\t');
                 std::replace(desc.begin(), desc.end(), '\n', ' ');
                 module_info.opts.emplace_back(
                     module_option{ opt.label, std::move(desc), opt.placeholder, opt.key,
