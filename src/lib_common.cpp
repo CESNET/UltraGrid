@@ -269,7 +269,7 @@ register_library(const char *name, const void *info, enum library_class cls,
                  int abi_version, enum mod_visibility_flag visibility_flag)
 {
         auto& map = get_libmap()[cls];
-        if (map.find(name) != map.end()) {
+        if (map.contains(name)) {
                 LOG(LOG_LEVEL_ERROR) << "Module \"" << name << "\" (class " << cls << ") multiple initialization!\n";
         }
         map[name] = {info, abi_version, visibility_flag};
@@ -293,7 +293,7 @@ const void *load_library(const char *name, enum library_class cls, int abi_versi
 
         // Library was not found or was not loaded due to unsatisfied
         // dependencies. If the latter one, display reason why dlopen() failed.
-        if (library_class_info.find(cls) != library_class_info.end()) {
+        if (library_class_info.contains(cls)) {
                 string filename = "ultragrid_";
                 if (strlen(library_class_info.at(cls).file_prefix) > 0) {
                         filename += library_class_info.at(cls).file_prefix;
@@ -302,7 +302,7 @@ const void *load_library(const char *name, enum library_class cls, int abi_versi
 
                 filename += name + string(".so");
 
-                if (lib_errors.find(filename) != lib_errors.end()) {
+                if (lib_errors.contains(filename)) {
                         LOG(LOG_LEVEL_WARNING) << filename << ": " << lib_errors.find(filename)->second << "\n";
                 }
         }
