@@ -136,7 +136,7 @@ static struct response *send_message_common(struct module *root, const char *con
 
         if (sync) {
                 msg->send_response = responder::receive_response;
-                responder = shared_ptr<struct responder>(new struct responder());
+                responder = std::make_shared<struct responder>();
                 msg->priv_data = new shared_ptr<struct responder>(responder);
         }
 
