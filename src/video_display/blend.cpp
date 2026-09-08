@@ -162,7 +162,7 @@ static void *display_blend_init(struct module *parent, const char *fmt, unsigned
                 *delim = '\0';
                 cfg = delim + 1;
         }
-        s->common = shared_ptr<state_blend_common>(new state_blend_common());
+        s->common = std::make_shared<state_blend_common>();
         ret = initialize_video_display(parent, requested_display, cfg, flags, NULL, &s->common->real_display);
         assert(ret == 0 && "Unable to initialize real display for blend");
         free(fmt_copy);
