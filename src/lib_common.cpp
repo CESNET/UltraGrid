@@ -332,13 +332,12 @@ bool list_all_modules() {
         bool ret = true;
 
         auto& libraries = get_libmap();
-        for (auto cls_it = library_class_info.begin(); cls_it != library_class_info.end();
-                        ++cls_it) {
-                cout << cls_it->second.class_name << "\n";
-                auto it = libraries.find(cls_it->first);
+        for (const auto& [library_class, class_info] : library_class_info) {
+                cout << class_info.class_name << "\n";
+                auto it = libraries.find(library_class);
                 if (it != libraries.end()) {
-                        for (auto && item : it->second) {
-                                col() << "\t" << SBOLD(item.first) << "\n";
+                        for (auto& [library_name, _] : it->second) {
+                                col() << "\t" << SBOLD(library_name) << "\n";
                         }
                 }
                 cout << "\n";
@@ -347,8 +346,8 @@ bool list_all_modules() {
         if (!lib_errors.empty()) {
                 ret = false;
                 col() << SBOLD(SRED("Errors:")) << "\n";
-                for (auto && item : lib_errors) {
-                        cout << "\t" << SRED(item.first) << "\n\t\t" << item.second << "\n";
+                for (auto& [filename, error] : lib_errors) {
+                        cout << "\t" << SRED(filename) << "\n\t\t" << error << "\n";
                 }
                 cout << "\n";
         }
