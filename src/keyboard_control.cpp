@@ -592,13 +592,13 @@ void keyboard_control::impl::run()
                         col() << TGREEN("Keyboard control: " << (m_locked_against_changes ? "" : "un") << "locked against changes\n");
                         continue;
                 }
-                if (m_locked_against_changes && guarded_keys.find(c) != guarded_keys.end()) {
+                if (m_locked_against_changes && guarded_keys.contains(c)) {
                         col() << TGREEN("Keyboard control: locked against changes, press 'Ctrl-x' to unlock or 'h' for help.\n");
                         continue;
                 }
 
                 m_lock.lock();
-                if (key_mapping.find(c) != key_mapping.end()) { // user defined mapping exists
+                if (key_mapping.contains(c)) { // user defined mapping exists
                         string cmd = key_mapping.at(c).first;
                         exec_external_commands(cmd.c_str());
                         m_lock.unlock();
@@ -933,7 +933,7 @@ bool keyboard_control::impl::exec_local_command(const char *command)
                                 name = strchr(command, '#') + 1;
                                 *strchr(command, '#') = '\0';
                         }
-                        if (key_mapping.find(key) == key_mapping.end()) {
+                        if (!key_mapping.contains(key)) {
                                 key_mapping.insert({key, make_pair(command, name)});
                         } else {
                                 LOG(LOG_LEVEL_ERROR) << MOD_NAME << "Trying to register key shortcut " << get_keycode_representation(key) << ", which is already registered, ignoring.\n";
