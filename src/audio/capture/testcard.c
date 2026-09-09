@@ -83,8 +83,6 @@ struct state_audio_capture_testcard {
         unsigned long long int chunk_size;
         struct audio_frame audio;
 
-        double audio_remained,
-               seconds_tone_played;
         char *audio_samples;
 
         time_ns_t next_audio_time;
