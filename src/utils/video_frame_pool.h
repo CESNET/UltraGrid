@@ -77,7 +77,7 @@ struct video_frame_pool {
                  */
                 video_frame_pool(unsigned int max_used_frames = 0, video_frame_pool_allocator const &alloc = default_data_allocator());
                 video_frame_pool(const video_frame_pool_params &params);
-                video_frame_pool &operator=(video_frame_pool &&);
+                video_frame_pool &operator=(video_frame_pool &&) noexcept;
                 ~video_frame_pool();
 
                 /**

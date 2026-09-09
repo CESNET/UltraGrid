@@ -85,7 +85,7 @@ struct video_frame_pool::impl {
 //     .  _|  _  _     (_  _  _   _   _     _   _   _  |
 //  \/ | (_| (- (_) __ |  |  (_| ||| (- __ |_) (_) (_) |
 //                                         |
-video_frame_pool &video_frame_pool::operator=(video_frame_pool &&) = default;
+video_frame_pool &video_frame_pool::operator=(video_frame_pool &&) noexcept = default;
 video_frame_pool::video_frame_pool(unsigned int max_used_frames,
                                    video_frame_pool_allocator const &alloc)
     : m_impl(std::make_unique<video_frame_pool::impl>(video_frame_pool_params{
