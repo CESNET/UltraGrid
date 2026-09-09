@@ -141,9 +141,6 @@ struct state_audio_decoder {
         const struct openssl_decrypt_info *dec_funcs;
         struct openssl_decrypt *decrypt;
 
-        audio_playback_ctl_t audio_playback_ctl_func;
-        void *audio_playback_state;
-
         struct control_state *control;
         fec *fec_state;
         fec_desc fec_state_desc;
