@@ -79,16 +79,14 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <stdatomic.h>
+#include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
 #include "memory.h"
 #include "debug.h"
 #include "net_udp.h"
-#include "crypto/crypt_des.h"
-#include "crypto/crypt_aes.h"
 #include "tv.h"
-#include "crypto/md5.h"
 #include "ntp.h"
 #include "rtp.h"
 #include "utils/misc.h"
@@ -307,21 +305,6 @@ struct rtp {
         /* tfrc receiver variables */
         uint32_t rcv_rtt;       /* rtt receiver extracts from rtp packets */
 
-        char *encryption_algorithm;
-        int encryption_enabled;
-        rtp_encrypt_func encrypt_func;
-        rtp_decrypt_func decrypt_func;
-        int encryption_pad_length;
-        union {
-                struct {
-                        keyInstance keyInstEncrypt;
-                        keyInstance keyInstDecrypt;
-                        cipherInstance cipherInst;
-                } rijndael;
-                struct {
-                        char *encryption_key;
-                } des;
-        } crypto_state;
         rtp_callback callback;
         struct msghdr *mhdr;
         bool mt_recv; /* whether the receiver uses separate thread for receiving */
@@ -1147,8 +1130,6 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         session->last_update =
                 session->last_rtcp_send_time =
                 session->next_rtcp_send_time = get_time_in_ns();
-        session->encryption_enabled = 0;
-        session->encryption_algorithm = NULL;
 
         /* Calculate when we're supposed to send our first RTCP packet... */
         session->next_rtcp_send_time += rtcp_interval(session) * NS_IN_SEC;
@@ -1252,8 +1233,6 @@ rtp_init_with_udp_socket(struct socket_udp_local *l, struct sockaddr *sa,
         session->last_update =
                 session->last_rtcp_send_time =
                 session->next_rtcp_send_time = get_time_in_ns();
-        session->encryption_enabled = 0;
-        session->encryption_algorithm = NULL;
 
         /* Calculate when we're supposed to send our first RTCP packet... */
         session->next_rtcp_send_time += NS_IN_SEC * rtcp_interval(session);
@@ -1578,12 +1557,6 @@ static void rtp_process_data(struct rtp *session, uint32_t curr_rtp_ts,
 
         if (buflen <= 0)
                 return;
-
-        if (session->encryption_enabled) {
-                uint8_t initVec[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-                (session->decrypt_func) (session, buffer, buflen,
-                                         initVec);
-        }
 
         if (session->server_mode_address_unset) {
                 session->server_mode_address_unset = false;
@@ -2152,13 +2125,6 @@ static void rtp_process_ctrl(struct rtp *session, uint8_t * buffer, int buflen)
         uint32_t packet_ssrc = rtp_my_ssrc(session);
 
         if (buflen > 0) {
-                if (session->encryption_enabled) {
-                        /* Decrypt the packet... */
-                        (session->decrypt_func) (session, buffer, buflen,
-                                                 initVec);
-                        buffer += 4;    /* Skip the random prefix... */
-                        buflen -= 4;
-                }
                 if (validate_rtcp(buffer, buflen)) {
                         first = true;
                         packet = (rtcp_t *)(void *) buffer;
@@ -2926,14 +2892,6 @@ rtp_send_data_hdr(struct rtp *session,
         }
 #endif
 
-        /* Finally, encrypt if desired... */
-        if (session->encryption_enabled) {
-                assert((buffer_len % session->encryption_pad_length) == 0);
-                (session->encrypt_func) (session,
-                                         buffer + RTP_PACKET_HEADER_SIZE,
-                                         buffer_len, initVec);
-        }
-
         rc = udp_sendv(session->rtp_socket, send_vector, send_vector_len, d);
         if (rc == -1) {
                 log_msg(LOG_LEVEL_WARNING, "sending RTP packet: %s\n",
@@ -3314,11 +3272,6 @@ static void send_rtcp(struct rtp *session, uint32_t rtp_ts,
         uint8_t initVec[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 
         check_database(session);
-        /* If encryption is enabled, add a 32 bit random prefix to the packet */
-        if (session->encryption_enabled) {
-                *((uint32_t *)(void *) ptr) = ug_rand();
-                ptr += 4;
-        }
 
         /* The first RTCP packet in the compound packet MUST always be a report packet...  */
         if (session->we_sent) {
@@ -3375,33 +3328,6 @@ static void send_rtcp(struct rtp *session, uint32_t rtp_ts,
                         old_ptr = ptr;
                         assert(RTP_MAX_PACKET_LEN - (ptr - buffer) >= 0);
                 }
-        }
-
-        /* And encrypt if desired... */
-        if (session->encryption_enabled) {
-                if (((ptr - buffer) % session->encryption_pad_length) != 0) {
-                        /* Add padding to the last packet in the compound, if necessary. */
-                        /* We don't have to worry about overflowing the buffer, since we */
-                        /* intentionally allocated it 8 bytes longer to allow for this.  */
-                        int padlen =
-                            session->encryption_pad_length -
-                            ((ptr - buffer) % session->encryption_pad_length);
-                        int i;
-
-                        for (i = 0; i < padlen - 1; i++) {
-                                *(ptr++) = '\0';
-                        }
-                        *(ptr++) = (uint8_t) padlen;
-                        assert(((ptr -
-                                 buffer) % session->encryption_pad_length) ==
-                               0);
-
-                        ((rtcp_t *)(void *) lpt)->common.p = true;
-                        ((rtcp_t *)(void *) lpt)->common.length =
-                            htons((int16_t) (((ptr - lpt) / 4) - 1));
-                }
-                (session->encrypt_func) (session, buffer, ptr - buffer,
-                                         initVec);
         }
 
         rtcp_udp_send(session, ptr - buffer, (char *)buffer);
@@ -3552,11 +3478,6 @@ static void rtp_send_bye_now(struct rtp *session)
         uint8_t initVec[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 
         check_database(session);
-        /* If encryption is enabled, add a 32 bit random prefix to the packet */
-        if (session->encryption_enabled) {
-                *((uint32_t *)(void *) ptr) = ug_rand();
-                ptr += 4;
-        }
 
         ptr = format_rtcp_rr(ptr, RTP_MAX_PACKET_LEN - (ptr - buffer), session);
         common = (rtcp_common *)(void *) ptr;
@@ -3571,30 +3492,6 @@ static void rtp_send_bye_now(struct rtp *session)
         *((uint32_t *)(void *) ptr) = htonl(session->my_ssrc);
         ptr += 4;
 
-        if (session->encryption_enabled) {
-                if (((ptr - buffer) % session->encryption_pad_length) != 0) {
-                        /* Add padding to the last packet in the compound, if necessary. */
-                        /* We don't have to worry about overflowing the buffer, since we */
-                        /* intentionally allocated it 8 bytes longer to allow for this.  */
-                        int padlen =
-                            session->encryption_pad_length -
-                            ((ptr - buffer) % session->encryption_pad_length);
-                        int i;
-
-                        for (i = 0; i < padlen - 1; i++) {
-                                *(ptr++) = '\0';
-                        }
-                        *(ptr++) = (uint8_t) padlen;
-
-                        common->p = true;
-                        common->length =
-                            htons((int16_t)
-                                  (((ptr - (uint8_t *) common) / 4) - 1));
-                }
-                assert(((ptr - buffer) % session->encryption_pad_length) == 0);
-                (session->encrypt_func) (session, buffer, ptr - buffer,
-                                         initVec);
-        }
         rtcp_udp_send(session, ptr - buffer, (char *)buffer);
         /* Loop the data back to ourselves so local participant can */
         /* query own stats when using unicast or multicast with no  */
