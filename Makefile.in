@@ -123,9 +123,6 @@ COMMON_OBJS     = \
 		src/compat/platform_sched.o \
 		src/compat/platform_semaphore.o \
 		src/crypto/crc_32.o \
-		src/crypto/crypt_aes.o \
-		src/crypto/crypt_aes_impl.o \
-		src/crypto/crypt_des.o \
 		src/crypto/md5.o \
 		src/crypto/random.o \
 		src/export.o \
@@ -196,8 +193,6 @@ TEST_OBJS = $(COMMON_OBJS) \
 	    test/gpujpeg_test.o \
 	    test/libavcodec_test.o \
 	    test/misc_test.o \
-	    test/test_aes.o \
-	    test/test_des.o \
 	    test/test_md5.o \
 	    test/test_video_display.o \
 	    test/test_video_capture.o \

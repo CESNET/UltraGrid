@@ -46,9 +46,7 @@
 #include "host.h"
 
 #include "test_host.h"
-#include "test_aes.h"
 #include "test_bitstream.h"
-#include "test_des.h"
 #include "test_md5.h"
 #include "test_tv.h"
 #include "test_net_udp.h"
@@ -98,8 +96,6 @@ static const struct {
         bool quiet;
 } tests[] = {
         //DEFINE_QUIET_TEST(test_bitstream),
-        DEFINE_QUIET_TEST(test_des),
-        //DEFINE_QUIET_TEST(test_aes),
         DEFINE_QUIET_TEST(test_md5),
         DEFINE_QUIET_TEST(test_tv),
         DEFINE_QUIET_TEST(test_net_udp),
