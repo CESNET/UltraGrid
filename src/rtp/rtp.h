@@ -298,7 +298,6 @@ const char	*rtp_get_sdes(struct rtp *session, uint32_t ssrc, rtcp_sdes_type type
 const rtcp_sr	*rtp_get_sr(struct rtp *session, uint32_t ssrc);
 const rtcp_rr	*rtp_get_rr(struct rtp *session, uint32_t reporter, uint32_t reportee);
 
-bool             rtp_set_encryption_key(struct rtp *session, const char *passphrase);
 bool             rtp_set_my_ssrc(struct rtp *session, uint32_t ssrc);
 
 uint8_t		*rtp_get_userdata(struct rtp *session);
