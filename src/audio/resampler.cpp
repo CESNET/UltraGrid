@@ -94,14 +94,14 @@ struct resample_prop {
 };
 
 #ifdef HAVE_SOXR
-class soxr_resampler : public audio_frame2_resampler::impl {
+class soxr_resampler final : public audio_frame2_resampler::impl {
 public:
         tuple<bool, audio_frame2> resample(audio_frame2 &a, vector<audio_frame2::channel> &new_channels, int new_sample_rate_num, int new_sample_rate_den) override;
         const int *get_supported_bps() override {
                 static const int ret[] = { 2, 4, 0 };
                 return ret;
         }
-        ~soxr_resampler() {
+        ~soxr_resampler() override {
                 if (resampler) {
                         soxr_delete(resampler);
                 }
@@ -227,7 +227,7 @@ tuple<bool, audio_frame2> soxr_resampler::resample(audio_frame2 &a, vector<audio
 #endif
 
 #ifdef HAVE_SPEEXDSP
-class speex_resampler : public audio_frame2_resampler::impl {
+class speex_resampler final : public audio_frame2_resampler::impl {
 public:
         tuple<bool, audio_frame2> resample(audio_frame2 &a, vector<audio_frame2::channel> &new_channels, int new_sample_rate_num, int new_sample_rate_den) override;
 
@@ -238,7 +238,7 @@ public:
                 return ret;
         }
 
-        ~speex_resampler() {
+        ~speex_resampler() override{
                 if (state) {
                         speex_resampler_destroy(state);
                 }
