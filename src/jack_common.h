@@ -214,38 +214,37 @@ static inline struct device_info *audio_jack_probe(const char *client_name,
                                                    unsigned long port_flags,
                                                    int *count)
 {
-        jack_client_t *client;
         jack_status_t status;
         char *last_name = NULL;
-        int i;
-        const char **ports;
-        int port_count = 0; 
+        *count = 0;
         struct libjack_connection *libjack = open_libjack();
         if (!libjack) {
                 return NULL;
         }
 
-        *count = 0;
-        client = libjack->client_open(client_name, JackNoStartServer, &status);
+        jack_client_t *client = libjack->client_open(client_name, JackNoStartServer, &status);
         if(status & JackFailure) {
                 log_msg(LOG_LEVEL_ERROR, "Opening JACK client failed.\n");
                 close_libjack(libjack);
                 return NULL;
         }
 
-        ports = libjack->get_ports(client, NULL, NULL, port_flags);
+        const char **ports = libjack->get_ports(client, NULL, NULL, port_flags);
         if(ports == NULL) {
                 log_msg(LOG_LEVEL_ERROR, "Unable to enumerate JACK ports.\n");
                 close_libjack(libjack);
                 return NULL;
         }
 
-        for(port_count = 0; ports[port_count] != NULL; port_count++);
+        int port_count = 0;
+        while(ports[port_count] != NULL){
+                port_count++;
+        }
 
         struct device_info *available_devices = port_count > 0 ? calloc(port_count, sizeof(struct device_info)) : NULL;
 
         int channel_count = 0;
-        for(i = 0; ports[i] != NULL; i++) {
+        for(int i = 0; ports[i] != NULL; i++) {
                 char *item = strdup(ports[i]);
                 assert(item != NULL);
                 char *save_ptr = NULL;
