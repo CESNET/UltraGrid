@@ -49,7 +49,7 @@ struct video_frame;
 struct rs : public fec {
         rs(unsigned int k, unsigned int n);
         rs(const char *cfg, bool is_audio) noexcept(false);
-        virtual ~rs();
+        ~rs() override;
 
         struct video_frame *
         encode_video_frame(const struct video_frame *video_frame) override;
