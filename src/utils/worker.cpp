@@ -67,7 +67,7 @@ struct worker_state_observer {
  */
 struct wp_task_data {
         wp_task_data(runnable_t task, void *data, wp_worker *w, bool detached) : m_task(task), m_data(data),
-                m_result(0), m_returned(false), m_w(w), m_detached(detached) {}
+                m_result(nullptr), m_returned(false), m_w(w), m_detached(detached) {}
         runnable_t m_task;
         void *m_data;
         void *m_result;
@@ -187,11 +187,11 @@ class worker_pool : public worker_state_observer
 {
         public:
                 worker_pool() {
-                        pthread_mutex_init(&m_lock, NULL);
-                        pthread_cond_init(&m_worker_finished, NULL);
+                        pthread_mutex_init(&m_lock, nullptr);
+                        pthread_cond_init(&m_worker_finished, nullptr);
                 }
 
-                ~worker_pool() {
+                ~worker_pool() override {
                         pthread_mutex_lock(&m_lock);
                         while (m_occupied_workers.size() > 0) {
                                 pthread_cond_wait(&m_worker_finished, &m_lock);
@@ -204,7 +204,7 @@ class worker_pool : public worker_state_observer
                         CHK_PTHR(pthread_mutex_destroy(&m_lock));
                 }
 
-                void notify(wp_worker *w) {
+                void notify(wp_worker *w) override {
                         pthread_mutex_lock(&m_lock);
                         m_occupied_workers.erase(w);
                         m_empty_workers.insert(w);
