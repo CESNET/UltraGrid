@@ -120,7 +120,6 @@ using namespace std::string_literals;
 #define DEFAULT_NVENC_RC_BUF_SIZE_FACTOR 1.5 // NOLINT: ditto
 
 namespace {
-constexpr double  FLW_THRESH         = 1920 * 1080 * 30; //< in px/sec
 constexpr double  FLW_UHD_60         = 3840 * 2160 * 60;
 constexpr int64_t HOUSEKEEP_INTERVAL = 100; //< for metadata_storage
 
@@ -1386,13 +1385,6 @@ static void check_duration(struct state_video_compress_libav *s, time_ns_t dur_p
                         hint = "\"cpu-used=8\" option for quality/speed trade-off to AOM AV1 compression (values 0-8 allowed)";
                         quality_hurt = "quality";
                 }
-        } else if (strcmp(s->codec_ctx->codec->name, "libsvt_hevc") == 0) {
-                if (!s->req_lavc_opts.contains("preset")) {
-                        hint =
-                            "\"preset=12\" option for quality/speed trade-off "
-                            "to libsvt_hevc compression (values 0-12 allowed)";
-                        quality_hurt = "quality";
-                }
         } else if ((s->codec_ctx->thread_type & FF_THREAD_SLICE) == 0 && (s->codec_ctx->codec->capabilities & AV_CODEC_CAP_FRAME_THREADS) != 0) {
                 hint = "\"threads=<n>FS\" option with small <n> or 0 (nr of logical cores) to compression";
         } else if (s->codec_ctx->thread_count == 1 && (s->codec_ctx->codec->capabilities & AV_CODEC_CAP_OTHER_THREADS) != 0) {
@@ -1400,6 +1392,11 @@ static void check_duration(struct state_video_compress_libav *s, time_ns_t dur_p
         }
         if (!hint.empty()) {
                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Consider adding " << hint << " to increase throughput at the expense of " << quality_hurt << ".\n";
+        }
+
+        if (!s->req_lavc_opts.contains("preset")) {
+                MSG(WARNING, "Consider setting explicitly worse preset than "
+                             "the default.\n");
         }
 
         bool src_rgb = codec_is_a_rgb(s->saved_desc.color_spec);
@@ -2247,20 +2244,22 @@ configure_svt_hevc_vp9(AVCodecContext *codec_ctx, struct setparam_param *param)
                         check_av_opt_set<int>(codec_ctx->priv_data, "tile_slice_mode", 1);
                         check_av_opt_set<int>(codec_ctx->priv_data, "umv", 0);
                 }
-                if (param->desc.width * param->desc.height * param->desc.fps > FLW_UHD_60) {
+                if (!param->lavc_opts.contains("preset") &&
+                    param->desc.width * param->desc.height * param->desc.fps >
+                        FLW_UHD_60) {
+                        // avoids excessive encoder delay with dfl preset 7
+                        const char *const preset = "11";
+                        MSG(WARNING, "Setting preset for SVT HEVC to %s "
+                                     "automatically.\n", preset);
                         check_av_opt_set<const char *>(codec_ctx->priv_data,
-                                                       "preset", "11");
+                                                       "preset", preset);
                 }
         }
 }
 
 static void
 configure_svt_av1(AVCodecContext *codec_ctx, struct setparam_param *param) {
-        const char *preset =
-            param->desc.width * param->desc.height * param->desc.fps <=
-                    FLW_THRESH
-                ? "9"
-                : "11";
+        const char *const preset = "9";
         check_av_opt_set<const char *>(codec_ctx->priv_data, "preset", preset);
 #if LIBAVCODEC_VERSION_INT > AV_VERSION_INT(59, 21, 100)
         // pred-struct=1 is low-latency mode
