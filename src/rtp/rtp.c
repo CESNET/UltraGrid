@@ -103,11 +103,6 @@
 #define RTP_IPPORT_MAX ((1U<<16U) - 1U)
 #define MOD_NAME "[rtp] "
 
-/*
- * Encryption stuff.
- */
-#define MAX_ENCRYPTION_PAD 16
-
 static void rtp_process_data(struct rtp *session, uint32_t curr_rtp_ts,
                uint8_t *buffer, rtp_packet *packet, int buflen);
 
@@ -2120,7 +2115,6 @@ static void rtp_process_ctrl(struct rtp *session, uint8_t * buffer, int buflen)
         /* This routine processes incoming RTCP packets */
         rtp_event event;
         rtcp_t *packet;
-        uint8_t initVec[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
         int first;
         uint32_t packet_ssrc = rtp_my_ssrc(session);
 
@@ -2743,7 +2737,6 @@ rtp_send_data_hdr(struct rtp *session,
         int vlen, buffer_len, i, rc, pad, pad_len __attribute__((unused));
         uint8_t *buffer = NULL;
         rtp_packet *packet = NULL;
-        uint8_t initVec[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 #ifdef _WIN32
         WSABUF *send_vector = NULL;
 #else
@@ -3264,12 +3257,11 @@ static void send_rtcp(struct rtp *session, uint32_t rtp_ts,
         /* Construct and send an RTCP packet. The order in which packets are packed into a */
         /* compound packet is defined by section 6.1 of draft-ietf-avt-rtp-new-03.txt and  */
         /* we follow the recommended order.                                                */
-        uint8_t buffer[RTP_MAX_PACKET_LEN + MAX_ENCRYPTION_PAD];        /* The +8 is to allow for padding when encrypting */
+        uint8_t buffer[RTP_MAX_PACKET_LEN];
         uint8_t *ptr = buffer;
         uint8_t *old_ptr;
         uint8_t *lpt;           /* the last packet in the compound */
         rtcp_app *app;
-        uint8_t initVec[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 
         check_database(session);
 
@@ -3472,10 +3464,9 @@ static void rtp_send_bye_now(struct rtp *session)
         /* Send a BYE packet immediately. This is an internal function,  */
         /* hidden behind the rtp_send_bye() wrapper which implements BYE */
         /* reconsideration for the application.                          */
-        uint8_t buffer[RTP_MAX_PACKET_LEN + MAX_ENCRYPTION_PAD];        /* + 8 to allow for padding when encrypting */
+        uint8_t buffer[RTP_MAX_PACKET_LEN];
         uint8_t *ptr = buffer;
         rtcp_common *common;
-        uint8_t initVec[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 
         check_database(session);
 
