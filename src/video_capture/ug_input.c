@@ -185,8 +185,9 @@ static int vidcap_ug_input_init(const struct vidcap_params *cap_params, void **s
 
         struct rxtx_params params = RXTX_INIT;
 
+        struct module *parent = vidcap_params_get_parent(cap_params);
         // common
-        params.parent = vidcap_params_get_parent(cap_params);
+        params.parent = parent;
         params.medium[TX_MEDIA_AUDIO].rxtx_mode = MODE_RECEIVER;
         params.medium[TX_MEDIA_VIDEO].rxtx_mode = MODE_RECEIVER;
 
@@ -212,6 +213,7 @@ static int vidcap_ug_input_init(const struct vidcap_params *cap_params, void **s
                 opt.recv_cfg             = "embedded";
                 opt.display              = s->display;
                 opt.rxtx                 = s->rxtx;
+                opt.parent               = parent;
 
                 if (audio_init(&s->audio, &opt) != 0) {
                         vidcap_ug_input_done(s);
