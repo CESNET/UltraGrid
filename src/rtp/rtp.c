@@ -2726,7 +2726,7 @@ rtp_send_data_hdr(struct rtp *session,
                   char *data, int data_len,
                   char *extn, uint16_t extn_len, uint16_t extn_type)
 {
-        int vlen, buffer_len, i, rc, pad, pad_len __attribute__((unused));
+        int vlen, buffer_len, i, rc;
         uint8_t *buffer = NULL;
         rtp_packet *packet = NULL;
 #ifdef _WIN32
@@ -2754,29 +2754,6 @@ rtp_send_data_hdr(struct rtp *session,
         if (extn != NULL) {
                 buffer_len += (extn_len + 1) * 4;
         }
-
-        /* Do we need to pad this packet to a multiple of 64 bits? */
-        /* This is only needed if encryption is enabled, since DES */
-        /* only works on multiples of 64 bits. We just calculate   */
-        /* the amount of padding to add here, so we can reserve    */
-        /* space - the actual padding is added later.              */
-#ifdef NDEF
-        /* FIXME: This is broken, due to scatter send [csp]        *//* FIXME */
-        if ((session->encryption_enabled) &&
-            ((buffer_len % session->encryption_pad_length) != 0)) {
-                pad = true;
-                pad_len =
-                    session->encryption_pad_length -
-                    (buffer_len % session->encryption_pad_length);
-                buffer_len += pad_len;
-                assert((buffer_len % session->encryption_pad_length) == 0);
-        } else {
-                pad = false;
-                pad_len = 0;
-        }
-#endif
-        pad = false;            /* FIXME */
-        pad_len = 0;
 
         /* Allocate memory for the packet... */
         assert(buffer_len < RTP_MAX_PACKET_LEN);
@@ -2812,7 +2789,7 @@ rtp_send_data_hdr(struct rtp *session,
 #endif
         /* ...and the actual packet header... */
         packet->v = 2;
-        packet->p = pad;
+        packet->p = 0;
         packet->x = (extn != NULL);
         packet->cc = cc;
         packet->m = m;
@@ -2866,16 +2843,6 @@ rtp_send_data_hdr(struct rtp *session,
 #endif
                 send_vector_len++;
         }
-#ifdef NDEF                     /* FIXME */
-        /* ...and any padding... */
-        if (pad) {
-                for (i = 0; i < pad_len; i++) {
-                        buffer[buffer_len + RTP_PACKET_HEADER_SIZE - pad_len +
-                               i] = 0;
-                }
-                buffer[buffer_len + RTP_PACKET_HEADER_SIZE - 1] = (char)pad_len;
-        }
-#endif
 
         rc = udp_sendv(session->rtp_socket, send_vector, send_vector_len, d);
         if (rc == -1) {
