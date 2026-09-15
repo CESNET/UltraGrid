@@ -243,14 +243,6 @@ typedef struct {
 } options;
 
 /*
- * Encryption function types
- */
-typedef int (*rtp_encrypt_func) (struct rtp *, unsigned char *data,
-                                 unsigned int size, unsigned char *initvec);
-typedef bool (*rtp_decrypt_func) (struct rtp *, unsigned char *data,
-                                 unsigned int size, unsigned char *initvec);
-
-/*
  * The "struct rtp" defines an RTP session.
  */
 
@@ -3600,14 +3592,6 @@ void rtp_done(struct rtp *session)
         }
 
         delete_source(session, session->my_ssrc);
-
-        /*
-         * Introduce a memory leak until we add algorithm-specific
-         * cleanup functions.
-         if (session->encryption_key != NULL) {
-         free(session->encryption_key);
-         }
-         */
 
         udp_exit(session->rtp_socket);
         udp_exit(session->rtcp_socket);
