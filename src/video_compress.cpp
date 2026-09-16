@@ -410,13 +410,16 @@ void compress_frame(struct compress_state *proxy, shared_ptr<video_frame> frame)
 /**
  * @brief Auxiliary structure passed to worker thread.
  */
+namespace{
+
 struct compress_worker_data {
-        void *state;      ///< compress driver status
+        void *state = nullptr;      ///< compress driver status
         shared_ptr<video_frame> frame; ///< uncompressed tile to be compressed
 
-        compress_tile_t callback;  ///< tile compress callback
+        compress_tile_t callback = nullptr;  ///< tile compress callback
         shared_ptr<video_frame> ret; ///< OUT - returned compressed tile, NULL if failed
 };
+}
 
 /**
  * @brief This function is callback passed to a "thread pool"
