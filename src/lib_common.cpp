@@ -65,6 +65,7 @@
 
 using namespace std;
 
+namespace{
 struct library_class_info_t {
         const char *class_name;
         const char *file_prefix;
@@ -84,7 +85,8 @@ const map<enum library_class, library_class_info_t> library_class_info = {
         { LIBRARY_CLASS_RXTX, { "RXTX", "rxtx" }},
 };
 
-static map<string, string> lib_errors;
+map<string, string> lib_errors;
+}
 
 static struct class_modules
 get_libraries_for_class_internal(enum library_class cls, int abi_version,
@@ -228,6 +230,8 @@ struct lib_info {
         unsigned visibility_flag;
 };
 
+namespace{
+
 // http://stackoverflow.com/questions/1801892/making-mapfind-operation-case-insensitive
 /************************************************************************/
 /* Comparator for case-insensitive comparison in STL assos. containers  */
@@ -249,12 +253,14 @@ struct ci_less
         }
 };
 
-static auto& get_libmap(){
+auto& get_libmap(){
         /* This is needed because register_library() may be called before global
          * static members are initialized (it is __attribute__((constructor)))
          */
         static map<enum library_class, map<string, lib_info, ci_less>> libraries;
         return libraries;
+}
+
 }
 
 /**
