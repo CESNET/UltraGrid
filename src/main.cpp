@@ -137,6 +137,7 @@ constexpr int OPT_WINDOW_TITLE           = ('W' << 8) | 'T';
 using namespace std;
 using namespace std::chrono;
 
+namespace{
 struct state_uv {
         uint32_t magic = state_magic;
         state_uv() noexcept {
@@ -164,6 +165,7 @@ struct state_uv {
         bool should_exit_capture = false;
         static constexpr uint32_t state_magic = to_fourcc('U', 'G', 'S', 'T');
 };
+} //anon namespace
 
 static void signal_handler(int signum)
 {
@@ -529,6 +531,8 @@ parse_mtu(char *optarg)
         return ret;
 }
 
+namespace{
+
 struct ug_options {
         ug_options() {
                 vidcap_params_set_device(vidcap_params_head, "none");
@@ -565,6 +569,7 @@ struct ug_options {
 
         char *nat_traverse_config = nullptr;
 };
+} //anon namespace
 
 static int
 parse_audio_capture(struct ug_options *opt, const char *optarg)
