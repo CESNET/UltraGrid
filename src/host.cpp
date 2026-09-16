@@ -183,8 +183,6 @@ uint32_t RTT = 0;               /*  this is computed by handle_rr in rtp_callbac
 int uv_argc;
 char **uv_argv;
 
-char *export_dir = NULL;
-
 volatile int audio_offset; ///< added audio delay in ms (non-negative), can be used to tune AV sync
 volatile int video_offset; ///< added video delay in ms (non-negative), can be used to tune AV sync
 
