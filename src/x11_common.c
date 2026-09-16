@@ -70,15 +70,12 @@ struct x11_state {
         bool initialized;
 };
 
-struct x11_state *get_state(void);
-
-struct x11_state *get_state() {
-        struct x11_state *state;
+static struct x11_state *get_state() {
         pthread_mutex_lock(&x11_common_lock);
         if (x11_state == nullptr) {
                 x11_state = calloc(1, sizeof (struct x11_state));
         }
-        state = x11_state;
+        struct x11_state *state = x11_state;
         if(!state->initialized) {
                 state->display = NULL;
                 pthread_mutex_init(&state->lock, NULL);
