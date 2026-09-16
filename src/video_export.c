@@ -57,7 +57,7 @@
  * we do not need to have possible stalls, so IO is performend in a separate thread
  */
 static void *video_export_thread(void *arg);
-void output_summary(struct video_export *s);
+static void output_summary(struct video_export *s);
 
 struct output_entry {
         char *filename;
@@ -154,7 +154,7 @@ struct video_export * video_export_init(const char *path)
         return s;
 }
 
-void output_summary(struct video_export *s)
+static void output_summary(struct video_export *s)
 {
         char name[MAX_PATH_SIZE];
         snprintf(name, sizeof name, "%s/video.info", s->path);
