@@ -183,6 +183,27 @@ rgb24_to_uyvy(struct av_conv_data d)
         }
 }
 
+static void
+gray_to_uyvy(struct av_conv_data d)
+{
+        const int width = d.in_frame->width;
+        const int height = d.in_frame->height;
+        const AVFrame *in_frame = d.in_frame;
+
+        for (size_t y = 0; y < (size_t) height; ++y) {
+                const unsigned char *src_y =
+                    in_frame->data[0] + (in_frame->linesize[0] * y);
+                unsigned char *dst =
+                    (unsigned char *) d.dst_buffer + (d.pitch * y);
+                for (int x = 0; x < width / 2; x++) {
+                        *dst++ = 128;
+                        *dst++ = *src_y++;
+                        *dst++ = 128;
+                        *dst++ = *src_y++;
+                }
+        }
+}
+
 static void memcpy_data(struct av_conv_data d) __attribute__((unused));
 static void
 memcpy_data(struct av_conv_data d)
@@ -2047,6 +2068,7 @@ struct av_to_uv_conversion {
 };
 
 static const struct av_to_uv_conversion av_to_uv_conversions[] = {
+        { AV_PIX_FMT_GRAY8,       UYVY,      gray_to_uyvy,                 nullptr },
         // 10-bit YUV
         { AV_PIX_FMT_YUV420P10LE, v210,      yuv420p10le_to_v210,          nullptr },
         { AV_PIX_FMT_YUV420P10LE, UYVY,      yuv420p10le_to_uyvy,          nullptr },

@@ -189,6 +189,22 @@ static void uyvy_to_yuv444p(AVFrame * __restrict out_frame, const unsigned char 
         }
 }
 
+static void
+uyvy_to_gray(AVFrame *__restrict out_frame, const unsigned char *__restrict src,
+             int width, int height)
+{
+        for (size_t y = 0; y < (size_t) height; ++y) {
+                unsigned char *dst_y =
+                    out_frame->data[0] + (out_frame->linesize[0] * y);
+                for (int x = 0; x < width / 2; x++) {
+                        src++;
+                        *dst_y++ = *src++;
+                        src++;
+                        *dst_y++ = *src++;
+                }
+        }
+}
+
 static void to_lavc_uyvy_to_nv12(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
         uyvy_to_nv12(to_planar_data_from_avfame(out_frame, in_data, width, height));
@@ -1503,6 +1519,7 @@ static const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { UYVY, AV_PIX_FMT_NV12,        to_lavc_uyvy_to_nv12 },
                 { UYVY, AV_PIX_FMT_YUV444P,     uyvy_to_yuv444p },
                 { UYVY, AV_PIX_FMT_YUVJ444P,    uyvy_to_yuv444p },
+                { UYVY, AV_PIX_FMT_GRAY8,       uyvy_to_gray },
                 { Y216, AV_PIX_FMT_YUV422P10LE, y216_to_yuv422p10le },
                 { Y216, AV_PIX_FMT_YUV422P16LE, y216_to_yuv422p16le },
                 { Y216, AV_PIX_FMT_YUV444P16LE, y216_to_yuv444p16le },

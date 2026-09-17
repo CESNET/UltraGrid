@@ -210,6 +210,9 @@ void ug_set_av_logging() {
 /// @returns subsampling in 'JabA' format (compatible with @ref get_subsamping)
 int av_pixfmt_get_subsampling(enum AVPixelFormat fmt) {
         const struct AVPixFmtDescriptor *pd = av_pix_fmt_desc_get(fmt);
+        if (pd->nb_components == 1) {
+                return 4000;
+        }
         if (pd->log2_chroma_w == 0 && pd->log2_chroma_h == 0) {
                 return 4440;
         }
