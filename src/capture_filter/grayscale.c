@@ -76,6 +76,7 @@ static void done(void *state)
 
 static struct video_frame *filter(void *state, struct video_frame *in)
 {
+        enum { CHROMA_NEUTRAL = 128 }; // zero in excess-8 represenataion (+128)
         if (in == nullptr) {
                 return nullptr;
         }
@@ -101,7 +102,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         if (in->color_spec == UYVY) {
                 for (unsigned int i = 0;
                      i < in->tiles[0].width * in->tiles[0].height; ++i) {
-                        *out_data++ = 127;
+                        *out_data++ = CHROMA_NEUTRAL;
                         in_data++;
                         *out_data++ = *in_data++;
                 }
@@ -109,7 +110,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
                 for (unsigned int i = 0;
                      i < in->tiles[0].width * in->tiles[0].height; ++i) {
                         *out_data++ = *in_data++;
-                        *out_data++ = 127;
+                        *out_data++ = CHROMA_NEUTRAL;
                         in_data++;
                 }
         }
