@@ -2786,6 +2786,9 @@ rtp_send_data_hdr(struct rtp *session,
         if (extn != NULL) {
                 packet->data += (extn_len + 1) * 4;
         }
+#else
+        assert(cc == 0);
+        assert(extn == NULL);
 #endif
         /* ...and the actual packet header... */
         packet->v = 2;
