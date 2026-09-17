@@ -788,7 +788,7 @@ parse_bitrate(char *optarg, long long int *bitrate)
                 { .name = "dynamic",   .val = RATE_DYNAMIC   },
                 { .name = "unlimited", .val = RATE_UNLIMITED },
         };
-        for (unsigned i = 0; countof(bitrate_spec_map); i++) {
+        for (unsigned i = 0; i < countof(bitrate_spec_map); i++) {
                 if (strcmp(bitrate_spec_map[i].name, optarg) == 0) {
                         *bitrate = bitrate_spec_map[i].val;
                         return 0;
