@@ -48,6 +48,8 @@
 #include "vo_postprocess/capture_filter_wrapper.h"
 struct module;
 
+#define MOD_NAME "[vcf/grayscale] "
+
 static int init(struct module *parent, const char *cfg, void **state);
 static void done(void *state);
 static struct video_frame *filter(void *state, struct video_frame *in);
@@ -79,8 +81,9 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         }
         struct state_grayscale *s = state;
 
-        if (in->color_spec != UYVY) {
-                log_msg(LOG_LEVEL_WARNING, "Cannot create grayscale from other codec than UYVY!\n");
+        if (in->color_spec != UYVY && in->color_spec != YUYV) {
+                MSG(WARNING, "Cannot create grayscale from other "
+                             "codec than UYVY or YUYV!\n");
                 return in;
         }
         struct video_frame *out = vf_alloc_desc(video_desc_from_frame(in));
@@ -95,10 +98,20 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         unsigned char *in_data = (unsigned char *) in->tiles[0].data;
         unsigned char *out_data = (unsigned char *) out->tiles[0].data;
 
-        for (unsigned int i = 0; i < in->tiles[0].width * in->tiles[0].height; ++i) {
-                *out_data++ = 127;
-                in_data++;
-                *out_data++ = *in_data++;
+        if (in->color_spec == UYVY) {
+                for (unsigned int i = 0;
+                     i < in->tiles[0].width * in->tiles[0].height; ++i) {
+                        *out_data++ = 127;
+                        in_data++;
+                        *out_data++ = *in_data++;
+                }
+        } else {
+                for (unsigned int i = 0;
+                     i < in->tiles[0].width * in->tiles[0].height; ++i) {
+                        *out_data++ = *in_data++;
+                        *out_data++ = 127;
+                        in_data++;
+                }
         }
 
         VIDEO_FRAME_DISPOSE(in);
