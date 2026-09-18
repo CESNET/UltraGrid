@@ -40,7 +40,7 @@ get_tools() {(
 
 # handle symlinks, so eg. if symlinked to hd-rum-transcode, ruh the transcoder
 # (no need to use `U.traGrid...AppImage -o hd-rum-transcode`)
-get_tool_from_progname() {(
+get_tool_from_progname() (
         prog=$(basename "${ARGV0?}")
         # shellcheck disable=SC2046 # intentional
         set -- $(get_tools)
@@ -51,10 +51,10 @@ get_tool_from_progname() {(
                 fi
                 shift
         done
-)}
+)
 
 # create convenience symlinks for the AppImage
-mk_symlinks() {(
+mk_symlinks() (
         if [ "$APPIMAGE" = none ]; then
                 abs_path=$(realpath "$0")
                 dstdir=.
@@ -71,7 +71,7 @@ ${bold_str}...\n" "$(get_tools)" "$dstdir" "$abs_path"
                 ln -s "$abs_path" "$1" || true
                 shift
         done
-)}
+)
 
 ## @param $1  non-empty to show full help
 usage() {
@@ -149,7 +149,7 @@ ${reset}\n" "$ARGV0"
 update_check_days=90
 ## Trigger update if $ULTRAGRID_AUTOUPDATE days passed.
 ## If $ULTRAGRID_AUTOUPDATE unset or empty, print update hint if UG binary is older than $update_check_days days.
-handle_autoupdates() {(
+handle_autoupdates() (
         if [ "${ULTRAGRID_AUTOUPDATE-0}" -eq -1 ]; then
                 return
         fi
@@ -185,20 +185,20 @@ handle_autoupdates() {(
                 fi
                 return
         fi
-        printf "${bold}${red}"
-        printf "UltraGrid binary older than %d days, consider checking updates:\n" "$update_check_days"
-        printf "\n"
-        printf "%s -u\n" "$ARGV0"
-        printf "\t- updates AppImage\n"
-        printf "%s -u -j; [ \$? -eq 1 ] && echo Update available || echo No update available\n" "$ARGV0"
-        printf "\t- check for update without actually updating\n"
-        printf "%s -u -h\n" "$ARGV0"
-        printf "\t- prints update options\n"
-        printf "\n"
-        printf "Hint: you can set environment variable ULTRAGRID_AUTOUPDATE to 1 for daily automatic update or -1 to suppress the above message.\n"
-        printf "\n"
-        printf "${reset}"
-)}
+        cat >&2 <<EOF
+${bold}${red}UltraGrid binary older than $update_check_days days, consider checking updates:
+
+$ARGV0 -u
+        - updates AppImage
+$ARGV0 -u -j; [ \$? -eq 1 ] && echo Update available || echo No update available
+        - check for update without actually updating
+$ARGV0 -u -h
+        - prints update options
+
+Hint: you can set environment variable ULTRAGRID_AUTOUPDATE to 1 for daily automatic update or -1 to suppress the above message.
+${reset}
+EOF
+)
 
 debug_msg() {
         if [ -z "${APPIMAGE_DEBUG:-}" ]; then
@@ -543,6 +543,8 @@ elif [ "$1" = "-u" ] || [ "$1" = "--update" ]; then
         fi
         touch "$APPIMAGE" # update AppImage mtime to avoid update notices if there are no updates avalable but were checked for
         "$DIR/appimageupdatetool" ${1+"$@" }"$APPIMAGE"
+        echo "Current UltraGrid AppImage file version:"
+        ULTRAGRID_USE_FIREJAIL=0 "$APPIMAGE" -v 2>/dev/null | head -n 1
 elif [ "$1" = "--mk-symlinks" ]; then
         mk_symlinks
 else
