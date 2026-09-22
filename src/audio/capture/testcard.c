@@ -272,7 +272,7 @@ parse_fmt(struct state_audio_capture_testcard *s, char *fmt,
                 }
                 if (IS_KEY_PREFIX(item, "volume")) {
                         *volume = strtod(val, nullptr);
-                        assert(*volume > 0.0);
+                        assert(*volume <= 0.0);
                 } else if (IS_KEY_PREFIX(item, "file")) {
                         strlcpy(wav_file, val, MAX_PATH_SIZE);
                         *pattern  = WAV;
