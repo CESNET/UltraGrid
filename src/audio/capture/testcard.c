@@ -123,7 +123,7 @@ static char *get_sine_signal(int sample_rate, int bps, int channels, int frequen
                 for (int channel = 0; channel < channels; ++channel) {
                         double sine = sin(((double) i / ((double) sample_rate / frequency)) * M_PI * 2. );
                         if (crescendo_spd != 0) {
-                                double multiplier = ((double) ((i * crescendo_spd) % sample_rate) / sample_rate);
+                                double multiplier = ((double) ((((i * crescendo_spd) % sample_rate) + sample_rate) % sample_rate) / sample_rate);
                                 sine *= 2 * multiplier; // up to 2x amplitude
                         }
                         int32_t val = CLAMP(sine * INT32_MAX * scale, (double) INT32_MIN, (double) INT32_MAX);
@@ -296,7 +296,6 @@ parse_fmt(struct state_audio_capture_testcard *s, char *fmt,
                                         return false;
                                 }
                                 s->crescendo_speed = (int) strtol(val, NULL, 0);
-                                assert(s->crescendo_speed > 0);
                         }
                 } else if (IS_PREFIX(item, "ebu")) {
                         *pattern = EBU;
@@ -402,10 +401,10 @@ static void *audio_cap_testcard_init(struct module *parent, const char *cfg)
                         { "volume=<vol>", "a volume in dBFS (default " TOSTRING(DEFAULT_VOLUME) ")" },
                         { "file=<wav>", "a wav file to be played" },
                         { "frames=<nf>", "sets number of audio frames per packet" },
-                        { "frequency=<f>", "frequency of sinusoide" },
+                        { "frequency=<f>", "frequency of sinusoid" },
                         { "ebu", "use EBU sound" },
                         { "silence", "emit silence" },
-                        { "crescendo[=<spd>]", "produce amplying sinusoide (optionally accelerated)" },
+                        { "crescendo[=<spd>]", "produce sine wave with increasing or decreasing amplitude (optionally accelerated)" },
                         { "noise", "emit noise" },
                         { NULL, NULL }
                 };
