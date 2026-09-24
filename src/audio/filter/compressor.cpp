@@ -203,11 +203,11 @@ af_result_code compressor_filter(void *state, const audio_frame **f){
 
                 if(env > s->threshold){
                         float reduction_dB = (1 / s->ratio - 1) * (env - s->threshold);
-                        float gain = std::powf(10, reduction_dB / 20.f);
+                        float gain = std::pow(10.f, reduction_dB / 20.f);
                         sample_float *= gain;
                 }
 
-                sample_float *= std::powf(10, s->makeup_gain / 20.f);
+                sample_float *= std::pow(10.f, s->makeup_gain / 20.f);
                 sample_float = std::clamp(sample_float, -1.0f, 1.0f);
                 sample = sample_float * INT16_MAX;
                 *reinterpret_cast<int16_t *>(frame->data + bps * i) = sample;
