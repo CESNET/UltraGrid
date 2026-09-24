@@ -3843,6 +3843,7 @@ if test "$build_default" != no || test "$req_files" = all; then
         src/audio/filter/silence.o
         src/audio/filter/playback.o
         src/audio/filter/channel_remap.o
+        src/audio/filter/compressor.o
         src/capture_filter/preview.o
         src/rxtx/h264_sdp.o
         src/rxtx/loopback.o
