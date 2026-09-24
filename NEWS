@@ -4,6 +4,7 @@ next
 * support for JPEG-XS
 * support for Open Media Transport
 * support for Pyrowave
+* new dynamic range compressor audio filter
 * added OpenAPV compress/decompress modules
 * vulkan display now prefers Wayland
 * GUI: Improve audio device list
