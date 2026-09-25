@@ -46,7 +46,7 @@
 #include "lib_common.h"
 #include "utils/string_view_utils.hpp"
 
-#define MOD_NAME "afilter/compressor"
+#define MOD_NAME "[afilter/compressor] "
 
 namespace{
 
