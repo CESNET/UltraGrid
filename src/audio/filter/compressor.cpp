@@ -130,15 +130,16 @@ bool parse_config(state_audio_compressor *s, std::string_view cfg){
                 const auto key = tokenize(tok, '=');
                 const auto val = tokenize(tok, '=');
 
-                if (key == "attack"){
+                using namespace std::literals::string_view_literals;
+                if ("attack"sv.starts_with(key)){
                         parse_num(val, s->attack_ms);
-                } else if(key == "release"){
+                } else if("release"sv.starts_with(key)){
                         parse_num(val, s->release_ms);
-                } else if(key == "threshold"){
+                } else if("threshold"sv.starts_with(key)){
                         parse_num(val, s->threshold);
-                } else if(key == "ratio"){
+                } else if("ratio"sv.starts_with(key)){
                         parse_num(val, s->ratio);
-                } else if(key == "makeup"){
+                } else if("makeup"sv.starts_with(key)){
                         parse_num(val, s->makeup_gain);
                 } else {
                         log_msg(LOG_LEVEL_FATAL, MOD_NAME "Unknown parameter %s\n", SV_TO_CSTR(key));
