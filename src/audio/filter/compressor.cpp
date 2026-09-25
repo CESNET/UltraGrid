@@ -50,6 +50,12 @@
 
 namespace{
 
+constexpr float DEFAULT_THRESHOLD = -8.f;
+constexpr double DEFAULT_ATTACK = 0.5;
+constexpr double DEFAULT_RELEASE = 1000;
+constexpr float DEFAULT_RATIO = 4.f;
+constexpr float DEFAULT_MAKEUP = 3.f;
+
 class Attack_release_envelope{
 public:
         Attack_release_envelope() = default;
@@ -98,11 +104,11 @@ struct state_audio_compressor{
         int sample_rate = 0;
 
         Attack_release_envelope envelope;
-        float threshold = -8.f;
-        double attack_ms = 0.5;
-        double release_ms = 1000;
-        float ratio = 4.f;
-        float makeup_gain = 3.f;
+        float threshold = DEFAULT_THRESHOLD;
+        double attack_ms = DEFAULT_ATTACK;
+        double release_ms = DEFAULT_RELEASE;
+        float ratio = DEFAULT_RATIO;
+        float makeup_gain = DEFAULT_MAKEUP;
 };
 
 void usage(){
@@ -110,8 +116,11 @@ void usage(){
             "compressor") " hard knee compressor with make up gain\n\n");
         color_printf("Usage:\n");
         color_printf("\t" TBOLD("--audio-filter compressor[:attack=<time_ms>][:release=<time_ms>][:ratio=<ratio>][:threshold=<dB>][:makeup=<gain_dB>]\n\n"));
-        color_printf(TBOLD("\tratio")      "\t\tcompression ratio\n");
-        color_printf(TBOLD("\tmakeup")      "\t\tamplification of the resulting signal\n");
+        color_printf(TBOLD("\tratio")      "\t\tcompression ratio (default: %.2f)\n", DEFAULT_RATIO);
+        color_printf(TBOLD("\tmakeup")      "\t\tamplification of the resulting signal in dB (default: %.2f)\n", DEFAULT_MAKEUP);
+        color_printf(TBOLD("\tthreshold")      "\tlevel at which compression starts in dBFS (default: %.2f)\n", DEFAULT_THRESHOLD);
+        color_printf(TBOLD("\tattack")      "\t\tattack time in milliseconds (default: %.2f)\n", DEFAULT_ATTACK);
+        color_printf(TBOLD("\trelease")      "\t\trelease time in milliseconds (default: %.2f)\n", DEFAULT_RELEASE);
 }
 
 bool parse_config(state_audio_compressor *s, std::string_view cfg){
