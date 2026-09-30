@@ -165,7 +165,21 @@ static void handle_keyboard_event(state_vr *s, SDL_Event *event){
                         case SDLK_q:
                                 exit_uv(0);
                                 break;
-                        default:
+                        case SDLK_LEFT:
+                                s->scene.rotate(4.f, 0);
+                                break;
+                        case SDLK_RIGHT:
+                                s->scene.rotate(-4.f, 0);
+                                break;
+                        case SDLK_UP:
+                                s->scene.fov -= 2.f;
+                                redraw(s);
+                                break;
+                        case SDLK_DOWN:
+                                s->scene.fov += 2.f;
+                                redraw(s);
+                                break;
+                default:
                                 break;
                 }
         }
