@@ -79,13 +79,21 @@ struct state_vr{
 
         std::chrono::steady_clock::time_point last_frame;
 
+        std::chrono::steady_clock::time_point last_manual_movement;
+
         std::mutex lock;
         std::condition_variable frame_consumed_cv;
         std::queue<video_frame *> free_frame_queue;
+        bool autorotate = false;
 };
 
-static void * display_panogl_init(module */*parent*/, const char */*fmt*/, unsigned int /*flags*/) {
+static void * display_panogl_init(module */*parent*/, const char *cfg, unsigned int /*flags*/) {
         auto *s = new state_vr();
+
+        using namespace std::string_view_literals;
+        if(cfg && "autorotate"sv == cfg){
+                s->autorotate = true;
+        }
         s->sdl_frame_event = SDL_RegisterEvents(1);
         s->sdl_redraw_event = SDL_RegisterEvents(1);
 
@@ -167,9 +175,11 @@ static void handle_keyboard_event(state_vr *s, SDL_Event *event){
                                 break;
                         case SDLK_LEFT:
                                 s->scene.rotate(4.f, 0);
+                                s->last_manual_movement = std::chrono::steady_clock::now();
                                 break;
                         case SDLK_RIGHT:
                                 s->scene.rotate(-4.f, 0);
+                                s->last_manual_movement = std::chrono::steady_clock::now();
                                 break;
                         case SDLK_UP:
                                 s->scene.fov -= 2.f;
@@ -236,6 +246,7 @@ static void display_panogl_run(void *state) {
                                         s->scene.rotate(event.motion.xrel / 8.f,
                                                         event.motion.yrel / 8.f);
 
+                                        s->last_manual_movement = std::chrono::steady_clock::now();
                                         redraw(s);
                                 }
                                 break;
@@ -256,6 +267,9 @@ static void display_panogl_run(void *state) {
                                 if(event.type >= SDL_USEREVENT)
                                         handle_user_event(s, &event);
                                 break;
+                }
+                if(s->autorotate && std::chrono::steady_clock::now() - s->last_manual_movement > std::chrono::seconds(10)){
+                        s->scene.rotate(-0.05f, 0);
                 }
         }
 }
