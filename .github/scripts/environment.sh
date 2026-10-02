@@ -153,17 +153,18 @@ set_ximea_url() {
         else
                 ximea_pattern=XIMEA_Windows_SP_Stable.exe
         fi
-        set +e
-        ximea_path=$(curl -f https://www.ximea.com/software-downloads |
-                sed -n "/$ximea_pattern/"\
-' { s-^.*\(/attachment[^"]*\).*$-\1-; p; }' | head -n 1)
-        set -e
-        if [ "${ximea_path-}" ]; then
-                XIMEA_DOWNLOAD_URL=https://www.ximea.com$ximea_path
-        else
-                XIMEA_DOWNLOAD_URL=
+        xi_url=https://www.ximea.com/software-downloads
+        xi_dl=$(mktemp)
+        if ! curl -Ss -f "$xi_url" > "$xi_dl"; then
+                echo "Failed to download $xi_url - continuing anyways \
+(assuming that we may still have a cached SDK in CI cache)" 1>&2
+                rm "$xi_dl"
+                return
         fi
-        export XIMEA_DOWNLOAD_URL
+        ximea_path=$(sed -n "/$ximea_pattern/"\
+' { s-^.*\(/attachment[^"]*\).*$-\1-; p; }' < "${xi_dl?}" | head -n 1)
+        rm "$xi_dl"
+        export XIMEA_DOWNLOAD_URL="https://www.ximea.com${ximea_path:?}"
         printf "XIMEA_DOWNLOAD_URL=%s\n" "$XIMEA_DOWNLOAD_URL" >> "$GITHUB_ENV"
 }
 set_ximea_url
