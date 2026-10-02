@@ -140,27 +140,23 @@ fi
 set_ximea_url() {
         if [ "$(uname -s)" = Darwin ]; then
                 if [ "$(uname -m)" = arm64 ]; then
-                        ximea_pattern=XIMEA_macOS_ARM_SP.dmg
+                        ximea_pattern=XIMEA_macOS_ARM_SP_Stable.dmg
                 else
-                        ximea_pattern=XIMEA_macOX_SP.dmg
+                        ximea_pattern=XIMEA_macOX_SP_Stable.dmg
                 fi
         elif [ "$(uname -s)" = Linux ]; then
                 if expr "$GITHUB_WORKFLOW" : ARM >/dev/null; then
-                        ximea_pattern=Linux_ARM_SP.tgz
+                        ximea_pattern=XIMEA_Linux_ARM_SP.tgz
                 else
-                        ximea_pattern=Linux_SP.tgz
+                        ximea_pattern=XIMEA_Linux_SP_Stable.tgz
                 fi
         else
                 ximea_pattern=XIMEA_Windows_SP_Stable.exe
         fi
         set +e
-        # ignore GUID 35adfeed-8e15-4b4d-8364-bd5a65cba5c4 because it is
-        # ARM (LTS) with pattern Linux_SP.tgz and since it listed first,
-        # it will be downloaded for x86, ARM beta is OK
         ximea_path=$(curl -f https://www.ximea.com/software-downloads |
-                grep -v 35adfeed-8e15-4b4d-8364-bd5a65cba5c4 |
                 sed -n "/$ximea_pattern/"\
-' { s-^.*\(/getattachment[^"]*\).*$-\1-; p; }' | head -n 1)
+' { s-^.*\(/attachment[^"]*\).*$-\1-; p; }' | head -n 1)
         set -e
         if [ "${ximea_path-}" ]; then
                 XIMEA_DOWNLOAD_URL=https://www.ximea.com$ximea_path
