@@ -219,9 +219,6 @@ class VideoDelegate final : public IDeckLinkInputCallback
                 }
                 return newRefValue;
         }
-        static string getNotificationEventsStr(
-            BMDVideoInputFormatChangedEvents notificationEvents,
-            BMDDetectedVideoInputFormatFlags flags) noexcept;
         HRESULT STDMETHODCALLTYPE VideoInputFormatChanged(
             BMDVideoInputFormatChangedEvents notificationEvents,
             IDeckLinkDisplayMode            *mode,
@@ -296,10 +293,11 @@ static void print_input_modes (IDeckLink* deckLink);
 static string display_mode_get_name(IDeckLinkDisplayMode *displayMode);
 
 
-string
-VideoDelegate::getNotificationEventsStr(
+static string
+getNotificationEventsStr(
     BMDVideoInputFormatChangedEvents notificationEvents,
-    BMDDetectedVideoInputFormatFlags flags) noexcept
+    BMDDetectedVideoInputFormatFlags flags,
+    BMDFieldDominance field_dominance) noexcept
 {
         string                                        status{};
         map<BMDDetectedVideoInputFormatFlags, string> change_map{
@@ -337,7 +335,39 @@ VideoDelegate::getNotificationEventsStr(
                         first = false;
                 }
         }
+
+        status += ", ";
+        switch (field_dominance) {
+        case bmdLowerFieldFirst:
+                status += "lower-field-first";
+                break;
+        case bmdUpperFieldFirst:
+                status += "upper-field-first";
+                break;
+        case bmdProgressiveFrame:
+                status += "progressive";
+                break;
+        case bmdProgressiveSegmentedFrame:
+                status += "PsF";
+                break;
+        default:
+                status += "UNKNOWN field dominance";
+        }
+
         return status;
+}
+
+static int
+depth_from_flags(BMDDetectedVideoInputFormatFlags flags)
+{
+        if (flags & bmdDetectedVideoInput8BitDepth) {
+                return 8;
+        }
+        if (flags & bmdDetectedVideoInput10BitDepth) {
+                return 10;
+        }
+        assert(flags & bmdDetectedVideoInput12BitDepth);
+        return 12;
 }
 
 HRESULT STDMETHODCALLTYPE
@@ -345,9 +375,20 @@ VideoDelegate::VideoInputFormatChanged(
     BMDVideoInputFormatChangedEvents notificationEvents,
     IDeckLinkDisplayMode *mode, BMDDetectedVideoInputFormatFlags flags) noexcept
 {
+        char aux_info[STR_LEN];
+        if (s->requested_bit_depth != 0 &&
+            (flags & bitDepthMask) != s->requested_bit_depth) {
+                snprintf_ch(aux_info, " Capturing %d bits as requested.",
+                            depth_from_flags((BMDDetectedVideoInputFormatFlags)
+                                                 s->requested_bit_depth));
+        } else {
+                aux_info[0] = '\0';
+        }
         LOG(LOG_LEVEL_NOTICE)
             << MOD_NAME << "Format change detected ("
-            << getNotificationEventsStr(notificationEvents, flags) << ").\n";
+            << getNotificationEventsStr(notificationEvents, flags,
+                                        mode->GetFieldDominance())
+            << ")." << aux_info << "\n";
 
         bool detected_3d = (flags & bmdDetectedVideoInputDualStream3D) != 0U;
         if (detected_3d != s->stereo) {
@@ -395,8 +436,7 @@ VideoDelegate::VideoInputFormatChanged(
         };
         if (s->requested_bit_depth == 0 &&
             (csBitDepth & bmdDetectedVideoInput8BitDepth) == 0) {
-                const int depth =
-                    (flags & bmdDetectedVideoInput10BitDepth) != 0U ? 10 : 12;
+                const int depth = depth_from_flags(flags);
                 if (depth == 12 && !decklink_supports_codec(
                                        deckLinkInput, bmdFormat12BitRGBLE)) {
                         MSG(WARNING, "12-bit input detected but not supported "
