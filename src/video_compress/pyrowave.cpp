@@ -198,7 +198,7 @@ std::shared_ptr<video_frame> pyrowave_compress_tile(void *state, std::shared_ptr
 
         pyrowave_rate_control rate_control{};
         rate_control.maximum_bitstream_size = s->max_frame_size - sizeof(pyrowave_frame_header);
-        auto res= pyrowave_encoder_encode_cpu_synchronous(s->encoder.get(), &s->pyro_frame.f, &rate_control);
+        auto res= pyrowave_encoder_encode_cpu(s->encoder.get(), &s->pyro_frame.f, &rate_control);
         if(res != PYROWAVE_SUCCESS){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "pyrowave_encoder_encode_cpu_synchronous failed\n");
                 return {};
