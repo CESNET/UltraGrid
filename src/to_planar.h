@@ -62,16 +62,17 @@ struct to_planar_data {
 typedef void
 decode_buffer_func_t(struct to_planar_data d);
 
-decode_buffer_func_t v210_to_p010le;
-decode_buffer_func_t y216_to_p010le;
-decode_buffer_func_t uyvy_to_nv12;
-decode_buffer_func_t rgba_to_bgra;
-// other packed->planar convs are historically in video_codec.[ch]
-decode_buffer_func_t vuya_to_i444;
-decode_buffer_func_t uyvy_to_i420;
 decode_buffer_func_t r12l_to_gbrp12le;
 decode_buffer_func_t r12l_to_gbrp16le;
 decode_buffer_func_t r12l_to_rgbp12le;
+decode_buffer_func_t rgba_to_bgra;
+decode_buffer_func_t uyvy_to_i420;
+decode_buffer_func_t uyvy_to_nv12;
+decode_buffer_func_t v210_to_p010le;
+decode_buffer_func_t y216_to_p010le;
+decode_buffer_func_t y416_to_yuv4444p10;
+decode_buffer_func_t vuya_to_i444;
+// other packed->planar convs are historically in video_codec.[ch]
 
 /**
  * run the @ref decode_buffer_func_t from packed format  in parallel

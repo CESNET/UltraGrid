@@ -38,6 +38,8 @@
 #include "to_openapv_conversions.h"
 
 #include "../color_space.h"
+#include "../compat/c23.h" // IWYU pragma: keep
+#include "../to_planar.h"
 #include "../video_codec.h"
 
 #include <stdint.h>
@@ -47,7 +49,10 @@ typedef void (*uv_to_openapv_conversion_f)(const uint8_t *src, int width, int he
 struct uv_to_openapv_conversion {
         codec_t src_color_format;
         int     dst_color_format;
+        /// implementation defined in this file
         uv_to_openapv_conversion_f convert;
+        /// generic implementation defined in to_planar.c
+        decode_buffer_func_t *to_planar_convert;
 };
 
 static void uyvy_to_yuv422p(const uint8_t *src, int width, int height, oapv_imgb_t *dst) {
@@ -281,15 +286,16 @@ static void vuya_to_yuv4444p10(const uint8_t *src, int width, int height, oapv_i
 }
 
 static const struct uv_to_openapv_conversion uv_to_openapv_conversions[] = {
-        { UYVY, OAPV_CS_YCBCR422_10LE,  uyvy_to_yuv422p     },
-        { YUYV, OAPV_CS_YCBCR422_10LE,  yuyv_to_yuv422p     },
-        { v210, OAPV_CS_YCBCR422_10LE,  v210_to_yuv422p     },
-        { RGB,  OAPV_CS_YCBCR444_10LE,  rgb_to_yuv444p10    },
-        { RGBA, OAPV_CS_YCBCR4444_10LE, rgba_to_yuv4444p10  },
-        { VUYA, OAPV_CS_YCBCR4444_10LE, vuya_to_yuv4444p10  },
-        { R10k, OAPV_CS_YCBCR444_10LE,  r10k_to_yuv444p10   },
-        { R12L, OAPV_CS_YCBCR444_12LE,  r12l_to_yuv444p12   },
-        { VIDEO_CODEC_NONE, OAPV_CS_UNKNOWN, NULL }
+        { UYVY,    OAPV_CS_YCBCR422_10LE,  uyvy_to_yuv422p,    nullptr            },
+        { YUYV,    OAPV_CS_YCBCR422_10LE,  yuyv_to_yuv422p,    nullptr            },
+        { v210,    OAPV_CS_YCBCR422_10LE,  v210_to_yuv422p,    nullptr            },
+        { RGB,     OAPV_CS_YCBCR444_10LE,  rgb_to_yuv444p10,   nullptr            },
+        { RGBA,    OAPV_CS_YCBCR4444_10LE, rgba_to_yuv4444p10, nullptr            },
+        { VUYA,    OAPV_CS_YCBCR4444_10LE, vuya_to_yuv4444p10, nullptr            },
+        { R10k,    OAPV_CS_YCBCR444_10LE,  r10k_to_yuv444p10,  nullptr            },
+        { R12L,    OAPV_CS_YCBCR444_12LE,  r12l_to_yuv444p12,  nullptr            },
+        { Y416,    OAPV_CS_YCBCR4444_12LE, nullptr,            y416_to_yuv4444p10 },
+        { VC_NONE, OAPV_CS_UNKNOWN,        nullptr,            nullptr            },
 };
 
 const struct uv_to_openapv_conversion *
@@ -311,5 +317,27 @@ void
 openapv_convert_to_planar(const struct uv_to_openapv_conversion *conv, const uint8_t *src,
                 int width, int height, oapv_imgb_t *dst)
 {
-        conv->convert(src, width, height, dst);
+        if (conv->convert) {
+                conv->convert(src, width, height, dst);
+                return;
+        }
+
+        assert(conv->to_planar_convert);
+        struct to_planar_data d = {
+                .width           = width,
+                .height          = height,
+                .out_data[0]     = dst->a[0],
+                .out_data[1]     = dst->a[1],
+                .out_data[2]     = dst->a[2],
+                .out_data[3]     = dst->a[3],
+                .out_linesize[0] = dst->s[0],
+                .out_linesize[1] = dst->s[1],
+                .out_linesize[2] = dst->s[2],
+                .out_linesize[3] = dst->s[3],
+                .in_data         = src,
+        };
+        decode_to_planar_parallel(
+            conv->to_planar_convert, d,
+            vc_get_linesize(width, conv->src_color_format),
+            TO_PLANAR_THREADS_AUTO);
 }
