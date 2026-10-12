@@ -1238,55 +1238,6 @@ static void yuv444p12le_to_uyvy(struct av_conv_data d)
 }
 
 #if defined __GNUC__
-static inline void yuv444p1Xle_to_y416(struct av_conv_data d, int in_depth)
-        __attribute__((always_inline));
-#endif
-static void
-yuv444p1Xle_to_y416(struct av_conv_data d, int in_depth)
-{
-        const int width = d.in_frame->width;
-        const int height = d.in_frame->height;
-        const AVFrame *in_frame = d.in_frame;
-
-        assert((uintptr_t) d.dst_buffer % 2 == 0);
-        assert((uintptr_t) in_frame->data[0] % 2 == 0);
-        assert((uintptr_t) in_frame->data[1] % 2 == 0);
-        assert((uintptr_t) in_frame->data[2] % 2 == 0);
-        for(int y = 0; y < (int) height; ++y) {
-                uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
-                uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
-                uint16_t *src_cr = (uint16_t *)(void *)(in_frame->data[2] + in_frame->linesize[2] * y);
-                uint16_t *dst =
-                    (uint16_t *) (void *) (d.dst_buffer + y * d.pitch);
-
-                OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-                        *dst++ = *src_cb++ << (16U - in_depth); // U
-                        *dst++ = *src_y++ << (16U - in_depth); // Y
-                        *dst++ = *src_cr++ << (16U - in_depth); // V
-                        *dst++ = 0xFFFFU; // A
-                }
-        }
-}
-
-static void
-yuv444p10le_to_y416(struct av_conv_data d)
-{
-        yuv444p1Xle_to_y416(d, DEPTH10);
-}
-
-static void
-yuv444p12le_to_y416(struct av_conv_data d)
-{
-        yuv444p1Xle_to_y416(d, DEPTH12);
-}
-
-static void
-yuv444p16le_to_y416(struct av_conv_data d)
-{
-        yuv444p1Xle_to_y416(d, DEPTH16);
-}
-
-#if defined __GNUC__
 static inline void yuvp10le_to_rgb(struct av_conv_data d, int subsampling,
                                    int out_bit_depth)
     __attribute__((always_inline));
@@ -2087,7 +2038,7 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
         { AV_PIX_FMT_YUV444P10LE, RGBA,      yuv444p10le_to_rgb32,         nullptr },
         { AV_PIX_FMT_YUV444P10LE, R12L,      yuv444p10le_to_r12l,          nullptr },
         { AV_PIX_FMT_YUV444P10LE, RG48,      yuv444p10le_to_rg48,          nullptr },
-        { AV_PIX_FMT_YUV444P10LE, Y416,      yuv444p10le_to_y416,          nullptr },
+        { AV_PIX_FMT_YUV444P10LE, Y416,      nullptr,                      yuv444p10le_to_y416 },
 #if P210_PRESENT
         { AV_PIX_FMT_P210LE,      v210,      p210le_to_v210,               nullptr },
         { AV_PIX_FMT_P210LE,      UYVY,      p210le_to_uyvy,               nullptr },
@@ -2157,14 +2108,14 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
         { AV_PIX_FMT_YUV444P12LE, RG48,      yuv444p12le_to_rg48,          nullptr },
         { AV_PIX_FMT_YUV444P12LE, UYVY,      yuv444p12le_to_uyvy,          nullptr },
         { AV_PIX_FMT_YUV444P12LE, v210,      yuv444p12le_to_v210,          nullptr },
-        { AV_PIX_FMT_YUV444P12LE, Y416,      yuv444p12le_to_y416,          nullptr },
+        { AV_PIX_FMT_YUV444P12LE, Y416,      nullptr,                      yuv444p12le_to_y416 },
         // 16-bit YUV
         { AV_PIX_FMT_YUV444P16LE, R10k,      yuv444p16le_to_r10k,          nullptr },
         { AV_PIX_FMT_YUV444P16LE, R12L,      yuv444p16le_to_r12l,          nullptr },
         { AV_PIX_FMT_YUV444P16LE, RG48,      yuv444p16le_to_rg48,          nullptr },
         { AV_PIX_FMT_YUV444P16LE, UYVY,      yuv444p16le_to_uyvy,          nullptr },
         { AV_PIX_FMT_YUV444P16LE, v210,      yuv444p16le_to_v210,          nullptr },
-        { AV_PIX_FMT_YUV444P16LE, Y416,      yuv444p16le_to_y416,          nullptr },
+        { AV_PIX_FMT_YUV444P16LE, Y416,      nullptr,                      yuv444p16le_to_y416 },
         { AV_PIX_FMT_AYUV64,      UYVY,      ayuv64_to_uyvy,               nullptr },
         { AV_PIX_FMT_AYUV64,      v210,      ayuv64_to_v210,               nullptr },
         { AV_PIX_FMT_AYUV64,      Y416,      ayuv64_to_y416,               nullptr },

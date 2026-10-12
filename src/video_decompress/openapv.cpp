@@ -46,7 +46,6 @@
 #include "video_decompress.h"
 #include "video_frame.h"
 #include "from_planar.h"
-#include "openapv/from_openapv_conversions.h"
 #include "openapv/openapv_common.hpp"
 
 namespace {
@@ -56,6 +55,12 @@ namespace {
 #define FRM_INDEX    (0) // index of primary frame in oapv_frms_t
 
 using oapvd_uniq = std::unique_ptr<std::remove_pointer_t<oapvd_t>, deleter_from_fcn<oapvd_delete>>;
+
+struct from_openapv_conversion {
+        codec_t               dst_codec;
+        int                   required_src_cs;
+        decode_planar_func_t *convert;
+};
 
 struct state_video_decompress_openapv {
         state_video_decompress_openapv();
@@ -83,6 +88,30 @@ state_video_decompress_openapv::state_video_decompress_openapv() {
         if (OAPV_FAILED(ret)) {
                 throw std::runtime_error("oapvd_create failed (" + std::string(oapv_err_str(ret)) + ")");
         }
+}
+
+const struct from_openapv_conversion from_openapv_conversions[] = {
+        { UYVY,    OAPV_CS_YCBCR422_10LE,  yuv422p10le_to_uyvy  },
+        { YUYV,    OAPV_CS_YCBCR422_10LE,  yuv422p_to_yuyv      },
+        { v210,    OAPV_CS_YCBCR422_10LE,  yuv422p10le_to_v210  },
+        { Y416,    OAPV_CS_YCBCR444_10LE,  yuv444p10le_to_y416  },
+        { VUYA,    OAPV_CS_YCBCR4444_10LE, yuv4444p10le_to_vuya },
+        { Y416,    OAPV_CS_YCBCR4444_10LE, yuv4444p10le_to_y416 },
+        { Y416,    OAPV_CS_YCBCR444_12LE,  yuv444p12le_to_y416  },
+        { Y416,    OAPV_CS_YCBCR4444_12LE, yuv4444p12le_to_y416 },
+        { VC_NONE, OAPV_CS_UNKNOWN,        nullptr              },
+};
+
+static const struct from_openapv_conversion *
+get_from_openapv_conversion(codec_t dst_codec, int src_cs)
+{
+        for (const struct from_openapv_conversion *c = from_openapv_conversions;
+             c->dst_codec != VIDEO_CODEC_NONE; ++c) {
+                if (c->dst_codec == dst_codec && c->required_src_cs == src_cs) {
+                        return c;
+                }
+        }
+        return NULL;
 }
 
 bool configure_with(state_video_decompress_openapv *s, unsigned char *bitstream_buffer, size_t codestream_size) {

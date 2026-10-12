@@ -682,3 +682,83 @@ yuv420p_to_uyvy(const struct from_planar_data d)
         }
 }
 
+void yuv4444p10le_to_vuya(const struct from_planar_data d) {
+        for (int y = 0; y < d.height; ++y) {
+                const uint16_t *src_y = (const void *) (d.in_data[0] + d.in_linesize[0] * y);
+                const uint16_t *src_u = (const void *) (d.in_data[1] + d.in_linesize[1] * y);
+                const uint16_t *src_v = (const void *) (d.in_data[2] + d.in_linesize[2] * y);
+                const uint16_t *src_a = (const void *) (d.in_data[3] + d.in_linesize[3] * y);
+                uint8_t *dst = d.out_data + (size_t) y * d.out_pitch;
+
+                const int width = d.width;
+                for (int x = 0; x < width; ++x) {
+                        *dst++ = (uint8_t) (*src_v++ >> 2); // V
+                        *dst++ = (uint8_t) (*src_u++ >> 2); // U
+                        *dst++ = (uint8_t) (*src_y++ >> 2); // Y
+                        *dst++ = (uint8_t) (*src_a++ >> 2); // A
+                }
+        }
+}
+
+[[gnu::always_inline]] static void
+yuv444Xp1Xle_to_y416(struct from_planar_data d, int in_depth, bool src_has_alpha)
+{
+        const int width = d.width;
+        const size_t height = d.height;
+
+        assert((uintptr_t) d.out_data % 2 == 0);
+        assert((uintptr_t) d.in_data[0] % 2 == 0);
+        assert((uintptr_t) d.in_data[1] % 2 == 0);
+        assert((uintptr_t) d.in_data[2] % 2 == 0);
+        for (size_t y = 0; y < height; ++y) {
+                const uint16_t *src_y =
+                    (const void *) (d.in_data[0] + (d.in_linesize[0] * y));
+                const uint16_t *src_cb =
+                    (const void *) (d.in_data[1] + (d.in_linesize[1] * y));
+                const uint16_t *src_cr =
+                    (const void *) (d.in_data[2] + (d.in_linesize[2] * y));
+                const uint16_t *src_a = src_has_alpha ?
+                    (const void *) (d.in_data[3] + (d.in_linesize[3] * y)) : nullptr;
+                uint16_t *dst = (void *) (d.out_data + (y * d.out_pitch));
+
+                OPTIMIZED_FOR(int x = 0; x < width; ++x)
+                {
+                        *dst++ = *src_cb++ << (16U - in_depth); // U
+                        *dst++ = *src_y++ << (16U - in_depth); // Y
+                        *dst++ = *src_cr++ << (16U - in_depth); // V
+                        *dst++ = src_has_alpha ? *src_a++ << (16U - in_depth)
+                                            : 0xFFFFU; // A
+                }
+        }
+}
+
+void
+yuv444p10le_to_y416(struct from_planar_data d)
+{
+        yuv444Xp1Xle_to_y416(d, DEPTH10, false);
+}
+
+void
+yuv444p12le_to_y416(struct from_planar_data d)
+{
+        yuv444Xp1Xle_to_y416(d, DEPTH12, false);
+}
+
+void
+yuv444p16le_to_y416(struct from_planar_data d)
+{
+        yuv444Xp1Xle_to_y416(d, DEPTH16, false);
+}
+
+void
+yuv4444p10le_to_y416(const struct from_planar_data d)
+{
+        yuv444Xp1Xle_to_y416(d, DEPTH10, true);
+}
+
+void
+yuv4444p12le_to_y416(const struct from_planar_data d)
+{
+        yuv444Xp1Xle_to_y416(d, DEPTH12, true);
+}
+
