@@ -113,6 +113,23 @@ static void yuv444p12le_to_y416(const struct from_planar_data d) {
         }
 }
 
+static void yuv4444p12le_to_y416(const struct from_planar_data d) {
+        for (int y = 0; y < d.height; ++y) {
+                const uint16_t *src_y = (const void *) (d.in_data[0] + d.in_linesize[0] * y);
+                const uint16_t *src_u = (const void *) (d.in_data[1] + d.in_linesize[1] * y);
+                const uint16_t *src_v = (const void *) (d.in_data[2] + d.in_linesize[2] * y);
+                const uint16_t *src_a = (const void *) (d.in_data[3] + d.in_linesize[3] * y);
+                uint16_t *dst = (void *) (d.out_data + (size_t) y * d.out_pitch);
+
+                for (int x = 0; x < d.width; ++x) {
+                        *dst++ = *src_u++ << 4;
+                        *dst++ = *src_y++ << 4;
+                        *dst++ = *src_v++ << 4;
+                        *dst++ = *src_a++ << 4;
+                }
+        }
+}
+
 static const struct from_openapv_conversion from_openapv_conversions[] = {
         { UYVY, OAPV_CS_YCBCR422_10LE,  yuv422p10le_to_uyvy   },
         { YUYV, OAPV_CS_YCBCR422_10LE,  yuv422p_to_yuyv       },
@@ -121,6 +138,7 @@ static const struct from_openapv_conversion from_openapv_conversions[] = {
         { VUYA, OAPV_CS_YCBCR4444_10LE, yuv4444p10le_to_vuya  },
         { Y416, OAPV_CS_YCBCR4444_10LE, yuv4444p10le_to_y416  },
         { Y416, OAPV_CS_YCBCR444_12LE,  yuv444p12le_to_y416   },
+        { Y416, OAPV_CS_YCBCR4444_12LE, yuv4444p12le_to_y416  },
         { VIDEO_CODEC_NONE, OAPV_CS_UNKNOWN, NULL              },
 };
 
