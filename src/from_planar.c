@@ -682,25 +682,54 @@ yuv420p_to_uyvy(const struct from_planar_data d)
         }
 }
 
-void yuv4444p10le_to_vuya(const struct from_planar_data d) {
+[[gnu::always_inline]] static inline void
+yuv444Xp1Xle_to_vuya(const struct from_planar_data d, int in_depth, bool src_has_alpha) {
         for (int y = 0; y < d.height; ++y) {
                 const uint16_t *src_y = (const void *) (d.in_data[0] + d.in_linesize[0] * y);
                 const uint16_t *src_u = (const void *) (d.in_data[1] + d.in_linesize[1] * y);
                 const uint16_t *src_v = (const void *) (d.in_data[2] + d.in_linesize[2] * y);
-                const uint16_t *src_a = (const void *) (d.in_data[3] + d.in_linesize[3] * y);
+                const uint16_t *src_a =
+                    src_has_alpha
+                        ? (const void *) (d.in_data[3] + d.in_linesize[3] * y)
+                        : nullptr;
                 uint8_t *dst = d.out_data + (size_t) y * d.out_pitch;
 
                 const int width = d.width;
                 for (int x = 0; x < width; ++x) {
-                        *dst++ = (uint8_t) (*src_v++ >> 2); // V
-                        *dst++ = (uint8_t) (*src_u++ >> 2); // U
-                        *dst++ = (uint8_t) (*src_y++ >> 2); // Y
-                        *dst++ = (uint8_t) (*src_a++ >> 2); // A
+                        *dst++ = *src_v++ >> (in_depth - DEPTH8); // V
+                        *dst++ = *src_u++ >> (in_depth - DEPTH8); // U
+                        *dst++ = *src_y++ >> (in_depth - DEPTH8); // Y
+                        *dst++ = src_has_alpha ? (uint8_t)(*src_a++ >> (in_depth - DEPTH8))
+                                               : 0xFFU; // A
                 }
         }
 }
 
-[[gnu::always_inline]] static void
+void
+yuv4444p10le_to_vuya(const struct from_planar_data d)
+{
+        yuv444Xp1Xle_to_vuya(d, DEPTH10, true);
+}
+
+void
+yuv4444p12le_to_vuya(const struct from_planar_data d)
+{
+        yuv444Xp1Xle_to_vuya(d, DEPTH12, true);
+}
+
+void
+yuv444p10le_to_vuya(const struct from_planar_data d)
+{
+        yuv444Xp1Xle_to_vuya(d, DEPTH10, false);
+}
+
+void
+yuv444p12le_to_vuya(const struct from_planar_data d)
+{
+        yuv444Xp1Xle_to_vuya(d, DEPTH12, false);
+}
+
+[[gnu::always_inline]] static inline void
 yuv444Xp1Xle_to_y416(struct from_planar_data d, int in_depth, bool src_has_alpha)
 {
         const int width = d.width;
@@ -726,7 +755,7 @@ yuv444Xp1Xle_to_y416(struct from_planar_data d, int in_depth, bool src_has_alpha
                         *dst++ = *src_cb++ << (16U - in_depth); // U
                         *dst++ = *src_y++ << (16U - in_depth); // Y
                         *dst++ = *src_cr++ << (16U - in_depth); // V
-                        *dst++ = src_has_alpha ? *src_a++ << (16U - in_depth)
+                        *dst++ = src_has_alpha ? (uint16_t)(*src_a++ << (16U - in_depth))
                                             : 0xFFFFU; // A
                 }
         }
@@ -760,5 +789,111 @@ void
 yuv4444p12le_to_y416(const struct from_planar_data d)
 {
         yuv444Xp1Xle_to_y416(d, DEPTH12, true);
+}
+
+[[gnu::always_inline]] static inline void
+yuv444p1Xle_to_uyvy(struct from_planar_data d, int in_depth)
+{
+        const int width = d.width;
+        const size_t height = d.height;
+
+        for(size_t y = 0; y < height; ++y) {
+                const uint16_t *src_y =  (const void *)(d.in_data[0] + (d.in_linesize[0] * y));
+                const uint16_t *src_cb = (const void *)(d.in_data[1] + (d.in_linesize[1] * y));
+                const uint16_t *src_cr = (const void *)(d.in_data[2] + (d.in_linesize[2] * y));
+                uint8_t *dst =
+                    (uint8_t *) (void *) (d.out_data + (y * d.out_pitch));
+
+                OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
+                        *dst++ = (src_cb[0] + src_cb[1] + 1) / 2 >> (in_depth - 8U);
+                        *dst++ = *src_y++ >> (in_depth - 8U);
+                        *dst++ = (src_cr[0] + src_cr[1] + 1) / 2 >> (in_depth - 8U);
+                        *dst++ = *src_y++ >> (in_depth - 8U);
+                        src_cb += 2;
+                        src_cr += 2;
+                }
+        }
+}
+
+void
+yuv444p10le_to_uyvy(struct from_planar_data d)
+{
+        yuv444p1Xle_to_uyvy(d, DEPTH10);
+}
+
+void
+yuv444p12le_to_uyvy(struct from_planar_data d)
+{
+        yuv444p1Xle_to_uyvy(d, DEPTH12);
+}
+
+void
+yuv444p16le_to_uyvy(struct from_planar_data d)
+{
+        yuv444p1Xle_to_uyvy(d, DEPTH16);
+}
+
+[[gnu::always_inline]] static inline void
+yuv444p1Xle_to_v210(struct from_planar_data d, int in_depth)
+{
+        const int width = d.width;
+        const int height = d.height;
+
+        for(int y = 0; y < height; ++y) {
+                const uint16_t *src_y = (const void *)(d.in_data[0] + d.in_linesize[0] * y);
+                const uint16_t *src_cb = (const void *)(d.in_data[1] + d.in_linesize[1] * y);
+                const uint16_t *src_cr = (const void *)(d.in_data[2] + d.in_linesize[2] * y);
+                uint32_t *dst =
+                    (uint32_t *) (void *) (d.out_data+ y * d.out_pitch);
+
+                OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
+                        uint32_t w0_0, w0_1, w0_2, w0_3;
+
+                        w0_0 = ((src_cb[0] >> (in_depth - 10U)) + (src_cb[1] >> (in_depth - 10U))) / 2;
+                        w0_0 = w0_0 | (*src_y++ >> (in_depth - 10U)) << 10U;
+                        w0_0 = w0_0 | ((src_cr[0] >> (in_depth - 10U)) + (src_cr[1] >> (in_depth - 10U))) / 2 << 20U;
+                        src_cb += 2;
+                        src_cr += 2;
+
+                        w0_1 = *src_y++;
+                        w0_1 = w0_1 | ((src_cb[0] >> (in_depth - 10U)) + (src_cb[1] >> (in_depth - 10U))) / 2 << 10U;
+                        w0_1 = w0_1 | (*src_y++ >> (in_depth - 10U)) << 20U;
+                        src_cb += 2;
+
+                        w0_2 = ((src_cr[0] >> (in_depth - 10U)) + (src_cr[1] >> (in_depth - 10U))) / 2;
+                        w0_2 = w0_2 | (*src_y++ >> (in_depth - 10U)) << 10U;
+                        w0_2 = w0_2 | ((src_cb[0] >> (in_depth - 10U)) + (src_cb[1] >> (in_depth - 10U))) / 2 << 20U;
+                        src_cr += 2;
+                        src_cb += 2;
+
+                        w0_3 = *src_y++;
+                        w0_3 = w0_3 | ((src_cr[0] >> (in_depth - 10U)) + (src_cr[1] >> (in_depth - 10U))) / 2 << 10U;
+                        w0_3 = w0_3 | ((*src_y++ >> (in_depth - 10U))) << 20U;
+                        src_cr += 2;
+
+                        *dst++ = w0_0;
+                        *dst++ = w0_1;
+                        *dst++ = w0_2;
+                        *dst++ = w0_3;
+                }
+        }
+}
+
+void
+yuv444p10le_to_v210(struct from_planar_data d)
+{
+        yuv444p1Xle_to_v210(d, DEPTH10);
+}
+
+void
+yuv444p12le_to_v210(struct from_planar_data d)
+{
+        yuv444p1Xle_to_v210(d, DEPTH12);
+}
+
+void
+yuv444p16le_to_v210(struct from_planar_data d)
+{
+        yuv444p1Xle_to_v210(d, DEPTH16);
 }
 

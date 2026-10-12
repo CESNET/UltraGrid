@@ -57,8 +57,8 @@ namespace {
 using oapvd_uniq = std::unique_ptr<std::remove_pointer_t<oapvd_t>, deleter_from_fcn<oapvd_delete>>;
 
 struct from_openapv_conversion {
-        codec_t               dst_codec;
         int                   required_src_cs;
+        codec_t               dst_codec;
         decode_planar_func_t *convert;
 };
 
@@ -91,15 +91,30 @@ state_video_decompress_openapv::state_video_decompress_openapv() {
 }
 
 const struct from_openapv_conversion from_openapv_conversions[] = {
-        { UYVY,    OAPV_CS_YCBCR422_10LE,  yuv422p10le_to_uyvy  },
-        { YUYV,    OAPV_CS_YCBCR422_10LE,  yuv422p_to_yuyv      },
-        { v210,    OAPV_CS_YCBCR422_10LE,  yuv422p10le_to_v210  },
-        { Y416,    OAPV_CS_YCBCR444_10LE,  yuv444p10le_to_y416  },
-        { VUYA,    OAPV_CS_YCBCR4444_10LE, yuv4444p10le_to_vuya },
-        { Y416,    OAPV_CS_YCBCR4444_10LE, yuv4444p10le_to_y416 },
-        { Y416,    OAPV_CS_YCBCR444_12LE,  yuv444p12le_to_y416  },
-        { Y416,    OAPV_CS_YCBCR4444_12LE, yuv4444p12le_to_y416 },
-        { VC_NONE, OAPV_CS_UNKNOWN,        nullptr              },
+        { OAPV_CS_YCBCR422_10LE,  UYVY,    yuv422p10le_to_uyvy  },
+        { OAPV_CS_YCBCR422_10LE,  v210,    yuv422p10le_to_v210  },
+
+        { OAPV_CS_YCBCR444_10LE,  UYVY,    yuv444p10le_to_uyvy  },
+        { OAPV_CS_YCBCR444_10LE,  v210,    yuv444p10le_to_v210  },
+        { OAPV_CS_YCBCR444_10LE,  VUYA,    yuv444p10le_to_vuya  },
+        { OAPV_CS_YCBCR444_10LE,  Y416,    yuv444p10le_to_y416  },
+
+        { OAPV_CS_YCBCR4444_10LE, UYVY,    yuv444p10le_to_uyvy  },
+        { OAPV_CS_YCBCR4444_10LE, v210,    yuv444p10le_to_v210  },
+        { OAPV_CS_YCBCR4444_10LE, VUYA,    yuv4444p10le_to_vuya },
+        { OAPV_CS_YCBCR4444_10LE, Y416,    yuv4444p10le_to_y416 },
+
+        { OAPV_CS_YCBCR444_12LE,  UYVY,    yuv444p12le_to_uyvy  },
+        { OAPV_CS_YCBCR444_12LE,  v210,    yuv444p12le_to_v210  },
+        { OAPV_CS_YCBCR444_12LE,  VUYA,    yuv444p12le_to_vuya  },
+        { OAPV_CS_YCBCR444_12LE,  Y416,    yuv444p12le_to_y416  },
+
+        { OAPV_CS_YCBCR4444_12LE, UYVY,    yuv444p12le_to_uyvy  },
+        { OAPV_CS_YCBCR4444_12LE, v210,    yuv444p12le_to_v210  },
+        { OAPV_CS_YCBCR4444_12LE, VUYA,    yuv4444p12le_to_vuya },
+        { OAPV_CS_YCBCR4444_12LE, Y416,    yuv4444p12le_to_y416 },
+
+        { OAPV_CS_UNKNOWN,        VC_NONE, nullptr              },
 };
 
 static const struct from_openapv_conversion *

@@ -112,10 +112,19 @@ decode_planar_func_t yuv422pXX_to_uyvy;
 decode_planar_func_t yuv422p10le_to_uyvy;
 decode_planar_func_t yuv422p10le_to_v210;
 decode_planar_func_t yuv4444p10le_to_vuya;
+decode_planar_func_t yuv4444p12le_to_vuya;
+decode_planar_func_t yuv444p10le_to_vuya;
+decode_planar_func_t yuv444p12le_to_vuya;
 decode_planar_func_t yuv4444p10le_to_y416;
 decode_planar_func_t yuv4444p12le_to_y416;
+decode_planar_func_t yuv444p10le_to_uyvy;
+decode_planar_func_t yuv444p10le_to_v210;
 decode_planar_func_t yuv444p10le_to_y416;
+decode_planar_func_t yuv444p12le_to_uyvy;
+decode_planar_func_t yuv444p12le_to_v210;
 decode_planar_func_t yuv444p12le_to_y416;
+decode_planar_func_t yuv444p16le_to_uyvy;
+decode_planar_func_t yuv444p16le_to_v210;
 decode_planar_func_t yuv444p16le_to_y416;
 
 #ifdef __cplusplus
