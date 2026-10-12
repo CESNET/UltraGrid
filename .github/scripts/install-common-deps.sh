@@ -200,6 +200,14 @@ install_openapv() (
 install_pyrowave() (
         git clone --depth 1 https://github.com/Themaister/pyrowave.git
         cd pyrowave
+
+        # TODO: TOREMOVE when not needed
+        sed '2a\
+#include <cstdlib>' yuv4mpeg.cpp > fix && mv fix yuv4mpeg.cpp
+        sed '2a\
+#include <cstdlib>' pyrowave_device_validation.cpp > fix &&
+        mv fix pyrowave_device_validation.cpp
+
         ./checkout_granite.sh
         mkdir build
         cd build
