@@ -83,7 +83,13 @@ struct vo_postprocess_state {
 void show_vo_postprocess_help(bool full)
 {
         printf("Usage:\n");
-        color_printf(TERM_BOLD "\t-p <postprocess_module>[:<args>] | help\n" TERM_RESET);
+        color_printf("\t" TBOLD(TRED("-p help"))
+                     "\n");
+        color_printf("\t" TBOLD(TRED("-p <postprocess_module>[:<args>]"))
+                     "\n");
+        color_printf("\t" TBOLD("-p <pp1>[:<pp1_args>]" TRED(
+            ",<pp2>[:<pp2_args>][,<pp3>[:<pp3_args>]...]"))
+                     "\n");
         printf("\n");
         printf("Available postprocess modules:\n");
         list_modules(LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION, full);
@@ -178,17 +184,19 @@ vo_postprocess_reconfigure(struct vo_postprocess_state *s,
                 }
                 // get desc for next iteration
                 int display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
+                unsigned in_tile_cnt = desc.tile_count;
                 state->funcs->get_out_desc(state->state, &desc, &display_mode);
 
-                // check if convert is simple (doesn't change display mode and out_fr_count == 1); if not, only one filter allowed
-                if (display_mode != DISPLAY_PROPERTY_VIDEO_MERGED) {
+                // check if convert is simple (doesn't change tile count)
+                if (in_tile_cnt != desc.tile_count) {
                         filter_complex = true;
                 }
         }
 
         if (filter_complex && simple_linked_list_size(s->postprocessors) > 1) {
-                log_msg(LOG_LEVEL_ERROR, MOD_NAME "One of postprocessors is complex (changing properties) and "
-                                "cannot be used in filter chain (more postprocessors)!\n");
+                MSG(ERROR, "One of postprocessors is complex (changing video "
+                           "mode) and cannot be used in filter chain (more "
+                           "postprocessors)!\n");
                 return false;
         }
 
