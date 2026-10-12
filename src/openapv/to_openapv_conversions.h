@@ -46,15 +46,11 @@
 extern "C" {
 #endif
 
-typedef void (*uv_to_openapv_conversion_f)(const uint8_t *src, int width, int height, oapv_imgb_t *dst);
-
-struct uv_to_openapv_conversion {
-        codec_t src_color_format;
-        int     dst_color_format;
-        uv_to_openapv_conversion_f convert;
-};
-
-const struct uv_to_openapv_conversion* get_uv_to_openapv_conversion(codec_t codec);
+const struct uv_to_openapv_conversion *
+get_uv_to_openapv_conversion(codec_t src_codec, codec_t *dst_codec);
+void openapv_convert_to_planar(const struct uv_to_openapv_conversion *conv,
+                               const uint8_t *src, int width, int height,
+                               oapv_imgb_t *dst);
 
 #ifdef __cplusplus
 }

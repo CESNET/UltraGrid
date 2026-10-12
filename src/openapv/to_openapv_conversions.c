@@ -42,6 +42,14 @@
 
 #include <stdint.h>
 
+typedef void (*uv_to_openapv_conversion_f)(const uint8_t *src, int width, int height, oapv_imgb_t *dst);
+
+struct uv_to_openapv_conversion {
+        codec_t src_color_format;
+        int     dst_color_format;
+        uv_to_openapv_conversion_f convert;
+};
+
 static void uyvy_to_yuv422p(const uint8_t *src, int width, int height, oapv_imgb_t *dst) {
         const int y_stride_px = dst->s[0] / (int) sizeof(uint16_t);
         const int u_stride_px = dst->s[1] / (int) sizeof(uint16_t);
@@ -284,14 +292,24 @@ static const struct uv_to_openapv_conversion uv_to_openapv_conversions[] = {
         { VIDEO_CODEC_NONE, OAPV_CS_UNKNOWN, NULL }
 };
 
-const struct uv_to_openapv_conversion *get_uv_to_openapv_conversion(codec_t codec) {
-
+const struct uv_to_openapv_conversion *
+get_uv_to_openapv_conversion(codec_t src_codec, codec_t *dst_codec)
+{
         const struct uv_to_openapv_conversion *conv = uv_to_openapv_conversions;
         while (conv->src_color_format != VIDEO_CODEC_NONE) {
-                if (conv->src_color_format == codec)
+                if (conv->src_color_format == src_codec) {
+                        *dst_codec = conv->dst_color_format;
                         return conv;
+                }
                 conv++;
         }
 
         return NULL;
+}
+
+void
+openapv_convert_to_planar(const struct uv_to_openapv_conversion *conv, const uint8_t *src,
+                int width, int height, oapv_imgb_t *dst)
+{
+        conv->convert(src, width, height, dst);
 }

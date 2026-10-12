@@ -84,7 +84,7 @@ struct state_video_compress_oapv {
         video_frame_pool pool;
         bool configured = false;
 
-        uv_to_openapv_conversion_f convert_to_planar = nullptr;
+        const struct uv_to_openapv_conversion *convert_to_planar = nullptr;
 };
 
 int map_color_spaces_to_profiles(int cs) {
@@ -231,12 +231,12 @@ bool state_video_compress_oapv::parse_fmt(std::string_view cfg)
 }
 
 bool configure_with(state_video_compress_oapv *s, video_desc desc){
-        const uv_to_openapv_conversion* conv_struct = get_uv_to_openapv_conversion(desc.color_spec);
-        if (!conv_struct || conv_struct->convert == nullptr) {
+        codec_t dst_color_format = VC_NONE;
+        s->convert_to_planar = get_uv_to_openapv_conversion(desc.color_spec, &dst_color_format);
+        if (!s->convert_to_planar) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "unsupported codec\n");
                 return false;
         }
-        s->convert_to_planar = conv_struct->convert;
 
         s->cdsc.param[FRM_INDEX].w = desc.width;
         s->cdsc.param[FRM_INDEX].h = desc.height;
@@ -244,9 +244,9 @@ bool configure_with(state_video_compress_oapv *s, video_desc desc){
         s->cdsc.param[FRM_INDEX].fps_num = get_framerate_n(desc.fps);
         s->cdsc.param[FRM_INDEX].fps_den = get_framerate_d(desc.fps);
 
-        s->cdsc.param[FRM_INDEX].profile_idc = map_color_spaces_to_profiles(conv_struct->dst_color_format);
+        s->cdsc.param[FRM_INDEX].profile_idc = map_color_spaces_to_profiles(dst_color_format);
 
-        if (!s->input_frms.configure_with(desc.width, desc.height, conv_struct->dst_color_format)){
+        if (!s->input_frms.configure_with(desc.width, desc.height, dst_color_format)){
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "Failed to set up input buffer\n");
                 return false;
         }
@@ -305,7 +305,8 @@ shared_ptr<video_frame> openapv_compress_tile(void *state, shared_ptr<video_fram
         }
 
         struct tile *in_tile = vf_get_tile(tile.get(), 0);
-        s->convert_to_planar((const uint8_t *) in_tile->data, desc.width, desc.height, s->input_frms.get_primary()->imgb);
+        openapv_convert_to_planar(s->convert_to_planar, (const uint8_t*) in_tile->data, desc.width,
+                        desc.height, s->input_frms.get_primary()->imgb);
 
         shared_ptr<video_frame> out = s->pool.get_frame();
         s->bitb.ssize = 0;
