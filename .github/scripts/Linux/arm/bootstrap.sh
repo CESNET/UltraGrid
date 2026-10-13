@@ -19,6 +19,12 @@ cat >>/etc/apt/sources.list <<EOF
 deb [signed-by=/usr/share/keyrings/raspberrypi.gpg.key] \
 http://archive.raspberrypi.org/debian $debver main
 EOF
+
+# add also deb-src (one-line-style /old/ APT sources list format)
+new_src=$(mktemp)
+sed '/^deb /p;s/^deb /deb-src /' /etc/apt/sources.list > "$new_src"
+mv "$new_src" /etc/apt/sources.list
+
 apt -y update
 
 apt -y install autoconf automake build-essential git pkg-config libtool sudo
@@ -35,10 +41,9 @@ apt -y install \
   libpipewire-0.3-dev\
   libsdl2-dev libsdl2-ttf-dev\
   libva-dev\
-  libvulkan-dev\
 
 /.github/scripts/install-common-deps.sh
-/.github/scripts/Linux/install_others.sh ndi ximea
+/.github/scripts/Linux/install_others.sh ndi vulkan ximea
 
 # mkappimage
 mkai_arch=$(dpkg --print-architecture)
