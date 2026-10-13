@@ -1,0 +1,17 @@
+this commit should have fixed following error:
+````
++ find /home/runner/work/UltraGrid/UltraGrid/.github/scripts/Linux/ffmpeg-patches -name '*.patch' -print0
++ sort -z
++ xargs -0 -n 1 git am -3
+Applying: Add ability for ffmpeg to run svt vp9
+Applying: added libde265 decoder
+error: sha1 information is lacking or useless (configure).
+error: could not build fake ancestor
+hint: Use 'git am --show-current-patch=diff' to see the failed patch
+hint: When you have resolved this problem, run "git am --continue".
+hint: If you prefer to skip this patch, run "git am --skip" instead.
+hint: To restore the original branch and stop patching, run "git am --abort".
+hint: Disable this message with "git config set advice.mergeConflict false"
+Patch failed at 0001 added libde265 decoder
+fatal: previous rebase directory .git/rebase-apply still exists but mbox given.
+````
