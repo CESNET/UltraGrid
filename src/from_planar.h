@@ -41,6 +41,9 @@
 #ifndef FROM_PLANAR_H_E96E5C5D_6F9C_480D_AD6E_D0AD5149378F
 #define FROM_PLANAR_H_E96E5C5D_6F9C_480D_AD6E_D0AD5149378F
 
+#include "color_space.h" // for enum colorspace
+#include "compat/c23.h"  // IWYU pragma: keep for bool
+
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
@@ -67,6 +70,12 @@ struct from_planar_data {
         /// set to 1 for Y420 and decode_planar_parallel, otherwise unused
         int log2_chroma_h; ///< semantic same as in FF (420 - 1, otherwise 0)
         int rgb_shift[3]; ///< relevant only for output RGBA
+
+        // currently following 2 parameters are tweaked only for input
+        // YCbCr->RGB conversion for RGB->YCbCr conversion, these should be
+        // CS_DFL (0) and false always; both can be safely zero-init
+        enum colorspace cs_coeffs;
+        bool            in_ycbcr_full_rng;
 };
 
 /// functions to decode whole buffer of packed data to planar or packed
@@ -117,12 +126,20 @@ decode_planar_func_t yuv444p10le_to_vuya;
 decode_planar_func_t yuv444p12le_to_vuya;
 decode_planar_func_t yuv4444p10le_to_y416;
 decode_planar_func_t yuv4444p12le_to_y416;
+decode_planar_func_t yuv444p10le_to_rgb24;
+decode_planar_func_t yuv444p10le_to_rgb32;
+decode_planar_func_t yuv444p10le_to_r10k;
+decode_planar_func_t yuv444p10le_to_r12l;
 decode_planar_func_t yuv444p10le_to_uyvy;
 decode_planar_func_t yuv444p10le_to_v210;
 decode_planar_func_t yuv444p10le_to_y416;
+decode_planar_func_t yuv444p12le_to_r10k;
+decode_planar_func_t yuv444p12le_to_r12l;
 decode_planar_func_t yuv444p12le_to_uyvy;
 decode_planar_func_t yuv444p12le_to_v210;
 decode_planar_func_t yuv444p12le_to_y416;
+decode_planar_func_t yuv444p16le_to_r10k;
+decode_planar_func_t yuv444p16le_to_r12l;
 decode_planar_func_t yuv444p16le_to_uyvy;
 decode_planar_func_t yuv444p16le_to_v210;
 decode_planar_func_t yuv444p16le_to_y416;

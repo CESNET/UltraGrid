@@ -303,179 +303,12 @@ from_planar_conversion(struct av_conv_data d)
                 .in_linesize[2] = d.in_frame->linesize[2],
                 .in_linesize[3] = d.in_frame->linesize[3],
                 .log2_chroma_h = fmt_desc->log2_chroma_h,
+                .cs_coeffs      = d.cs_coeffs,
+                .in_ycbcr_full_rng = d.lmt_rng == 0,
         };
         memcpy(fpd.rgb_shift, d.rgb_shift, sizeof fpd.rgb_shift);
         assert(d.from_planar_func != nullptr);
         d.from_planar_func(fpd);
-}
-
-#if defined __GNUC__
-static inline void yuv444pXXle_to_r10k(struct av_conv_data d, int depth)
-        __attribute__((always_inline));
-#endif
-static inline void
-yuv444pXXle_to_r10k(struct av_conv_data d, int depth)
-{
-        const int width = d.in_frame->width;
-        const int height = d.in_frame->height;
-        const AVFrame *frame = d.in_frame;
-
-        assert((uintptr_t) frame->linesize[0] % 2 == 0);
-        assert((uintptr_t) frame->linesize[1] % 2 == 0);
-        assert((uintptr_t) frame->linesize[2] % 2 == 0);
-
-        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, depth * d.lmt_rng);
-        for (int y = 0; y < height; ++y) {
-                uint16_t *src_y = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
-                uint16_t *src_cb = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
-                uint16_t *src_cr = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
-                unsigned char *dst =
-                    (unsigned char *) d.dst_buffer + y * d.pitch;
-
-                OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-                        comp_type_t y = (cfs.y_scale * (*src_y++ - (1<<(depth-4))));
-                        comp_type_t cr = *src_cr++ - (1<<(depth-1));
-                        comp_type_t cb = *src_cb++ - (1<<(depth-1));
-
-                        comp_type_t r = YCBCR_TO_R(cfs, y, cb, cr) >> (COMP_BASE-10+depth);
-                        comp_type_t g = YCBCR_TO_G(cfs, y, cb, cr) >> (COMP_BASE-10+depth);
-                        comp_type_t b = YCBCR_TO_B(cfs, y, cb, cr) >> (COMP_BASE-10+depth);
-                        // r g b is now on 10 bit scale
-
-                        r = CLAMP_FULL(r, 10);
-                        g = CLAMP_FULL(g, 10);
-                        b = CLAMP_FULL(b, 10);
-
-			*dst++ = r >> 2;
-			*dst++ = (r & 0x3) << 6 | g >> 4;
-			*dst++ = (g & 0xF) << 4 | b >> 6;
-			*dst++ = (b & 0x3F) << 2 | 0x3U;
-                }
-        }
-}
-
-static void
-yuv444p10le_to_r10k(struct av_conv_data d)
-{
-        yuv444pXXle_to_r10k(d, DEPTH10);
-}
-
-static void
-yuv444p12le_to_r10k(struct av_conv_data d)
-{
-        yuv444pXXle_to_r10k(d, DEPTH12);
-}
-
-static void
-yuv444p16le_to_r10k(struct av_conv_data d)
-{
-        yuv444pXXle_to_r10k(d, DEPTH16);
-}
-
-#if defined __GNUC__
-// actually faster with -02 with GCC
-#if !defined __clang__
-#pragma GCC push_options
-#pragma GCC optimize("O2")
-#endif
-static inline void yuv444pXXle_to_r12l(struct av_conv_data d, int depth)
-        __attribute__((always_inline));
-#endif
-static inline void
-yuv444pXXle_to_r12l(struct av_conv_data d, int depth)
-{
-        const int width = d.in_frame->width;
-        const int height = d.in_frame->height;
-        const AVFrame *frame = d.in_frame;
-
-        assert((uintptr_t) frame->linesize[0] % 2 == 0);
-        assert((uintptr_t) frame->linesize[1] % 2 == 0);
-        assert((uintptr_t) frame->linesize[2] % 2 == 0);
-
-        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, depth * d.lmt_rng);
-        for (int y = 0; y < height; ++y) {
-                uint16_t *src_y = (uint16_t *)(void *) (frame->data[0] + frame->linesize[0] * y);
-                uint16_t *src_cb = (uint16_t *)(void *) (frame->data[1] + frame->linesize[1] * y);
-                uint16_t *src_cr = (uint16_t *)(void *) (frame->data[2] + frame->linesize[2] * y);
-                unsigned char *dst =
-                    (unsigned char *) d.dst_buffer + y * d.pitch;
-
-                for (int x = 0; x < width; x += 8) {
-                        comp_type_t r[8];
-                        comp_type_t g[8];
-                        comp_type_t b[8];
-                        OPTIMIZED_FOR (int j = 0; j < 8; ++j) {
-                                comp_type_t y = (cfs.y_scale * (*src_y++ - (1<<(depth-4))));
-                                comp_type_t cr = *src_cr++ - (1<<(depth-1));
-                                comp_type_t cb = *src_cb++ - (1<<(depth-1));
-                                comp_type_t rr = YCBCR_TO_R(cfs, y, cb, cr) >> (COMP_BASE-12+depth);
-                                comp_type_t gg = YCBCR_TO_G(cfs, y, cb, cr) >> (COMP_BASE-12+depth);
-                                comp_type_t bb = YCBCR_TO_B(cfs, y, cb, cr) >> (COMP_BASE-12+depth);
-                                r[j] = CLAMP_FULL(rr, 12);
-                                g[j] = CLAMP_FULL(gg, 12);
-                                b[j] = CLAMP_FULL(bb, 12);
-                        }
-
-                        dst[0] = r[0] & 0xff;
-                        dst[1] = (g[0] & 0xf) << 4 | r[0] >> 8;
-                        dst[2] = g[0] >> 4;
-                        dst[3] = b[0] & 0xff;
-                        dst[4 + 0] = (r[1] & 0xf) << 4 | b[0] >> 8;
-                        dst[4 + 1] = r[1] >> 4;
-                        dst[4 + 2] = g[1] & 0xff;
-                        dst[4 + 3] = (b[1] & 0xf) << 4 | g[1] >> 8;
-                        dst[8 + 0] = b[1] >> 4;
-                        dst[8 + 1] = r[2] & 0xff;
-                        dst[8 + 2] = (g[2] & 0xf) << 4 | r[2] >> 8;
-                        dst[8 + 3] = g[2] >> 4;
-                        dst[12 + 0] = b[2] & 0xff;
-                        dst[12 + 1] = (r[3] & 0xf) << 4 | b[2] >> 8;
-                        dst[12 + 2] = r[3] >> 4;
-                        dst[12 + 3] = g[3] & 0xff;
-                        dst[16 + 0] = (b[3] & 0xf) << 4 | g[3] >> 8;
-                        dst[16 + 1] = b[3] >> 4;
-                        dst[16 + 2] = r[4] & 0xff;
-                        dst[16 + 3] = (g[4] & 0xf) << 4 | r[4] >> 8;
-                        dst[20 + 0] = g[4] >> 4;
-                        dst[20 + 1] = b[4] & 0xff;
-                        dst[20 + 2] = (r[5] & 0xf) << 4 | b[4] >> 8;
-                        dst[20 + 3] = r[5] >> 4;;
-                        dst[24 + 0] = g[5] & 0xff;
-                        dst[24 + 1] = (b[5] & 0xf) << 4 | g[5] >> 8;
-                        dst[24 + 2] = b[5] >> 4;
-                        dst[24 + 3] = r[6] & 0xff;
-                        dst[28 + 0] = (g[6] & 0xf) << 4 | r[6] >> 8;
-                        dst[28 + 1] = g[6] >> 4;
-                        dst[28 + 2] = b[6] & 0xff;
-                        dst[28 + 3] = (r[7] & 0xf) << 4 | b[6] >> 8;
-                        dst[32 + 0] = r[7] >> 4;
-                        dst[32 + 1] = g[7] & 0xff;
-                        dst[32 + 2] = (b[7] & 0xf) << 4 | g[7] >> 8;
-                        dst[32 + 3] = b[7] >> 4;
-                        dst += 36;
-                }
-        }
-}
-
-static void
-yuv444p10le_to_r12l(struct av_conv_data d)
-{
-        yuv444pXXle_to_r12l(d, DEPTH10);
-}
-
-static void
-yuv444p12le_to_r12l(struct av_conv_data d)
-{
-        yuv444pXXle_to_r12l(d, DEPTH12);
-}
-#if defined __GNUC__ && !defined __clang__
-#pragma GCC pop_options
-#endif
-
-static void
-yuv444p16le_to_r12l(struct av_conv_data d)
-{
-        yuv444pXXle_to_r12l(d, DEPTH16);
 }
 
 #if defined __GNUC__
@@ -1222,67 +1055,6 @@ MAKE_YUV_TO_RGB_FUNCTION(422, 24)
 MAKE_YUV_TO_RGB_FUNCTION(422, 30)
 MAKE_YUV_TO_RGB_FUNCTION(422, 32)
 
-#if defined __GNUC__
-static inline void yuv444p10le_to_rgb(struct av_conv_data d, bool rgba)
-        __attribute__((always_inline));
-#endif
-static inline void
-yuv444p10le_to_rgb(struct av_conv_data d, bool rgba)
-{
-        const int width = d.in_frame->width;
-        const int height = d.in_frame->height;
-        const AVFrame *in_frame = d.in_frame;
-
-        enum {
-                S_DEPTH = 10,
-        };
-        const uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << d.rgb_shift[R]) ^
-                                    (0xFFU << d.rgb_shift[G]) ^
-                                    (0xFFU << d.rgb_shift[B]);
-        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, S_DEPTH * d.lmt_rng);
-
-        for (int y = 0; y < height; y++) {
-                uint16_t *src_y = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y);
-                uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
-                uint16_t *src_cr = (uint16_t *)(void *)(in_frame->data[2] + in_frame->linesize[2] * y);
-                uint8_t *dst =
-                    (uint8_t *) (void *) (d.dst_buffer + y * d.pitch);
-
-                OPTIMIZED_FOR (int x = 0; x < width; ++x) {
-                        comp_type_t cb = *src_cb++ - (1 << (S_DEPTH - 1));
-                        comp_type_t cr = *src_cr++ - (1 << (S_DEPTH - 1));
-                        comp_type_t y =
-                            (*src_y++ - (1 << (S_DEPTH - 4))) * cfs.y_scale;
-                        comp_type_t r =
-                            YCBCR_TO_R(cfs, y, cb, cr) >> (COMP_BASE + 2);
-                        comp_type_t g =
-                            YCBCR_TO_G(cfs, y, cb, cr) >> (COMP_BASE + 2);
-                        comp_type_t b =
-                            YCBCR_TO_B(cfs, y, cb, cr) >> (COMP_BASE + 2);
-                        if (rgba) {
-                                *(uint32_t *)(void *) dst = MK_RGBA(r, g, b, alpha_mask, 8);
-                                dst += 4;
-                        } else {
-                                *dst++ = CLAMP_FULL(r, 8);
-                                *dst++ = CLAMP_FULL(g, 8);
-                                *dst++ = CLAMP_FULL(b, 8);
-                        }
-                }
-        }
-}
-
-static void
-yuv444p10le_to_rgb24(struct av_conv_data d)
-{
-        yuv444p10le_to_rgb(d, false);
-}
-
-static void
-yuv444p10le_to_rgb32(struct av_conv_data d)
-{
-        yuv444p10le_to_rgb(d, true);
-}
-
 #if P210_PRESENT
 static void
 p210le_to_v210(struct av_conv_data d)
@@ -1898,10 +1670,10 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
         { AV_PIX_FMT_YUV422P10LE, R10k,      yuv422p10le_to_rgb30,         nullptr },
         { AV_PIX_FMT_YUV444P10LE, v210,      from_planar_conversion,       yuv444p10le_to_v210 },
         { AV_PIX_FMT_YUV444P10LE, UYVY,      from_planar_conversion,       yuv444p10le_to_uyvy },
-        { AV_PIX_FMT_YUV444P10LE, R10k,      yuv444p10le_to_r10k,          nullptr },
-        { AV_PIX_FMT_YUV444P10LE, RGB,       yuv444p10le_to_rgb24,         nullptr },
-        { AV_PIX_FMT_YUV444P10LE, RGBA,      yuv444p10le_to_rgb32,         nullptr },
-        { AV_PIX_FMT_YUV444P10LE, R12L,      yuv444p10le_to_r12l,          nullptr },
+        { AV_PIX_FMT_YUV444P10LE, R10k,      from_planar_conversion,       yuv444p10le_to_r10k },
+        { AV_PIX_FMT_YUV444P10LE, RGB,       from_planar_conversion,       yuv444p10le_to_rgb24 },
+        { AV_PIX_FMT_YUV444P10LE, RGBA,      from_planar_conversion,       yuv444p10le_to_rgb32 },
+        { AV_PIX_FMT_YUV444P10LE, R12L,      from_planar_conversion,       yuv444p10le_to_r12l },
         { AV_PIX_FMT_YUV444P10LE, RG48,      yuv444p10le_to_rg48,          nullptr },
         { AV_PIX_FMT_YUV444P10LE, Y416,      from_planar_conversion,       yuv444p10le_to_y416 },
 #if P210_PRESENT
@@ -1968,15 +1740,15 @@ static const struct av_to_uv_conversion av_to_uv_conversions[] = {
         { AV_PIX_FMT_NV12,        RGB,       nv12_to_rgb24,                nullptr },
         { AV_PIX_FMT_NV12,        RGBA,      nv12_to_rgb32,                nullptr },
         // 12-bit YUV
-        { AV_PIX_FMT_YUV444P12LE, R10k,      yuv444p12le_to_r10k,          nullptr },
-        { AV_PIX_FMT_YUV444P12LE, R12L,      yuv444p12le_to_r12l,          nullptr },
+        { AV_PIX_FMT_YUV444P12LE, R10k,      from_planar_conversion,       yuv444p12le_to_r10k },
+        { AV_PIX_FMT_YUV444P12LE, R12L,      from_planar_conversion,       yuv444p12le_to_r12l },
         { AV_PIX_FMT_YUV444P12LE, RG48,      yuv444p12le_to_rg48,          nullptr },
         { AV_PIX_FMT_YUV444P12LE, UYVY,      from_planar_conversion,       yuv444p12le_to_uyvy },
         { AV_PIX_FMT_YUV444P12LE, v210,      from_planar_conversion,       yuv444p12le_to_v210 },
         { AV_PIX_FMT_YUV444P12LE, Y416,      from_planar_conversion,       yuv444p12le_to_y416 },
         // 16-bit YUV
-        { AV_PIX_FMT_YUV444P16LE, R10k,      yuv444p16le_to_r10k,          nullptr },
-        { AV_PIX_FMT_YUV444P16LE, R12L,      yuv444p16le_to_r12l,          nullptr },
+        { AV_PIX_FMT_YUV444P16LE, R10k,      from_planar_conversion,       yuv444p16le_to_r10k },
+        { AV_PIX_FMT_YUV444P16LE, R12L,      from_planar_conversion,       yuv444p16le_to_r12l },
         { AV_PIX_FMT_YUV444P16LE, RG48,      yuv444p16le_to_rg48,          nullptr },
         { AV_PIX_FMT_YUV444P16LE, UYVY,      from_planar_conversion,       yuv444p16le_to_uyvy },
         { AV_PIX_FMT_YUV444P16LE, v210,      from_planar_conversion,       yuv444p16le_to_v210 },

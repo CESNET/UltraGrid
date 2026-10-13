@@ -47,6 +47,7 @@
 #include <stdint.h>        // for uint32_t, uintptr_t, uint16_t, uint64_t
 #include <string.h>        // for memcpy
 
+#include "color_space.h"
 #include "compat/c23.h"    // for size_t, NULL, countof, nullptr, ptrdiff_t
 #include "types.h"         // for depth
 #include "utils/macros.h"  // for OPTIMIZED_FOR
@@ -895,5 +896,227 @@ void
 yuv444p16le_to_v210(struct from_planar_data d)
 {
         yuv444p1Xle_to_v210(d, DEPTH16);
+}
+
+#if defined __GNUC__
+// actually faster with -02 with GCC
+#if !defined __clang__
+#pragma GCC push_options
+#pragma GCC optimize("O2")
+#endif
+#endif
+[[gnu::always_inline]] static inline void
+yuv444pXXle_to_r12l(struct from_planar_data d, int depth)
+{
+        const int width = d.width;
+        const size_t height = d.height;
+
+        assert((uintptr_t) d.in_linesize[0] % 2 == 0);
+        assert((uintptr_t) d.in_linesize[1] % 2 == 0);
+        assert((uintptr_t) d.in_linesize[2] % 2 == 0);
+
+        int lmt_rng = d.in_ycbcr_full_rng ? 0 : depth;
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, lmt_rng);
+        for (size_t y = 0; y < height; ++y) {
+                const uint16_t *src_y = (const void *) (d.in_data[0] + (d.in_linesize[0] * y));
+                const uint16_t *src_cb = (const void *) (d.in_data[1] + (d.in_linesize[1] * y));
+                const uint16_t *src_cr = (const void *) (d.in_data[2] + (d.in_linesize[2] * y));
+                unsigned char *dst = d.out_data + (y * d.out_pitch);
+
+                for (int x = 0; x < width; x += 8) {
+                        comp_type_t r[8];
+                        comp_type_t g[8];
+                        comp_type_t b[8];
+                        OPTIMIZED_FOR (int j = 0; j < 8; ++j) {
+                                comp_type_t y = (cfs.y_scale * (*src_y++ - (1<<(depth-4))));
+                                comp_type_t cr = *src_cr++ - (1<<(depth-1));
+                                comp_type_t cb = *src_cb++ - (1<<(depth-1));
+                                comp_type_t rr = YCBCR_TO_R(cfs, y, cb, cr) >> (COMP_BASE-12+depth);
+                                comp_type_t gg = YCBCR_TO_G(cfs, y, cb, cr) >> (COMP_BASE-12+depth);
+                                comp_type_t bb = YCBCR_TO_B(cfs, y, cb, cr) >> (COMP_BASE-12+depth);
+                                r[j] = CLAMP_FULL(rr, 12);
+                                g[j] = CLAMP_FULL(gg, 12);
+                                b[j] = CLAMP_FULL(bb, 12);
+                        }
+
+                        dst[0] = r[0] & 0xff;
+                        dst[1] = (g[0] & 0xf) << 4 | r[0] >> 8;
+                        dst[2] = g[0] >> 4;
+                        dst[3] = b[0] & 0xff;
+                        dst[4 + 0] = (r[1] & 0xf) << 4 | b[0] >> 8;
+                        dst[4 + 1] = r[1] >> 4;
+                        dst[4 + 2] = g[1] & 0xff;
+                        dst[4 + 3] = (b[1] & 0xf) << 4 | g[1] >> 8;
+                        dst[8 + 0] = b[1] >> 4;
+                        dst[8 + 1] = r[2] & 0xff;
+                        dst[8 + 2] = (g[2] & 0xf) << 4 | r[2] >> 8;
+                        dst[8 + 3] = g[2] >> 4;
+                        dst[12 + 0] = b[2] & 0xff;
+                        dst[12 + 1] = (r[3] & 0xf) << 4 | b[2] >> 8;
+                        dst[12 + 2] = r[3] >> 4;
+                        dst[12 + 3] = g[3] & 0xff;
+                        dst[16 + 0] = (b[3] & 0xf) << 4 | g[3] >> 8;
+                        dst[16 + 1] = b[3] >> 4;
+                        dst[16 + 2] = r[4] & 0xff;
+                        dst[16 + 3] = (g[4] & 0xf) << 4 | r[4] >> 8;
+                        dst[20 + 0] = g[4] >> 4;
+                        dst[20 + 1] = b[4] & 0xff;
+                        dst[20 + 2] = (r[5] & 0xf) << 4 | b[4] >> 8;
+                        dst[20 + 3] = r[5] >> 4;;
+                        dst[24 + 0] = g[5] & 0xff;
+                        dst[24 + 1] = (b[5] & 0xf) << 4 | g[5] >> 8;
+                        dst[24 + 2] = b[5] >> 4;
+                        dst[24 + 3] = r[6] & 0xff;
+                        dst[28 + 0] = (g[6] & 0xf) << 4 | r[6] >> 8;
+                        dst[28 + 1] = g[6] >> 4;
+                        dst[28 + 2] = b[6] & 0xff;
+                        dst[28 + 3] = (r[7] & 0xf) << 4 | b[6] >> 8;
+                        dst[32 + 0] = r[7] >> 4;
+                        dst[32 + 1] = g[7] & 0xff;
+                        dst[32 + 2] = (b[7] & 0xf) << 4 | g[7] >> 8;
+                        dst[32 + 3] = b[7] >> 4;
+                        dst += 36;
+                }
+        }
+}
+void
+yuv444p10le_to_r12l(struct from_planar_data d)
+{
+        yuv444pXXle_to_r12l(d, DEPTH10);
+}
+
+void
+yuv444p12le_to_r12l(struct from_planar_data d)
+{
+        yuv444pXXle_to_r12l(d, DEPTH12);
+}
+void
+yuv444p16le_to_r12l(struct from_planar_data  d)
+{
+        yuv444pXXle_to_r12l(d, DEPTH16);
+}
+#if defined __GNUC__ && !defined __clang__
+#pragma GCC pop_options
+#endif
+
+[[gnu::always_inline]] static inline void
+yuv444pXXle_to_r10k(struct from_planar_data d, int depth)
+{
+        const int width = d.width;
+        const size_t height = d.height;
+
+        assert((uintptr_t) d.in_linesize[0] % 2 == 0);
+        assert((uintptr_t) d.in_linesize[1] % 2 == 0);
+        assert((uintptr_t) d.in_linesize[2] % 2 == 0);
+
+        int lmt_rng = d.in_ycbcr_full_rng ? 0 : depth;
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, lmt_rng);
+        for (size_t y = 0; y < height; ++y) {
+                const uint16_t *src_y = (const void *) (d.in_data[0] + (d.in_linesize[0] * y));
+                const uint16_t *src_cb = (const void *) (d.in_data[1] + (d.in_linesize[1] * y));
+                const uint16_t *src_cr = (const void *) (d.in_data[2] + (d.in_linesize[2] * y));
+                unsigned char *dst = d.out_data + (y * d.out_pitch);
+
+                OPTIMIZED_FOR (int x = 0; x < width; ++x) {
+                        comp_type_t y = (cfs.y_scale * (*src_y++ - (1<<(depth-4))));
+                        comp_type_t cr = *src_cr++ - (1<<(depth-1));
+                        comp_type_t cb = *src_cb++ - (1<<(depth-1));
+
+                        comp_type_t r = YCBCR_TO_R(cfs, y, cb, cr) >> (COMP_BASE-10+depth);
+                        comp_type_t g = YCBCR_TO_G(cfs, y, cb, cr) >> (COMP_BASE-10+depth);
+                        comp_type_t b = YCBCR_TO_B(cfs, y, cb, cr) >> (COMP_BASE-10+depth);
+                        // r g b is now on 10 bit scale
+
+                        r = CLAMP_FULL(r, 10);
+                        g = CLAMP_FULL(g, 10);
+                        b = CLAMP_FULL(b, 10);
+
+			*dst++ = r >> 2;
+			*dst++ = (r & 0x3) << 6 | g >> 4;
+			*dst++ = (g & 0xF) << 4 | b >> 6;
+			*dst++ = (b & 0x3F) << 2 | 0x3U;
+                }
+        }
+}
+void
+yuv444p10le_to_r10k(struct from_planar_data d)
+{
+        yuv444pXXle_to_r10k(d, DEPTH10);
+}
+void
+yuv444p12le_to_r10k(struct from_planar_data d)
+{
+        yuv444pXXle_to_r10k(d, DEPTH12);
+}
+void
+yuv444p16le_to_r10k(struct from_planar_data d)
+{
+        yuv444pXXle_to_r10k(d, DEPTH16);
+}
+
+#define MK_RGBA(r, g, b, alpha_mask, depth) \
+        FORMAT_RGBA((r), (g), (b), (d.rgb_shift)[0], (d.rgb_shift)[1], \
+                    (d.rgb_shift)[2], (alpha_mask), (depth))
+
+/**
+ * @note
+ * Input alpha (if any) is always discarded. This is due to "special" RGB-shifts
+ * handling inside UG for output RGBA that makes handling true alpha difficult.
+ * In general, we can get rshift=0, gshift=10, bshift=20, meaning that there is
+ * no space for alpha. If needed, it could be implemented in an opportunistic
+ * way, however, eg. if RGB shifts are the default.
+ */
+[[gnu::always_inline]] static inline void
+yuv444p10le_to_rgb(struct from_planar_data d, bool out_rgba)
+{
+        const int width = d.width;
+        const size_t height = d.height;
+
+        enum {
+                S_DEPTH = DEPTH10,
+        };
+        const uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << d.rgb_shift[0]) ^
+                                    (0xFFU << d.rgb_shift[1]) ^
+                                    (0xFFU << d.rgb_shift[2]);
+        int lmt_rng = d.in_ycbcr_full_rng ? 0 : S_DEPTH;
+        const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, lmt_rng);
+
+        for (size_t y = 0; y < height; y++) {
+                const uint16_t *src_y = (const void *)(d.in_data[0] + (d.in_linesize[0] * y));
+                const uint16_t *src_cb = (const void *)(d.in_data[1] + (d.in_linesize[1] * y));
+                const uint16_t *src_cr = (const void *)(d.in_data[2] + (d.in_linesize[2] * y));
+                uint8_t *dst = d.out_data + (y * d.out_pitch);
+
+                OPTIMIZED_FOR (int x = 0; x < width; ++x) {
+                        comp_type_t cb = *src_cb++ - (1 << (S_DEPTH - 1));
+                        comp_type_t cr = *src_cr++ - (1 << (S_DEPTH - 1));
+                        comp_type_t y =
+                            (*src_y++ - (1 << (S_DEPTH - 4))) * cfs.y_scale;
+                        comp_type_t r =
+                            YCBCR_TO_R(cfs, y, cb, cr) >> (COMP_BASE + 2);
+                        comp_type_t g =
+                            YCBCR_TO_G(cfs, y, cb, cr) >> (COMP_BASE + 2);
+                        comp_type_t b =
+                            YCBCR_TO_B(cfs, y, cb, cr) >> (COMP_BASE + 2);
+                        if (out_rgba) {
+                                *(uint32_t *)(void *) dst = MK_RGBA(r, g, b, alpha_mask, 8);
+                                dst += 4;
+                        } else {
+                                *dst++ = CLAMP_FULL(r, 8);
+                                *dst++ = CLAMP_FULL(g, 8);
+                                *dst++ = CLAMP_FULL(b, 8);
+                        }
+                }
+        }
+}
+void
+yuv444p10le_to_rgb24(struct from_planar_data d)
+{
+        yuv444p10le_to_rgb(d, false);
+}
+void
+yuv444p10le_to_rgb32(struct from_planar_data d)
+{
+        yuv444p10le_to_rgb(d, true);
 }
 
