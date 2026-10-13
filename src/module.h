@@ -151,7 +151,7 @@ bool module_get_path_str(struct module *mod, char *buf, size_t buflen);
 #ifdef __cplusplus
 class module_raii{
 public:
-        module_raii(module_class type, module *parent, void *priv, notify_t new_message = nullptr){
+        module_raii(module_class type, struct module *parent, void *priv, notify_t new_message = nullptr){
                 module_init_default(&mod);
                 mod.priv_data = priv;
                 mod.cls = type;
@@ -166,9 +166,9 @@ public:
         module_raii(const module_raii &) = delete;
         module_raii &operator=(const module_raii &) = delete;
 
-        module *get(){ return &mod; }
+        struct module *get(){ return &mod; }
 private:
-        module mod;
+        struct module mod;
 };
 #endif
 
