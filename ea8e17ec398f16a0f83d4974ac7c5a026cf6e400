@@ -17,5 +17,8 @@ As this is just a problem wit the missing KHR pre-1.4, adding this to
 pyrowave.h would also help:
 
 ````c
+\#if !defined(VK_VERSION_1_4)
 typedef VkQueueGlobalPriorityKHR VkQueueGlobalPriority;
+typedef VkQueueGlobalPriorityKHR VkQueueGlobalPriority;
+\#endif
 ````
