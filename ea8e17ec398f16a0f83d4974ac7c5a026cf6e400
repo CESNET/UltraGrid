@@ -1,0 +1,21 @@
+UG pyrowave module fails with:
+
+````console
+Compiling src/video_compress/pyrowave.cpp...
+In file included from src/pyrowave_common.hpp:44,
+                 from src/pyrowave_common.cpp:38:
+/usr/local/include/pyrowave/pyrowave.h:166:9: error: ‘VkQueueGlobalPriority’ has not been declared
+  166 |         VkQueueGlobalPriority global_priority,
+      |         ^~~~~~~~~~~~~~~~~~~~~
+/usr/local/include/pyrowave/pyrowave.h:172:21: error: ‘VkQueueGlobalPriority’ does not name a type; did you mean ‘VkQueueGlobalPriorityKHR’?
+  172 | PYROWAVE_PUBLIC_API VkQueueGlobalPriority pyrowave_device_get_global_priority(pyrowave_device device);
+      |                     ^~~~~~~~~~~~~~~~~~~~~
+      |                     VkQueueGlobalPriorityKHR
+````
+
+As this is just a problem wit the missing KHR pre-1.4, adding this to
+pyrowave.h would also help:
+
+````c
+typedef VkQueueGlobalPriorityKHR VkQueueGlobalPriority;
+````
