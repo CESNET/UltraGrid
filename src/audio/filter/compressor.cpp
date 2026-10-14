@@ -44,6 +44,7 @@
 #include "audio/audio_filter.h"
 #include "audio/types.h"
 #include "lib_common.h"
+#include "messaging.h"
 #include "utils/string_view_utils.hpp"
 
 #define MOD_NAME "[afilter/compressor] "
@@ -195,10 +196,20 @@ af_result_code compressor_configure(void *state, int bps, int ch_count, int samp
 af_result_code compressor_filter(void *state, const audio_frame **f){
         auto *s = static_cast<state_audio_compressor *>(state);
 
-        auto frame = *f;
+        const auto frame = *f;
         constexpr int bps = 2;
         assert(frame->ch_count == 1);
         assert(frame->bps == bps);
+
+        message *msg;
+        while ((msg = check_message(s->mod.get()))) {
+                const auto *msg_uni = reinterpret_cast<msg_universal *>(msg);
+                const std::string_view text = msg_uni->text;
+
+                parse_config(s, text);
+
+                free_message(msg, new_response(RESPONSE_OK, nullptr));
+        }
 
         auto samples = frame->data_len / frame->bps / frame->ch_count;
 
