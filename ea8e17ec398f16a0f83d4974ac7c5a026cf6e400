@@ -1,4 +1,4 @@
-UG pyrowave module fails with:
+UG pyrowave module fails with Debian 12 distro libvulkan with:
 
 ````console
 Compiling src/video_compress/pyrowave.cpp...
@@ -13,8 +13,8 @@ In file included from src/pyrowave_common.hpp:44,
       |                     VkQueueGlobalPriorityKHR
 ````
 
-As this is just a problem wit the missing KHR pre-1.4, adding this to
-pyrowave.h would also help:
+As this is just a problem wit the missing KHR suffix for that symbol for
+Vulkan pre-1.4, adding this to pyrowave.h would also help:
 
 ````c
 %:if !defined(VK_VERSION_1_4)
