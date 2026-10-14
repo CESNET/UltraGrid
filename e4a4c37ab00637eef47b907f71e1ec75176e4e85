@@ -1,0 +1,10 @@
+value h_align=64 for R10k taken from BMD SDK manual for R10b
+(bmdFormat10BitRGBX):
+"In this format each line of video must be aligned a 256 byte boundary. One
+pixel fits into 4 bytes so 64 pixels fit into 256 bytes."
+
+Eg. [MultmediaWiki] says nothing, however, so unsure if it is
+true/universal.
+
+[MultimediaWiki]:
+https://wiki.multimedia.cx/index.php/AJA_Kona_10-bit_RGB_Codec
