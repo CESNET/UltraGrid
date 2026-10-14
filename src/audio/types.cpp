@@ -52,7 +52,7 @@
 
 #define MOD_NAME "[audio/types] "
 
-using std::copy;
+using std::copy_n;
 using std::logic_error;
 using std::ostringstream;
 using std::string;
@@ -159,7 +159,7 @@ void audio_frame2::append(int channel, const char *data, size_t length)
         // allocate twice as much as we need to avoid frequent reallocations
         // when append is called repeatedly
         reserve(channel, 2 * (channels[channel].len + length));
-        copy(data, data + length, channels[channel].data.get() + channels[channel].len);
+        copy_n(data, length, channels[channel].data.get() + channels[channel].len);
         channels[channel].len += length;
 }
 
@@ -171,7 +171,7 @@ void audio_frame2::append(int channel, const char *data, size_t length)
 void audio_frame2::replace(int channel, size_t offset, const char *data, size_t length)
 {
         resize(channel, offset + length);
-        copy(data, data + length, channels[channel].data.get() + offset);
+        copy_n(data, length, channels[channel].data.get() + offset);
 }
 
 /**
@@ -186,13 +186,13 @@ void audio_frame2::reserve(size_t bytes)
 
 void audio_frame2::reserve(int channel, size_t length)
 {
-        if (channels[channel].max_len < length) {
+        auto& target_ch = channels[channel];
+        if (target_ch.max_len < length) {
                 unique_ptr<char []> new_data(new char[length]);
-                copy(channels[channel].data.get(), channels[channel].data.get() +
-                                channels[channel].len, new_data.get());
+                copy_n(target_ch.data.get(), target_ch.len, new_data.get());
 
-                channels[channel].max_len = length;
-                channels[channel].data = std::move(new_data);
+                target_ch.max_len = length;
+                target_ch.data = std::move(new_data);
         }
 }
 
