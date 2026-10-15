@@ -83,7 +83,7 @@ int         udp_recvfrom(socket_udp *s, char *buffer, int buflen, struct sockadd
 int         udp_send(socket_udp *s, char *buffer, int buflen);
 int         udp_sendto(socket_udp *s, char *buffer, int buflen, struct sockaddr *dst_addr, socklen_t addrlen);
 
-void        udp_async_start(socket_udp *s, int nr_packets);
+void        udp_async_start(socket_udp *s, int nr_packets, int mtu);
 void        udp_async_wait(socket_udp *s);
 #ifdef _WIN32
 int         udp_sendv(socket_udp *s, LPWSABUF vector, int count, void *d);
@@ -124,6 +124,7 @@ bool        udp_is_ipv6(socket_udp *s);
 
 void        socket_error(const char *msg, ...);
 
+bool        udp_set_gso(socket_udp *s, int val);
 #ifdef _WIN32
 int         udp_send_wsa_async(socket_udp *s, char *buffer, int buflen, LPWSAOVERLAPPED_COMPLETION_ROUTINE, LPWSAOVERLAPPED);
 int         udp_sendto_wsa_async(socket_udp *s, char *buffer, int buflen, LPWSAOVERLAPPED_COMPLETION_ROUTINE l, LPWSAOVERLAPPED o, struct sockaddr *addr, socklen_t addrlen);

@@ -1310,6 +1310,8 @@ bool rtp_set_option(struct rtp *session, rtp_option optname, int optval)
         case RTP_OPT_RECORD_SOURCE:
                 session->opt->record_source = optval;
                 break;
+        case RTP_OPT_USE_UDP_GSO:
+                return udp_set_gso(session->rtp_socket, optval);
         default:
                 debug_msg
                     ("Ignoring unknown option (%d) in call to rtp_set_option().\n",
@@ -3666,9 +3668,9 @@ bool rtp_is_ipv6(struct rtp *session)
         return udp_is_ipv6(session->rtp_socket);
 }
 
-void rtp_async_start(struct rtp *session, int nr_packets)
+void rtp_async_start(struct rtp *session, int nr_packets, int mtu)
 {
-       udp_async_start(session->rtp_socket, nr_packets);
+       udp_async_start(session->rtp_socket, nr_packets, mtu);
 }
 
 void rtp_async_wait(struct rtp *session)

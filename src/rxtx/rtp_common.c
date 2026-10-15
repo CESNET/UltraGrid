@@ -546,6 +546,42 @@ rtp_rxtx_common_done(struct rtp_rxtx_common *pub)
         free(s);
 }
 
+extern int gso_force; // defined in transmit.c
+ADD_TO_PARAM("udp-gso",
+             "* udp-gso=[off|on|auto|force|<max_count>]\n"
+             "  Use video UDP Segmentation / Generic Segmentation Offload (Linux only).\n"
+             "  Values mean - never, always, always + give up correct packet splitting.\n"
+             "  The \"force\" option enables UDP segments where not efficient, notably\n"
+             "  when line-size is not divisible by 24 and exceeds packet size, eg. UYVY 8192.\n"
+             "  yields segment of just 2 9000 B packets (but 12 standard)\n"
+             "  <max_count> - same as \"on\" but limit pkt count lower than 64 per offload\n"
+             "  auto (default) - enable for 4+ MB frames\n");
+static int
+get_req_gso()
+{
+        const char *opt = get_commandline_param("udp-gso");
+        if (!opt || strcasecmp(opt, "auto") == 0) {
+                return -1;
+        }
+        if (strcasecmp(opt, "off") == 0) {
+                return 0;
+        }
+        if (strcasecmp(opt, "on") == 0) {
+                return 1;
+        }
+        if (strcasecmp(opt, "force") == 0) {
+                gso_force = 1;
+                return 1;
+        }
+        char *endptr = nullptr;
+        long  val    = strtol(opt, &endptr, 10);
+        if (val > 1 && val <= 64 && !*endptr) {
+                return (int) val;
+        }
+        MSG(ERROR, "Wrong udp-gso argument: %s!\n", opt);
+        return -1;
+}
+
 static struct rtp *
 initialize_network(const char *addr, int recv_port, int send_port,
                    struct pdb *participants, int force_ip_version,
@@ -576,6 +612,7 @@ initialize_network(const char *addr, int recv_port, int send_port,
 
         if (medium == TX_MEDIA_VIDEO) {
                 rtp_set_send_buf(device, INITIAL_VIDEO_SEND_BUFFER_SIZE);
+                rtp_set_option(device, RTP_OPT_USE_UDP_GSO, get_req_gso());
         } else {
                 rtp_set_option(device, RTP_OPT_RECORD_SOURCE, true);
         }

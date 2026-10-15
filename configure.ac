@@ -482,6 +482,21 @@ then
 fi
 
 # ----------------------------------------------------------------------
+# Linux UDP segmentation offload
+# ----------------------------------------------------------------------
+if test "${system?}" = Linux; then
+        AC_MSG_CHECKING([Linux UDP segmentation offload])
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
+                [[#include <linux/udp.h>]],
+                [[int flag = UDP_SEGMENT;]])],
+                udp_segment=yes, udp_segment=no)
+        AC_MSG_RESULT([${udp_segment?}])
+        if test "${udp_segment?}" = yes; then
+		AC_DEFINE([HAVE_LINUX_UDP_SEGMENT], [1], [Linux UDP segmentation offload available])
+        fi
+fi
+
+# ----------------------------------------------------------------------
 # environment variables
 # ----------------------------------------------------------------------
 AC_ARG_VAR([AJA_DIRECTORY], [Directory to AJA NTV2 SDK.])

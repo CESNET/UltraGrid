@@ -58,6 +58,10 @@
 #include <ifaddrs.h>
 #endif
 
+#ifdef HAVE_LINUX_UDP_SEGMENT
+#include <linux/udp.h>
+#endif
+
 #include "compat/net.h"
 #include "compat/platform_pipe.h"
 #include "compat/strings.h"       // for strerror_s
@@ -168,6 +172,9 @@ struct socket_udp_local {
 #ifdef _WIN32
         bool is_wsa_overlapped;
 #endif
+#ifdef HAVE_LINUX_UDP_SEGMENT
+        int req_gso;
+#endif
 
         // for multithreaded receiving
         pthread_t thread_id;
@@ -192,14 +199,22 @@ struct _socket_udp {
         struct socket_udp_local *local;
         bool local_is_slave; // whether is the local
 
+        // all till the end needed just if ovlp_gso_active
+        bool   ovlp_gso_active;
 #ifdef _WIN32
         WSAOVERLAPPED *overlapped;
         WSAEVENT *overlapped_events;
-        void **dispose_udata;
-        bool overlapping_active;
-        int overlapped_max;
-        int overlapped_count;
 #endif
+#ifdef HAVE_LINUX_UDP_SEGMENT
+        size_t       gso_mtu;
+        int          gso_exp_packets; // total ("per frame")
+        struct iovec gso_iov[IOV_MAX];
+        size_t       gso_cur_iov_cnt;
+        size_t       gso_cur_packet_cnt;
+#endif
+        void **ovlp_gso_udata;
+        int    ovlp_gso_pkg_max;
+        int    ovlp_gso_pkt_count;
 };
 
 static void udp_clean_async_state(socket_udp *s);
@@ -1056,6 +1071,7 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         }
 
         s->local->rx_fd = WSASocket(s->sock.ss_family, SOCK_DGRAM, IPPROTO_UDP, NULL, 0, s->local->is_wsa_overlapped ? WSA_FLAG_OVERLAPPED : 0);
+
         if (get_commandline_param("udp-disable-multi-socket")) {
                 s->local->tx_fd = s->local->rx_fd;
         } else {
@@ -1273,28 +1289,128 @@ int udp_sendto(socket_udp * s, char *buffer, int buflen, struct sockaddr *dst_ad
         return sendto(s->local->tx_fd, buffer, buflen, 0, dst_addr, addrlen);
 }
 
+bool
+udp_set_gso(socket_udp *s, int val)
+{
+        if (val < RTP_GSO_AUTO || val > 64) {
+                MSG(ERROR, "Invalid value %d for GSO!\n", val);
+                return false;
+        }
+#ifdef HAVE_LINUX_UDP_SEGMENT
+        s->local->req_gso = val;
+#else
+        (void) s;
+        if (val >= RTP_GSO_ON) {
+                MSG(ERROR, "Cannot turn on GSO - support not available!\n");
+                return false;
+        }
+#endif
+        return true;
+}
+
+#ifdef HAVE_LINUX_UDP_SEGMENT
+static int
+gso_flush(socket_udp *s)
+{
+        struct msghdr   msg = {};
+        char            cbuf[CMSG_SPACE(sizeof(uint16_t))];
+
+        msg.msg_control    = cbuf;
+        msg.msg_controllen = sizeof(cbuf);
+        msg.msg_name       = (void *) &s->sock;
+        msg.msg_namelen    = s->sock_len;
+        msg.msg_iov        = s->gso_iov;
+        msg.msg_iovlen     = s->gso_cur_iov_cnt;
+
+        struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+        cmsg->cmsg_level     = IPPROTO_UDP;
+        cmsg->cmsg_type      = UDP_SEGMENT;
+        cmsg->cmsg_len       = CMSG_LEN(sizeof(uint16_t));
+        uint16_t *gso_mtu    = (void *) CMSG_DATA(cmsg);
+        *gso_mtu             = s->gso_mtu;
+
+        s->gso_cur_packet_cnt = 0;
+        s->gso_cur_iov_cnt    = 0;
+
+        return sendmsg(s->local->tx_fd, &msg, 0);
+}
+static int
+udp_sendv_gso(socket_udp *s, struct iovec *vector, int count, void *d)
+{
+        assert(s);
+        assert(s->ovlp_gso_pkt_count < s->gso_exp_packets);
+        enum { UDP_MAX_SEGMENTS = 64 }; // udp(7)
+        unsigned max_segments = s->local->req_gso > RTP_GSO_ON
+                                    ? s->local->req_gso
+                                    : UDP_MAX_SEGMENTS;
+
+        ssize_t ret = 0;
+
+        size_t this_pkt_mtu = 0;
+        for (int i = 0; i < count; ++i) {
+                this_pkt_mtu += vector[i].iov_len;
+        }
+
+        if (s->gso_mtu == 0) { // init
+                s->gso_mtu = this_pkt_mtu;
+        }
+
+        bool is_last_pkt = s->ovlp_gso_pkt_count == s->gso_exp_packets - 1;
+        size_t new_pkt_count = s->gso_cur_packet_cnt + 1;
+        size_t new_segm_sz   = new_pkt_count * s->gso_mtu;
+        size_t new_iov_count = s->gso_cur_iov_cnt + count;
+        bool   mtu_changed =
+            s->gso_mtu != this_pkt_mtu &&
+            (!is_last_pkt || this_pkt_mtu > s->gso_mtu); // last pkt can be shorter...
+        if (mtu_changed || new_segm_sz > USHRT_MAX ||
+            new_pkt_count > max_segments || new_iov_count > IOV_MAX) {
+                ret        = gso_flush(s);
+                s->gso_mtu = this_pkt_mtu;
+        }
+
+        for (int i = 0; i < count; ++i) {
+                s->gso_iov[s->gso_cur_iov_cnt].iov_base = vector[i].iov_base;
+                s->gso_iov[s->gso_cur_iov_cnt].iov_len = vector[i].iov_len;
+                s->gso_cur_iov_cnt += 1;
+        }
+
+        s->ovlp_gso_udata[s->ovlp_gso_pkt_count] = d;
+        s->ovlp_gso_pkt_count += 1; // in frame (current send batch)
+        s->gso_cur_packet_cnt += 1; // in current block
+
+        if (is_last_pkt) {
+                int ret2 = gso_flush(s);
+                if (ret == 0) {
+                        ret = ret2;
+                }
+        }
+
+        return ret;
+}
+#endif // HAVE_LINUX_UDP_SEGMENT
+
 #ifdef _WIN32
 int udp_sendv(socket_udp * s, LPWSABUF vector, int count, void *d)
 {
         assert(s != NULL);
 
-        assert(!s->overlapping_active || s->overlapped_count < s->overlapped_max);
+        assert(!s->ovlp_gso_active || s->ovlp_gso_pkt_count < s->ovlp_gso_pkg_max);
 
 	DWORD bytesSent;
-	int ret = WSASendTo(s->local->tx_fd, vector, count, &bytesSent, 0,
-		(struct sockaddr *) &s->sock,
-		s->sock_len, s->overlapping_active ? &s->overlapped[s->overlapped_count] : NULL, NULL);
-        if (s->overlapping_active) {
-                s->dispose_udata[s->overlapped_count] = d;
+        WSAOVERLAPPED *overlapped =
+            s->ovlp_gso_active ? &s->overlapped[s->ovlp_gso_pkt_count] : NULL;
+        int ret = WSASendTo(s->local->tx_fd, vector, count, &bytesSent, 0,
+                            (struct sockaddr *) &s->sock, s->sock_len,
+                            overlapped, NULL);
+        if (s->ovlp_gso_active) {
+                s->ovlp_gso_udata[s->ovlp_gso_pkt_count] = d;
         } else {
                 free(d);
         }
-        s->overlapped_count++;
+        s->ovlp_gso_pkt_count++;
         if (ret == 0 || WSAGetLastError() == WSA_IO_PENDING)
                 return 0;
-        else {
-                return ret;
-        }
+        return ret;
 }
 #else
 int udp_sendv(socket_udp * s, struct iovec *vector, int count, void *d)
@@ -1302,6 +1418,12 @@ int udp_sendv(socket_udp * s, struct iovec *vector, int count, void *d)
         struct msghdr msg;
 
         assert(s != NULL);
+
+#ifdef HAVE_LINUX_UDP_SEGMENT
+        if (s->ovlp_gso_active) {
+                return udp_sendv_gso(s, vector, count, d);
+        }
+#endif
 
         msg.msg_name = (void *) & s->sock;
         msg.msg_namelen = s->sock_len;
@@ -1766,72 +1888,103 @@ void udp_flush_recv_buf(socket_udp *s)
  * can be send in asynchronous manner. Caller should then call udp_async_wait()
  * to ensure that all packets were actually sent.
  */
-void udp_async_start(socket_udp *s, int nr_packets)
+void
+udp_async_start(socket_udp *s, int nr_packets, int mtu)
 {
+        (void) mtu;
 #ifdef _WIN32
         if (!s->local->is_wsa_overlapped) {
                 return;
         }
+#elif defined HAVE_LINUX_UDP_SEGMENT
+        enum { MB4 = 4000 * 1000 }; // 4 MB -> ~1 Gbps video stream for 24/25 fps
+        switch (s->local->req_gso) {
+        case RTP_GSO_AUTO:
+                if (nr_packets * mtu > MB4) {
+                        break;
+                }
+                return;
+        case RTP_GSO_OFF:
+                return;
+        case RTP_GSO_ON:
+        default:
+                break;
+        }
+        MSG_ONCE(INFO, "using UDP Segmentation Offload\n");
+#else
+        return;
+#endif
 
-        if (nr_packets > s->overlapped_max) {
+        if (nr_packets > s->ovlp_gso_pkg_max) {
+                s->ovlp_gso_udata = (void **) realloc(s->ovlp_gso_udata, nr_packets * sizeof(void *));
+#ifdef _WIN32
                 s->overlapped = (OVERLAPPED *) realloc(s->overlapped, nr_packets * sizeof(WSAOVERLAPPED));
                 s->overlapped_events = (void **) realloc(s->overlapped_events, nr_packets * sizeof(WSAEVENT));
-                s->dispose_udata = (void **) realloc(s->dispose_udata, nr_packets * sizeof(void *));
-                for (int i = s->overlapped_max; i < nr_packets; ++i) {
+                for (int i = s->ovlp_gso_pkg_max; i < nr_packets; ++i) {
                         memset(&s->overlapped[i], 0, sizeof(WSAOVERLAPPED));
                         s->overlapped[i].hEvent = s->overlapped_events[i] = WSACreateEvent();
                         assert(s->overlapped[i].hEvent != WSA_INVALID_EVENT);
                 }
-                s->overlapped_max = nr_packets;
-        }
-
-        s->overlapped_count = 0;
-        s->overlapping_active = true;
-#else
-        UNUSED(nr_packets);
-        UNUSED(s);
 #endif
+                s->ovlp_gso_pkg_max = nr_packets;
+        }
+#ifdef HAVE_LINUX_UDP_SEGMENT
+        s->gso_mtu            = 0;
+        s->gso_cur_packet_cnt = 0;
+        s->gso_exp_packets    = nr_packets;
+#endif
+
+        s->ovlp_gso_pkt_count = 0;
+        s->ovlp_gso_active    = true;
 }
 
+/**
+ * - if meither WSA overlapping nor Linux GSO is active, do nothing
+ * - for WSA overlapping wait for send
+ * - for Linux GSO checks if no packet remains cached
+ * - (both above) reset the state - set as inactive and free pkts' udata
+ */
 void udp_async_wait(socket_udp *s)
 {
-#ifdef _WIN32
-        if (!s->overlapping_active)
+        if (!s->ovlp_gso_active) {
                 return;
-        for(int i = 0; i < s->overlapped_count; i += WSA_MAXIMUM_WAIT_EVENTS)
+        }
+#ifdef _WIN32
+        for(int i = 0; i < s->ovlp_gso_pkt_count; i += WSA_MAXIMUM_WAIT_EVENTS)
         {
                 int count = WSA_MAXIMUM_WAIT_EVENTS;
-                if (s->overlapped_count - i < WSA_MAXIMUM_WAIT_EVENTS)
-                        count = s->overlapped_count - i;
+                if (s->ovlp_gso_pkt_count - i < WSA_MAXIMUM_WAIT_EVENTS)
+                        count = s->ovlp_gso_pkt_count - i;
                 DWORD ret = WSAWaitForMultipleEvents(count, s->overlapped_events + i, true, INFINITE, true);
                 if (ret == WSA_WAIT_FAILED) {
                         socket_error("WSAWaitForMultipleEvents");
                 }
         }
-        for (int i = 0; i < s->overlapped_count; i++) {
+        for (int i = 0; i < s->ovlp_gso_pkt_count; i++) {
                 if (WSAResetEvent(s->overlapped[i].hEvent) == false) {
                         socket_error("WSAResetEvent");
                 }
-                free(s->dispose_udata[i]);
         }
-        s->overlapping_active = false;
-#else
-        UNUSED(s);
 #endif
+#ifdef HAVE_LINUX_UDP_SEGMENT
+        assert(s->gso_cur_packet_cnt == 0);
+#endif
+        for (int i = 0; i < s->ovlp_gso_pkt_count; i++) {
+                free(s->ovlp_gso_udata[i]);
+        }
+        s->ovlp_gso_active = false;
 }
 
 static void udp_clean_async_state(socket_udp *s)
 {
 #ifdef _WIN32
-        for (int i = 0; i < s->overlapped_max; i++) {
+        for (int i = 0; i < s->ovlp_gso_pkg_max; i++) {
                 WSACloseEvent(s->overlapped[i].hEvent);
         }
         free(s->overlapped);
         free(s->overlapped_events);
-        free(s->dispose_udata);
-#else
-        UNUSED(s);
 #endif
+        free(s->ovlp_gso_udata);
 }
 
 bool udp_is_ipv6(socket_udp *s)
