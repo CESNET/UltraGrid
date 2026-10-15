@@ -94,7 +94,6 @@
 #define MAGIC_GL         0x1331018e
 #define MOD_NAME         "[GL] "
 #define DEFAULT_WIN_NAME "Ultragrid - OpenGL Display"
-#define GL_DEINTERLACE_IMPOSSIBLE_MSG_ID 0x38e52705
 #define GL_DISABLE_10B_OPT_PARAM_NAME "gl-disable-10b"
 #define MAX_BUFFER_SIZE 1
 #define ADAPTIVE_VSYNC -1

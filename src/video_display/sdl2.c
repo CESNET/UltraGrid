@@ -81,7 +81,6 @@
 #include "video_display.h"      // for display_property, get_splashscreen
 #include "video_frame.h"        // for vf_free, vf_alloc_desc, video_desc_fr...
 
-#define SDL2_DEINTERLACE_IMPOSSIBLE_MSG_ID 0x327058e5
 #define MAGIC_SDL2   0x3cc234a1
 #define BUFFER_COUNT   2
 #define MOD_NAME "[SDL] "
@@ -175,7 +174,7 @@ static void display_frame(struct state_sdl2 *s, struct video_frame *frame)
         if (s->deinterlace == DEINT_FORCE || (s->deinterlace == DEINT_ON && frame->interlacing == INTERLACED_MERGED)) {
                 size_t pitch = vc_get_linesize(frame->tiles[0].width, frame->color_spec);
                 if (!vc_deinterlace_ex(frame->color_spec, (unsigned char *) frame->tiles[0].data, pitch, (unsigned char *) frame->tiles[0].data, pitch, frame->tiles[0].height)) {
-                         log_msg_once(LOG_LEVEL_ERROR, SDL2_DEINTERLACE_IMPOSSIBLE_MSG_ID, MOD_NAME "Cannot deinterlace, unsupported pixel format '%s'!\n", get_codec_name(frame->color_spec));
+                         MSG_ONCE(ERROR, "Cannot deinterlace, unsupported pixel format '%s'!\n", get_codec_name(frame->color_spec));
                 }
         }
 

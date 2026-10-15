@@ -1416,8 +1416,9 @@ static void write_orig_format(struct video_frame *compressed_frame, codec_t orig
                 return;
         }
         if (compressed_frame->color_spec != H264 && compressed_frame->color_spec != H265) {
-                log_msg_once(LOG_LEVEL_ERROR, to_fourcc('L', 'W', 'P', 'T'), MOD_NAME
-                                "Currently cannot store input format to different compression stream than H.264/HEVC\n");
+                MSG_ONCE(ERROR,
+                         "Currently cannot store input format to different "
+                         "compression stream than H.264/HEVC\n");
                 return;
         }
         char *data = compressed_frame->tiles[0].data;
@@ -1467,8 +1468,7 @@ restore_metadata(state_video_compress_libav *s, struct video_frame *out,
         if (it != s->metadata_storage.end()) {
                 vf_restore_metadata(out, it->second);
         } else {
-                log_msg_once(LOG_LEVEL_WARNING, to_fourcc('l', 'c', 'm', 'd'),
-                             MOD_NAME "Metadata for frame not found!\n");
+                MSG_ONCE(WARNING, "Metadata for frame not found!\n");
                 debug_msg("Metadata for frame %" PRIu64 " not found!\n", pts);
         }
 }

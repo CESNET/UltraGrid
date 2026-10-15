@@ -931,8 +931,7 @@ static struct audio_frame *get_audio(struct vidcap_state_lavf_decoder *s,
         AVRational atb = s->fmt_ctx->streams[s->audio_stream_idx]->time_base;
         long drop_samples = 0;
         if (vid_frm->seq == UINT32_MAX) {
-                log_msg_once(LOG_LEVEL_WARNING, 0x292B168B,
-                             MOD_NAME "Cannot get video PTS or too high!\n");
+                MSG_ONCE(WARNING, "Cannot get video PTS or too high!\n");
                 // capture more data to ensure the buffer won't grow - it is
                 // capped with actually read data, still. Moreover there
                 // number of audio samples per video frame period may not be

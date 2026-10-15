@@ -368,7 +368,7 @@ int decode_audio_frame(struct coded_data *cdata, void *pbuf_data, struct pbuf_st
                         }
                 } else {
                         if (pt == PT_Unassign_Type95) {
-                                log_msg_once(LOG_LEVEL_WARNING, to_fourcc('U', 'V', 'P', 'T'), MOD_NAME "Unassigned PT 95 received, ignoring.\n");
+                                MSG_ONCE(WARNING, "Unassigned PT 95 received, ignoring.\n");
                         } else {
                                 log_msg(LOG_LEVEL_WARNING, "Unknown audio packet type: %d\n", pt);
                         }

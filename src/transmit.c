@@ -959,8 +959,7 @@ audio_tx_send_chan(struct tx *tx, struct rtp *rtp_session, uint32_t timestamp,
                 return;
         }
         const char *pl_suffix = packet_count == 1 ? "" : "s";
-        log_msg_once(LOG_LEVEL_WARNING, to_fourcc('t', 'x', 'a', 'F'),
-                     MOD_NAME
+        MSG_ONCE(WARNING,
                      "[audio] %d packet%s per audio channel may be too low "
                      "for Reed Solomon, consider mult instead!%s\n",
                      packet_count, pl_suffix,
@@ -974,10 +973,7 @@ validate_std_audio(const struct audio_frame2 * buffer, size_t payload_size)
         if ((audio_codec == AC_MP3 ||
              audio_codec == AC_OPUS) &&
             audio_frame2_get_channel_count(buffer) > 1) { // we cannot interleave Opus here
-                const uint32_t msg_id = to_fourcc('t', 'x', 'v', 'a');
-                log_msg_once(LOG_LEVEL_ERROR, msg_id,
-                             MOD_NAME
-                             "%s can currently have only 1 channel in "
+                MSG_ONCE(ERROR, "%s can currently have only 1 channel in "
                              "RFC-compliant mode! Discarding channels but the "
                              "first one...\n",
                              get_audio_codec_name(audio_codec));

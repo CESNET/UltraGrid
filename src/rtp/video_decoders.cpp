@@ -247,7 +247,7 @@ struct reported_statistics_cumul {
                         << SBOLD(missing) << " miss"
                         << fec.str() << "\n";
                 if (total > 3000 && dropped * 50 >= total) { // more than 2% frames were dropped
-                        log_msg_once(LOG_LEVEL_WARNING, to_fourcc('D', 'R', 'P', 'S'), MOD_NAME "Dropped %lu of %lu frames. This may be due "
+                        MSG_ONCE(WARNING, "Dropped %lu of %lu frames. This may be due "
                                         "to network jitter, try adding \"--param decoder-drop-policy=blocking\" if the problem persists.\n", dropped, total);
                 }
         }
@@ -1447,7 +1447,7 @@ bool parse_video_hdr(const uint32_t *hdr, struct video_desc *desc)
         desc->fps = compute_fps(fps_pt, fpsd, fd, fi);
 
         if (desc->fps == -1) {
-                log_msg_once(LOG_LEVEL_WARNING, to_fourcc('U', 'F', 'P', 'S'), MOD_NAME "Unsupported FPS received (newer UG?), setting to 30.\n");
+                MSG_ONCE(WARNING, "Unsupported FPS received (newer UG?), setting to 30.\n");
                 desc->fps = 30.0;
         }
 
@@ -1637,7 +1637,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data, struct pbuf
                         break;
                 default:
                         if (pt == PT_Unassign_Type95) {
-                                log_msg_once(LOG_LEVEL_WARNING, to_fourcc('U', 'V', 'P', 'T'), MOD_NAME "Unassigned PT 95 received, ignoring.\n");
+                                MSG_ONCE(WARNING, "Unassigned PT 95 received, ignoring.\n");
                         } else {
                                 LOG(LOG_LEVEL_WARNING) << MOD_NAME "Unknown packet type: " << pckt->pt << ".\n";
                         }

@@ -142,34 +142,28 @@ void log_msg(int level, const char *format, ...) {
 }
 
 /**
- * @param  id  the identifier that identifies identical messages (only first
- * message of given ID is printed); use values < 0x8000'0000 for manually
- * generated IDs, the higher values are reserved for automatically generated
- * ones as in MSG_ONCE()
+ * @param printed  pointer to once msg control (typically static var),
+ *                 should be initialized to 0 upon first fn call
  */
-void log_msg_once(int level, uint32_t id, const char *msg, ...) {
+void
+log_msg_once(int level, unsigned char *printed, const char *msg, ...)
+{
         if (log_level < level) {
                 return;
         }
-        static volatile uint32_t oneshot_messages[10];
-        static atomic<size_t> oneshot_messages_cnt;
-        for (size_t i = 0; i < oneshot_messages_cnt; ++i) {
-                if (oneshot_messages[i] == id) {
-                        return;
-                }
+#ifdef __cpp_lib_atomic_ref
+        if (std::atomic_ref<unsigned char>(*printed).exchange(1,
+                        std::memory_order_relaxed) != 0) {
+#else // compat (eg. macOS 14)
+        if (__atomic_exchange_n(printed, 1, __ATOMIC_RELAXED) != 0) {
+#endif
+                return;
         }
 
         va_list aq;
         va_start(aq, msg);
         log_vprintf(level, msg, aq);
         va_end(aq);
-
-        size_t last_cnt = oneshot_messages_cnt.fetch_add(1);
-        if (last_cnt < sizeof oneshot_messages / sizeof oneshot_messages[0]) {
-                oneshot_messages[last_cnt] = id;
-        } else {
-                log_msg(LOG_LEVEL_WARNING, "oneshot_messages full!\n");
-        }
 }
 
 /**

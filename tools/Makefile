@@ -8,7 +8,7 @@ vpath %.c $(SRCDIR) $(SRCDIR)/tools
 vpath %.cpp $(SRCDIR) $(SRCDIR)/tools
 
 CFLAGS   := $(CFLAGS) -std=gnu2x
-CXXFLAGS := $(CXXFLAGS) -std=gnu++17
+CXXFLAGS := $(CXXFLAGS) -std=gnu++2b
 
 ARCH := $(shell uname -m)
 ifeq ($(ARCH), x86_64)

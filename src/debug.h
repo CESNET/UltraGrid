@@ -93,10 +93,10 @@ void debug_dump(const void*lp, int len);
 
 #if defined __MINGW32__
         __MINGW_GNU_PRINTF(3, 4)
-        void log_msg_once(int log_level, uint32_t id, const char *msg, ...);
+        void log_msg_once(int log_level, unsigned char *printed, const char *msg, ...);
 #else
         [[gnu::format(printf, 3, 4)]] void
-        log_msg_once(int log_level, uint32_t id, const char *msg, ...);
+        log_msg_once(int log_level, unsigned char *printed, const char *msg, ...);
 #endif
 
 void log_perror(int log_level, const char *msg);
@@ -105,12 +105,12 @@ int log_puts(const char *msg);
 #define MSG(l, fmt, ...) \
         if (log_level >= LOG_LEVEL_##l) \
                 log_msg(LOG_LEVEL_##l, "%s" fmt, MOD_NAME, ##__VA_ARGS__)
-#define MSG_ONCE(l, fmt, ...) \
-        if (log_level >= LOG_LEVEL_##l) \
-                log_msg_once(LOG_LEVEL_##l, \
-                             (0x80000000U | (((uintptr_t) MOD_NAME) & \
-                                 0x7FFFFFFF)) +  __COUNTER__, \
-                             "%s" fmt, MOD_NAME, ##__VA_ARGS__)
+#define MSG_ONCE(l, fmt, ...)                                                  \
+        if (log_level >= LOG_LEVEL_##l) {                                      \
+                static unsigned char print = 0;                                \
+                log_msg_once(LOG_LEVEL_##l, &print, "%s" fmt,                  \
+                             MOD_NAME, ##__VA_ARGS__);                         \
+        }
 
 bool parse_log_cfg(const char *conf_str,
 		int *log_lvl,

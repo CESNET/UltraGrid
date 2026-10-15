@@ -4,7 +4,7 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2024 CESNET
+ * Copyright (c) 2024-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -130,9 +130,8 @@ parse_quant_tables(struct decode_data_rtsp *dec, unsigned char **pckt_data,
         } else {
                 // FFmpeg uses single table if used as suggested in vcap/rtsp.c
                 // but according to RFC 2 tables should be present so dup 1st
-                log_msg_once(LOG_LEVEL_WARNING, to_fourcc('R', 'D', 'J', 'q'),
-                             MOD_NAME
-                             "Single quantization table includedd (len=64)!\n");
+                MSG_ONCE(WARNING,
+                         "Single quantization table includedd (len=64)!\n");
                 memcpy(quant_table[1], quant_table[0], sizeof quant_table[1]);
         }
         dec->jpeg.quantization_table_set[q] = true;
@@ -175,10 +174,10 @@ create_jpeg_frame(struct video_frame *frame, unsigned char **pckt_data,
         info.subsampling = type;
 
         if (type_spec != 0) {
-                log_msg_once(LOG_LEVEL_WARNING, to_fourcc('R', 'D', 'J', 't'),
-                             MOD_NAME "JPEG type %d; only 0 (progressive) is "
-                                      "currently supported!\n",
-                             type_spec);
+                MSG_ONCE(WARNING,
+                         "JPEG type %d; only 0 (progressive) is "
+                         "currently supported!\n",
+                         type_spec);
         }
 
         frame->callbacks.data_deleter = vf_data_deleter;
