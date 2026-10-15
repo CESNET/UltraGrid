@@ -596,6 +596,9 @@ get_packet_sizes(struct video_frame *frame, unsigned substream, int mtu,
                 symbol_size = vc_get_linesize(frame->tiles[substream].width, frame->color_spec);
                 int pf_block_size = PIX_BLOCK_LCM / get_pf_block_pixels(frame->color_spec) * get_pf_block_bytes(frame->color_spec);
                 assert(pf_block_size <= mtu);
+                if (symbol_size % pf_block_size == 0) {
+                        symbol_size = pf_block_size;
+                }
                 mtu = mtu / pf_block_size * pf_block_size;
         } else if (frame->fec_params.type != FEC_NONE) {
                 symbol_size = frame->fec_params.symbol_size;
