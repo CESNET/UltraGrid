@@ -435,7 +435,7 @@ vc_copylineR12LtoRGB(unsigned char * __restrict dst, const unsigned char * __res
  * @endcode
  */
 static void
-vc_copylineR12L(unsigned char *dst, const unsigned char *src, int dstlen, int rshift,
+vc_copylineR12L(unsigned char * restrict dst, const unsigned char * restrict src, int dstlen, int rshift,
                 int gshift, int bshift)
 {
         assert((uintptr_t) dst % sizeof(uint32_t) == 0);
