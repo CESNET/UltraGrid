@@ -720,7 +720,7 @@ static bool display_conference_putf(void *state, struct video_frame *frame, long
                         log_msg(LOG_LEVEL_WARNING, "[conference] queue full!\n");
                         if(flags != PUTF_BLOCKING){
                                 vf_free(frame);
-                                return 1;
+                                return true;
                         }
                 }
                 s->incoming_frame_consumed.wait(lg,
