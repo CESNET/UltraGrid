@@ -958,8 +958,9 @@ bool display_vulkan_putf(void* state, video_frame* frame, long long timeout_ns) 
 
         try {
                 return !s->vulkan->queue_image(image, timeout_ns != PUTF_BLOCKING);
+        } catch (std::exception& e) {
+                log_and_exit_uv(e);
         }
-        catch (std::exception& e) { log_and_exit_uv(e); return 1; }
         return true;
 }
 
