@@ -127,7 +127,7 @@ using std::array;
 using std::atomic;
 using std::atomic_bool;
 using std::cout;
-using std::copy;
+using std::copy_n;
 using std::exception;
 using std::get;
 using std::invalid_argument;
@@ -2040,8 +2040,8 @@ static inline void debug_print_metadata_id(const char *fn_name, BMDDeckLinkFrame
                 return;
         }
         array<char, sizeof metadataID + 1> fourcc{};
-        copy(reinterpret_cast<char *>(&metadataID), reinterpret_cast<char *>(&metadataID) + sizeof metadataID, fourcc.data());
-        LOG(LOG_LEVEL_DEBUG2) << MOD_NAME << "DecklLinkFrame " << fn_name << ": " << fourcc.data() << "\n";
+        copy_n(reinterpret_cast<char *>(&metadataID), sizeof(metadataID), fourcc.data());
+        LOG(LOG_LEVEL_DEBUG2) << MOD_NAME << "DeckLinkFrame " << fn_name << ": " << fourcc.data() << "\n";
 }
 
 // IDeckLinkVideoFrameMetadataExtensions interface
@@ -2161,7 +2161,7 @@ ULONG DeckLink3DFrame::Release()
 
 HRESULT DeckLink3DFrame::QueryInterface(REFIID id, void **data)
 {
-        LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "DecklLink3DFrame QueryInterface " << id << "\n";
+        LOG(LOG_LEVEL_DEBUG) << MOD_NAME << "DeckLink3DFrame QueryInterface " << id << "\n";
         if(id == IID_IDeckLinkVideoFrame3DExtensions)
         {
                 this->AddRef();
