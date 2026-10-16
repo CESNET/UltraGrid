@@ -183,6 +183,10 @@ get_edid_preset_name(VHD_DV_EEDID_PRESET preset)
        case VHD_DV_EEDID_HDMI_DELTA_HMI_FRL3: return "HDMI DELTA-hmi E-EDID FRL1/2/3 Support";
        case VHD_DV_EEDID_HDMI_DELTA_HMI_FRL5: return "HDMI DELTA-hmi E-EDID FRL1/2/3/4/5 Support";
 #endif
+#ifdef VHD_MIN_6_35
+       case VHD_DV_EEDID_HDMI_DELTA_HMI_FRL4: return "HDMI DELTA-hmi E-EDID FRL1/2/3/4 Support";
+       case VHD_DV_EEDID_HDMI_12G_HMI_KEY:    return "HDMI 12G-hmi E-EDID";
+#endif
        case NB_VHD_DV_EEDID_PRESET: abort();
        }
        return nullptr; // can occur if new presets add to SDK

@@ -144,6 +144,10 @@
         #define VHD_MIN_6_30 1
 #endif
 
+#ifdef VHD_INVALID_NUMA_NODE
+        #define VHD_MIN_6_35 1
+#endif
+
 // compat
 #ifdef VHD_MIN_6_14
 #define VHD_BOARDTYPE_DVI VHD_BOARDTYPE_DVI_DEPRECATED
