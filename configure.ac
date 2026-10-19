@@ -482,7 +482,7 @@ then
 fi
 
 # ----------------------------------------------------------------------
-# Linux UDP segmentation offload
+# Linux UDP segmentation offload + recvmmsg availability
 # ----------------------------------------------------------------------
 if test "${system?}" = Linux; then
         AC_MSG_CHECKING([Linux UDP segmentation offload])
@@ -494,6 +494,8 @@ if test "${system?}" = Linux; then
         if test "${udp_segment?}" = yes; then
 		AC_DEFINE([HAVE_LINUX_UDP_SEGMENT], [1], [Linux UDP segmentation offload available])
         fi
+
+        AC_CHECK_FUNCS([recvmmsg])
 fi
 
 # ----------------------------------------------------------------------
