@@ -134,6 +134,7 @@ struct socket_udp_local *udp_get_local(socket_udp *s);
 int udp_get_udp_rx_port(socket_udp *s);
 socket_udp *udp_init_with_local(struct socket_udp_local *l, struct sockaddr *sa);
 void udp_set_receiver(socket_udp *s, struct sockaddr *sa);
+bool        udp_is_gso_supported();
 
 /*************************************************************************************************/
 #if defined(__cplusplus)

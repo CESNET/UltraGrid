@@ -134,7 +134,8 @@ create_rxtx_rtsp(struct rxtx_params *params)
 
         s->rtsp_params.rtp_audio_src_port = params->medium[TX_MEDIA_AUDIO].rx_port;
         s->rtsp_params.rtp_video_src_port = params->medium[TX_MEDIA_VIDEO].rx_port;
-        int rc = rtp_rxtx_common_init(&s->rtp_common, params);
+        rtp_common_params init_params = {};
+        int rc = rtp_rxtx_common_init(&s->rtp_common, params, &init_params);
         if (rc != 0) {
                 done(s);
                 return rc < 0 ? nullptr : INIT_NOERR;

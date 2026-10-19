@@ -61,6 +61,9 @@
 #include <stdlib.h>
 #include <string.h>            // for strdup, strcmp, strlen, strstr
 #include <sys/time.h>            // for timeval
+#ifdef HAVE_LINUX_UDP_SEGMENT
+#include <linux/udp.h>
+#endif
 
 #include "compat/c23.h" // IWYU pragma: keep
 #include "compat/net.h" // for sockaddr_storage
@@ -72,6 +75,7 @@
 #include "pdb.h"
 #include "rtp/audio_decoders.h"
 #include "rtp/fec.h"
+#include "rtp/net_udp.h" // for udp_is_gso_supported
 #include "rtp/pbuf.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
@@ -129,6 +133,7 @@ struct rtp_rxtx_common_priv_state {
         int   force_ip_version;
         char *mcast_if;
         int   ttl;
+        int   video_gso;
         long long vbitrate;
         struct rtp_medium_priv medium[NUM_TX_MEDIA];
 
@@ -142,7 +147,7 @@ struct rtp_rxtx_common_priv_state {
 static struct rtp *initialize_network(const char *addr, int recv_port,
                                       int send_port, struct pdb *participants,
                                       int         force_ip_version,
-                                      const char *mcast_if, int ttl,
+                                      const char *mcast_if, int ttl, int video_gso,
                                       enum tx_media_type medium);
 static void        destroy_rtp_device(struct rtp *network_device);
 static int         parse_bitrate(char *optarg, long long int *bitrate);
@@ -165,7 +170,7 @@ rtp_process_sender_message(struct rtp_rxtx_common_priv_state *s,
                 medium_pub->network_device      = initialize_network(
                     medium_priv->requested_receiver, medium_priv->rx_port,
                     medium_priv->tx_port, medium_pub->participants,
-                    s->force_ip_version, s->mcast_if, s->ttl, t);
+                    s->force_ip_version, s->mcast_if, s->ttl, s->video_gso, t);
                 if (medium_pub->network_device == nullptr) {
                         medium_pub->network_device = old_device;
                         const char *err=
@@ -195,7 +200,7 @@ rtp_process_sender_message(struct rtp_rxtx_common_priv_state *s,
                 medium_pub->network_device = initialize_network(
                     medium_priv->requested_receiver, medium_priv->rx_port,
                     medium_priv->tx_port, medium_pub->participants,
-                    s->force_ip_version, s->mcast_if, s->ttl, t);
+                    s->force_ip_version, s->mcast_if, s->ttl, s->video_gso, t);
 
                 if (medium_pub->network_device == nullptr) {
                         medium_pub->network_device = old_device;
@@ -344,7 +349,7 @@ init_medium_state(struct rtp_rxtx_common_priv_state *s,
         medium_pub->network_device = initialize_network(
             params->receiver, medium_priv->rx_port, medium_priv->tx_port,
             medium_pub->participants, params->force_ip_version, params->mcast_if,
-            params->ttl, t);
+            params->ttl, s->video_gso, t);
         if (medium_pub->network_device == nullptr) {
                 MSG(ERROR, "Unable to open %s network!\n",  medium_str);
                 return false;
@@ -444,11 +449,12 @@ adjust_ports(struct rxtx_params *rxtx)
 }
 
 static void
-adjust_params(struct rxtx_params *rxtx, long long *vbitrate) {
+adjust_params(struct rxtx_params *rxtx, long long *vbitrate, int *video_udp_gso) {
         struct rxtx_medium_params *audio = &rxtx->medium[TX_MEDIA_AUDIO];
         struct rxtx_medium_params *video = &rxtx->medium[TX_MEDIA_VIDEO];
 
         adjust_ports(rxtx);
+        bool rate_implicit = *vbitrate == RATE_AUTOSELECT;
 
         // If we are sure that this UltraGrid is sending to itself we can
         // optimize some parameters (aka "-m 9000 -l unlimited"). If ports
@@ -468,10 +474,27 @@ adjust_params(struct rxtx_params *rxtx, long long *vbitrate) {
                         *vbitrate = RATE_DYNAMIC;
                 }
         }
+
+        // udp-gso not specified for UG RTP - adjust the default value
+        if (*video_udp_gso == RTP_GSO_AUTOSELECT) {
+                if (udp_is_gso_supported()) {
+                        if (*vbitrate == RATE_UNLIMITED) {
+                                *video_udp_gso = RTP_GSO_ON;
+                        } else if (rate_implicit) {
+                                *video_udp_gso = RTP_GSO_AUTO;
+                        } else { // rate-limit other than unlimited explicitly
+                                 // specified
+                                *video_udp_gso = RTP_GSO_OFF;
+                        }
+                } else {
+                        *video_udp_gso = RTP_GSO_OFF;
+                }
+        }
 }
 
 int
-rtp_rxtx_common_init(struct rtp_rxtx_common **out, struct rxtx_params *params)
+rtp_rxtx_common_init(struct rtp_rxtx_common **out, struct rxtx_params *params,
+                     rtp_common_params *rtp_common_params)
 {
         struct rtp_rxtx_common_priv_state *s = calloc(
             1, sizeof(struct rtp_rxtx_common_priv_state));
@@ -485,7 +508,7 @@ rtp_rxtx_common_init(struct rtp_rxtx_common **out, struct rxtx_params *params)
                 rtp_rxtx_common_done(pub);
                 return rc;
         }
-        adjust_params(params, &s->vbitrate);
+        adjust_params(params, &s->vbitrate, &rtp_common_params->video_udp_gso);
 
         pub->encryption       = strdup(params->encryption);
         s->parent             = params->parent;
@@ -493,6 +516,7 @@ rtp_rxtx_common_init(struct rtp_rxtx_common **out, struct rxtx_params *params)
         s->mcast_if           = strdup(params->mcast_if);
         s->ttl                = params->ttl;
         s->start_time         = params->start_time;
+        s->video_gso          = rtp_common_params->video_udp_gso;
 
         for (unsigned i = 0; i < NUM_TX_MEDIA; ++i) {
                 bool rc = init_medium_state(s, params, i);
@@ -546,46 +570,11 @@ rtp_rxtx_common_done(struct rtp_rxtx_common *pub)
         free(s);
 }
 
-extern int gso_force; // defined in transmit.c
-ADD_TO_PARAM("udp-gso",
-             "* udp-gso=[off|on|auto|force|<max_count>]\n"
-             "  Use video UDP Segmentation / Generic Segmentation Offload (Linux only).\n"
-             "  Values mean - never, always, always + give up correct packet splitting.\n"
-             "  The \"force\" option enables UDP segments where not efficient, notably\n"
-             "  when line-size is not divisible by 24 and exceeds packet size, eg. UYVY 8192.\n"
-             "  yields segment of just 2 9000 B packets (but 12 standard)\n"
-             "  <max_count> - same as \"on\" but limit pkt count lower than 64 per offload\n"
-             "  auto (default) - enable for 4+ MB frames\n");
-static int
-get_req_gso()
-{
-        const char *opt = get_commandline_param("udp-gso");
-        if (!opt || strcasecmp(opt, "auto") == 0) {
-                return -1;
-        }
-        if (strcasecmp(opt, "off") == 0) {
-                return 0;
-        }
-        if (strcasecmp(opt, "on") == 0) {
-                return 1;
-        }
-        if (strcasecmp(opt, "force") == 0) {
-                gso_force = 1;
-                return 1;
-        }
-        char *endptr = nullptr;
-        long  val    = strtol(opt, &endptr, 10);
-        if (val > 1 && val <= 64 && !*endptr) {
-                return (int) val;
-        }
-        MSG(ERROR, "Wrong udp-gso argument: %s!\n", opt);
-        return -1;
-}
-
 static struct rtp *
 initialize_network(const char *addr, int recv_port, int send_port,
                    struct pdb *participants, int force_ip_version,
-                   const char *mcast_if, int ttl, enum tx_media_type medium)
+                   const char *mcast_if, int ttl, int video_gso,
+                   enum tx_media_type medium)
 {
         // FIXME:  something about 5% for rtcp is said in rfc
         const double rtcp_bw =
@@ -612,7 +601,7 @@ initialize_network(const char *addr, int recv_port, int send_port,
 
         if (medium == TX_MEDIA_VIDEO) {
                 rtp_set_send_buf(device, INITIAL_VIDEO_SEND_BUFFER_SIZE);
-                rtp_set_option(device, RTP_OPT_USE_UDP_GSO, get_req_gso());
+                rtp_set_option(device, RTP_OPT_USE_UDP_GSO, video_gso);
         } else {
                 rtp_set_option(device, RTP_OPT_RECORD_SOURCE, true);
         }

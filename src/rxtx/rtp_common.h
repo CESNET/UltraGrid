@@ -67,6 +67,7 @@ extern "C" {
 
 // to be passed to rxtx_params.video_bitrate_limit
 #define RTP_RATE_UNLIMITED "unlimited"
+#define RTP_GSO_AUTOSELECT (-2)
 
 struct rtp_rxtx_medium {
         struct rtp     *network_device;
@@ -91,8 +92,14 @@ struct rtp_rxtx_common {
 
 struct rxtx_params;
 
+// additional parameters - zero init for defaults
+typedef struct {
+        int video_udp_gso;
+} rtp_common_params;
+
 int  rtp_rxtx_common_init(struct rtp_rxtx_common **out,
-                          struct rxtx_params      *params);
+                          struct rxtx_params      *params,
+                          rtp_common_params       *rtp_common_params);
 void rtp_rxtx_common_done(struct rtp_rxtx_common *state);
 
 void rtp_rxtx_sender_do_housekeeping(struct rtp_rxtx_common *pub,

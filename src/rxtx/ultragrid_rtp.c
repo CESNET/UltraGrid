@@ -136,7 +136,6 @@ struct ultragrid_rtp_rxtx {
 };
 
 // protoypes
-static void usage();
 static struct vcodec_state *
 new_video_decoder(struct ultragrid_rtp_rxtx *s, struct display *d);
 static void destroy_video_decoder(void *state);
@@ -151,13 +150,90 @@ static void done(void *state)
         free(s);
 }
 
+static bool
+parse_fmt(char *opts, rtp_common_params *params)
+{
+        char      *item     = nullptr;
+        char      *save_ptr = nullptr;
+        while ((item = strtok_r(opts, ":", &save_ptr))) {
+                opts      = nullptr;
+                char *val = strchr(item, '=');
+                if (val) {
+                        val += 1;
+                }
+                if (IS_PREFIX(item, "udp-gso")) {
+                        if (!val || strcasecmp(val, "on") == 0) {
+                                params->video_udp_gso = RTP_GSO_ON;
+                        } else  if (strcasecmp(val, "force") == 0) {
+                                params->video_udp_gso = RTP_GSO_ON;
+                                extern int gso_force; // defined in transmit.c
+                                gso_force = 1;
+                        } else if (strcasecmp(val, "off") == 0) {
+                                params->video_udp_gso = RTP_GSO_OFF;
+                        } else if (strcasecmp(val, "auto") == 0) {
+                                params->video_udp_gso = RTP_GSO_AUTO;
+                        } else {
+                                char *endptr = nullptr;
+                                long  count  = strtol(val, &endptr, 10);
+                                if (count > 1 && count <= 64 && !*endptr) {
+                                        params->video_udp_gso = (int) count;
+                                        continue;
+                                }
+                                MSG(ERROR, "Wrong udp-gso argument: %s!\n",
+                                    val);
+                                return false;
+                        }
+                } else {
+                        MSG(ERROR, "Wrong option: %s!\n", item);
+                        return false;
+                }
+        }
+
+        return true;
+}
+
+static void usage() {
+        color_printf("Transport " TBOLD("ultragrid_rtp") " represents default UG TX.\n");
+        color_printf("\nUsage:\n");
+        color_printf("\t" TBOLD(TRED("-x ultragrid_rtp") "[:udp-gso[=<val>]]") "\n");
+        color_printf_wrapped(
+            "\n" TBOLD("udp-gso")
+            " controls UDP Segmentation / Generic Segmentation Offload (Linux "
+            "only) for video, affects TX only. Possible values:\n");
+        color_printf("  - " TBOLD("off")
+                     " - always disabled\n");
+        color_printf("  - " TBOLD("on") " - always enabled\n");
+        color_printf_wrapped(
+            "  - " TBOLD("force")
+            " - on (always) + enable UDP segments also where not "
+            "efficient, notably when line-size is not divisible by 24 "
+            "and exceeds packet size, eg. UYVY 8192 yields segment of just 2 "
+            "9000 B packets (but 12 standard). Receiver must retain TX pixfmt "
+            "otherwise the output may be broken!\n");
+        color_printf_wrapped(
+            "  - " TBOLD("auto")
+            " [default] - enable for 4+ MB frames if rate "
+            "limiter unspecified, for unlimited rate on, otherwise off\n");
+        color_printf_wrapped(
+            "  - " TBOLD("[2-64]")
+            " - same as on but limit maximal pkt count to "
+            "specified value per offload (GSO fine-tuning)\n");
+        color_printf("\n");
+}
+
 static void *
 init(struct rxtx_params *params)
 {
-        if (strlen(params->protocol_opts) > 0) {
+        rtp_common_params rtp_common_params = { .video_udp_gso = RTP_GSO_AUTOSELECT };
+        if (strcmp(params->protocol_opts, "help") == 0) {
                 usage();
-                return strcmp(params->protocol_opts, "help") == 0 ? INIT_NOERR
-                                                                  : nullptr;
+                return INIT_NOERR;
+        }
+        char *fmt = strdup(params->protocol_opts);
+        bool ret = parse_fmt(fmt, &rtp_common_params);
+        free(fmt);
+        if (!ret) {
+                return nullptr;
         }
 
         struct ultragrid_rtp_rxtx *s = calloc(1, sizeof *s);
@@ -169,7 +245,7 @@ init(struct rxtx_params *params)
         s->start_time     = params->start_time;
         s->receiver_mod   = params->receiver_mod;
         s->async_sending_task = nullptr;
-        int rc = rtp_rxtx_common_init(&s->rtp_common, params);
+        int rc = rtp_rxtx_common_init(&s->rtp_common, params, &rtp_common_params);
         if (rc != 0) {
                 done(s);
                 return rc < 0 ? nullptr : INIT_NOERR;
@@ -500,13 +576,6 @@ receiver_thread(void *arg)
         display_put_frame(s->display_device, nullptr, PUTF_BLOCKING);
 
         return nullptr;
-}
-
-static void usage() {
-        color_printf("Transport " TBOLD("ultragrid_rtp")
-                     " doesn't take any options.\n\n");
-        color_printf("Usage:\n\t" TBOLD("-x ultragrid_rtp")
-                     "\n");
 }
 
 void
