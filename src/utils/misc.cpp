@@ -259,7 +259,7 @@ int get_cpu_core_count(void)
  * @param module_name       module name _including_ command-line parameter (eg. "-t syphon")
  * @param options           accepted options (may be NULL if no options are accepted)
  * @param options_full      options that are shown only if fullhelp is requested (NULL if none)
- * @param printf_full_help  whether to print options_full
+ * @param print_full_help  whether to print options_full
  */
 void print_module_usage(const char *module_name, const struct key_val *options, const struct key_val *options_full, bool print_full_help) {
         UNUSED(options_full), UNUSED(print_full_help);
