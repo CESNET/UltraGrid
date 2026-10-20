@@ -1087,7 +1087,7 @@ void keycontrol_send_key(struct module *root, int64_t key) {
 /** @brief Registers callback message for given key
  *
  * @ref message_universal message type is always sent
- * @param[in] sender_mod  module that should receive the message for key
+ * @param[in] receiver_mod  module that should receive the message for key
  * @param[in] message     text that will be passed back to receiver_mod if key was pressed
  * @param[in] description optional description that will be displayed in keyboard control help (may be NULL)
  */
