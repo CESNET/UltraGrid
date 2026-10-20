@@ -59,6 +59,15 @@
 #define G G_SHIFT_IDX
 #define B B_SHIFT_IDX
 
+#if defined __GNUC__ && !defined __clang__
+#define GCC_NOT_CLANG // Clang defines __GNUC__ as well but use for GCC only
+#endif
+#ifdef GCC_NOT_CLANG
+// improves eg. yuv444pXXle_to_r12l() and yuv444p1Xle_to_uyvy(); default in -O3,
+// "very-cheap" is default in -O2 so override when compiling just with -O2
+#pragma GCC optimize("vect-cost-model=dynamic")
+#endif
+
 [[gnu::always_inline]] static inline  void
 gbrpXXle_to_r12l(struct from_planar_data d, const int in_depth, int rind, int gind, int bind)
 {
@@ -612,7 +621,7 @@ yuv420p_to_uyvy(const struct from_planar_data d)
                 __m128i zero = _mm_set1_epi32(0);
 
 
-                OPTIMIZED_FOR (; x < width - 15; x += 16){
+                for (; x < width - 15; x += 16){
                         y1 = _mm_lddqu_si128((__m128i const*)(const void *) src_y1);
                         y2 = _mm_lddqu_si128((__m128i const*)(const void *) src_y2);
                         src_y1 += 16;
@@ -898,13 +907,11 @@ yuv444p16le_to_v210(struct from_planar_data d)
         yuv444p1Xle_to_v210(d, DEPTH16);
 }
 
-#if defined __GNUC__
+#ifdef GCC_NOT_CLANG
 // actually faster with -02 with GCC
-#if !defined __clang__
 #pragma GCC push_options
 #pragma GCC optimize("O2")
-#endif
-#endif
+#endif // GCC
 [[gnu::always_inline]] static inline void
 yuv444pXXle_to_r12l(struct from_planar_data d, int depth)
 {
@@ -1119,4 +1126,3 @@ yuv444p10le_to_rgb32(struct from_planar_data d)
 {
         yuv444p10le_to_rgb(d, true);
 }
-
