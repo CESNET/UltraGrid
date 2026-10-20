@@ -836,10 +836,8 @@ reconfigure_convert_if_needed(struct state_libavcodec_decompress *s,
  *                   And not in the ITU-T Rec. 701 (eventually Rec. 609) scale.
  * @param  frame     video frame returned from libavcodec decompress
  * @param  dst       destination buffer where data will be stored
- * @param  av_codec  libav pixel format
+ * @param  convert   libav pixel conversion
  * @param  out_codec requested output codec
- * @param  width     frame width
- * @param  height    frame height
  */
 static void
 change_pixfmt(AVFrame *frame, unsigned char *dst, av_to_uv_convert_t *convert,
