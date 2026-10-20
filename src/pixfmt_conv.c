@@ -208,7 +208,7 @@ static void vc_copylineYUYV(unsigned char * __restrict dst, const unsigned char 
  * @param[in]  bshift  destination blue shift
  */
 static void
-vc_copyliner10k(unsigned char * __restrict dst, const unsigned char * __restrict src, int len, int rshift,
+vc_copyliner10k(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift,
                 int gshift, int bshift)
 {
         struct {
@@ -232,7 +232,7 @@ vc_copyliner10k(unsigned char * __restrict dst, const unsigned char * __restrict
         d = (uint32_t *)(void *) dst;
         s = (const void *) src;
 
-        while (len >= 16) {
+        while (dst_len >= 16) {
                 tmp =
                     (alpha_mask | s->
                      r << rshift) | (((s->gh << 2) | s->
@@ -261,9 +261,9 @@ vc_copyliner10k(unsigned char * __restrict dst, const unsigned char * __restrict
                                                          bl) << bshift);
                 s++;
                 *(d++) = tmp;
-                len -= 16;
+                dst_len -= 16;
         }
-        while (len >= 4) {
+        while (dst_len >= 4) {
                 tmp =
                     (alpha_mask | s->
                      r << rshift) | (((s->gh << 2) | s->
@@ -271,7 +271,7 @@ vc_copyliner10k(unsigned char * __restrict dst, const unsigned char * __restrict
                                                          bl) << bshift);
                 s++;
                 *(d++) = tmp;
-                len -= 4;
+                dst_len -= 4;
         }
 }
 
