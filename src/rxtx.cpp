@@ -86,8 +86,6 @@ public:
         static rxtx       *create(std::string const  &proto,
                                   struct rxtx_params *params) noexcept;
         static void        list(bool full) noexcept;
-        void set_audio_spec(const struct audio_desc *desc, int audio_rx_port,
-                            int audio_tx_port, bool ipv6) noexcept;
 
         const struct rxtx_info *m_impl_funcs = nullptr;
         void                   *m_impl_state = nullptr;
