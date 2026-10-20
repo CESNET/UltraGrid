@@ -70,7 +70,7 @@ struct pam_metadata {
  * @param[out] info       pointer to metadata struct
  * @param[out] data       pointer to byte array, can be 0, in which case no data
  *                        are written (only metadata read )
- * @param[out] allocaltor allocator to alloc @ref data; if 0, no data are
+ * @param[out] allocator allocator to alloc @ref data; if 0, no data are
  *                        read/allocated, only @ref info set
  */
 bool pam_read(const char *filename, struct pam_metadata *info, unsigned char **data, void *(*allocator)(size_t));
