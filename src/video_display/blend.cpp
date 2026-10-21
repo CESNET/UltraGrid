@@ -369,7 +369,7 @@ static bool display_blend_putf(void *state, struct video_frame *frame, long long
                 }
                 if (flags != PUTF_BLOCKING && s->incoming_queue.size() >= IN_QUEUE_MAX_BUFFER_LEN) {
                         vf_free(frame);
-                        return 1;
+                        return false;
                 }
                 s->in_queue_decremented_cv.wait(lg, [s]{return s->incoming_queue.size() < IN_QUEUE_MAX_BUFFER_LEN;});
                 s->incoming_queue.push(frame);
