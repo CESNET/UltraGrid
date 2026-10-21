@@ -70,6 +70,7 @@ static constexpr int SKIP_FIRST_N_FRAMES_IN_STREAM = 5;
 
 static void display_blend_run(void *state);
 
+namespace{
 struct state_blend_common {
         ~state_blend_common() {
                 display_done(real_display);
@@ -81,13 +82,13 @@ struct state_blend_common {
                 }
                 thread_id.join();
         }
-        struct display *real_display;
-        struct video_desc display_desc;
+        struct display *real_display{};
+        struct video_desc display_desc{};
 
-        uint32_t current_ssrc;
-        uint32_t old_ssrc;
+        uint32_t current_ssrc{};
+        uint32_t old_ssrc{};
 
-        int transition;
+        int transition{};
 
         queue<struct video_frame *> incoming_queue;
         condition_variable in_queue_decremented_cv;
@@ -97,14 +98,15 @@ struct state_blend_common {
         mutex lock;
         condition_variable cv;
 
-        struct module *parent;
+        struct module *parent{};
         thread thread_id;
 };
 
 struct state_blend {
         shared_ptr<struct state_blend_common> common;
-        struct video_desc desc;
+        struct video_desc desc{};
 };
+}
 
 static struct display *display_blend_fork(void *state)
 {
