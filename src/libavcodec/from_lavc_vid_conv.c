@@ -831,110 +831,6 @@ yuv444p_to_rgb32(struct av_conv_data d)
         yuv444p_to_rgb(d, true);
 }
 
-static void
-yuv420p10le_to_v210(struct av_conv_data d)
-{
-        const int width = d.in_frame->width;
-        const int height = d.in_frame->height;
-        const AVFrame *in_frame = d.in_frame;
-
-        for(int y = 0; y < height / 2; ++y) {
-                uint16_t *src_y1 = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y * 2);
-                uint16_t *src_y2 = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1));
-                uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
-                uint16_t *src_cr = (uint16_t *)(void *)(in_frame->data[2] + in_frame->linesize[2] * y);
-                uint32_t *dst1 =
-                    (uint32_t *) (void *) (d.dst_buffer + (y * 2) * d.pitch);
-                uint32_t *dst2 = (uint32_t *) (void *) (d.dst_buffer +
-                                                        (y * 2 + 1) * d.pitch);
-
-                OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
-                        uint32_t w0_0, w0_1, w0_2, w0_3;
-                        uint32_t w1_0, w1_1, w1_2, w1_3;
-
-                        w0_0 = *src_cb;
-                        w1_0 = *src_cb;
-                        src_cb++;
-                        w0_0 = w0_0 | (*src_y1++) << 10;
-                        w1_0 = w1_0 | (*src_y2++) << 10;
-                        w0_0 = w0_0 | (*src_cr) << 20;
-                        w1_0 = w1_0 | (*src_cr) << 20;
-                        src_cr++;
-
-                        w0_1 = *src_y1++;
-                        w1_1 = *src_y2++;
-                        w0_1 = w0_1 | (*src_cb) << 10;
-                        w1_1 = w1_1 | (*src_cb) << 10;
-                        src_cb++;
-                        w0_1 = w0_1 | (*src_y1++) << 20;
-                        w1_1 = w1_1 | (*src_y2++) << 20;
-
-                        w0_2 = *src_cr;
-                        w1_2 = *src_cr;
-                        src_cr++;
-                        w0_2 = w0_2 | (*src_y1++) << 10;
-                        w1_2 = w1_2 | (*src_y2++) << 10;
-                        w0_2 = w0_2 | (*src_cb) << 20;
-                        w1_2 = w1_2 | (*src_cb) << 20;
-                        src_cb++;
-
-                        w0_3 = *src_y1++;
-                        w1_3 = *src_y2++;
-                        w0_3 = w0_3 | (*src_cr) << 10;
-                        w1_3 = w1_3 | (*src_cr) << 10;
-                        src_cr++;
-                        w0_3 = w0_3 | (*src_y1++) << 20;
-                        w1_3 = w1_3 | (*src_y2++) << 20;
-
-                        *dst1++ = w0_0;
-                        *dst1++ = w0_1;
-                        *dst1++ = w0_2;
-                        *dst1++ = w0_3;
-
-                        *dst2++ = w1_0;
-                        *dst2++ = w1_1;
-                        *dst2++ = w1_2;
-                        *dst2++ = w1_3;
-                }
-        }
-}
-
-static void yuv420p10le_to_uyvy(struct av_conv_data d)
-{
-        const int width = d.in_frame->width;
-        const int height = d.in_frame->height;
-        const AVFrame *in_frame = d.in_frame;
-
-        for(int y = 0; y < height / 2; ++y) {
-                uint16_t *src_y1 = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * y * 2);
-                uint16_t *src_y2 = (uint16_t *)(void *)(in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1));
-                uint16_t *src_cb = (uint16_t *)(void *)(in_frame->data[1] + in_frame->linesize[1] * y);
-                uint16_t *src_cr = (uint16_t *)(void *)(in_frame->data[2] + in_frame->linesize[2] * y);
-                uint8_t *dst1 =
-                    (uint8_t *) (void *) (d.dst_buffer + (y * 2) * d.pitch);
-                uint8_t *dst2 =
-                    (uint8_t *) (void *) (d.dst_buffer + (y * 2 + 1) * d.pitch);
-
-                OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
-                        uint8_t tmp;
-                        // U
-                        tmp = *src_cb++ >> 2;
-                        *dst1++ = tmp;
-                        *dst2++ = tmp;
-                        // Y
-                        *dst1++ = *src_y1++ >> 2;
-                        *dst2++ = *src_y2++ >> 2;
-                        // V
-                        tmp = *src_cr++ >> 2;
-                        *dst1++ = tmp;
-                        *dst2++ = tmp;
-                        // Y
-                        *dst1++ = *src_y1++ >> 2;
-                        *dst2++ = *src_y2++ >> 2;
-                }
-        }
-}
-
 #if defined __GNUC__
 static inline void yuvp10le_to_rgb(struct av_conv_data d, int subsampling,
                                    int out_bit_depth)
@@ -1658,8 +1554,8 @@ struct av_to_uv_conversion {
 static const struct av_to_uv_conversion av_to_uv_conversions[] = {
         { AV_PIX_FMT_GRAY8,       UYVY,      gray_to_uyvy,                 nullptr },
         // 10-bit YUV
-        { AV_PIX_FMT_YUV420P10LE, v210,      yuv420p10le_to_v210,          nullptr },
-        { AV_PIX_FMT_YUV420P10LE, UYVY,      yuv420p10le_to_uyvy,          nullptr },
+        { AV_PIX_FMT_YUV420P10LE, v210,      from_planar_conversion,       yuv420p10le_to_v210 },
+        { AV_PIX_FMT_YUV420P10LE, UYVY,      from_planar_conversion,       yuv420p10le_to_uyvy },
         { AV_PIX_FMT_YUV420P10LE, RGB,       yuv420p10le_to_rgb24,         nullptr },
         { AV_PIX_FMT_YUV420P10LE, RGBA,      yuv420p10le_to_rgb32,         nullptr },
         { AV_PIX_FMT_YUV420P10LE, R10k,      yuv420p10le_to_rgb30,         nullptr },

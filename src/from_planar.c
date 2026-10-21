@@ -68,12 +68,20 @@
 #pragma GCC optimize("vect-cost-model=dynamic")
 #endif
 
+#define ASSERT_IN_DIV(size)                                                    \
+        for (int i = 0; i < 3; ++i) {                                          \
+                assert((uintptr_t) d.in_data[i] % (size) == 0);                \
+                assert(d.in_linesize[i] % (size) == 0);                        \
+        }
+
+#define ASSERT_OUT_DIV(size)                                                   \
+        assert((uintptr_t) d.out_data % (size) == 0);                          \
+        assert(d.out_pitch % (size) == 0);
+
 [[gnu::always_inline]] static inline  void
 gbrpXXle_to_r12l(struct from_planar_data d, const int in_depth, int rind, int gind, int bind)
 {
-        assert((uintptr_t) d.in_linesize[0] % 2 == 0);
-        assert((uintptr_t) d.in_linesize[1] % 2 == 0);
-        assert((uintptr_t) d.in_linesize[2] % 2 == 0);
+        ASSERT_IN_DIV(sizeof(uint16_t))
 
 #define S(x) ((x) >> (in_depth - 12))
         // clang-format off
@@ -167,10 +175,8 @@ rgbpXXle_to_r12l(struct from_planar_data d)
 static void
 rgbpXXle_to_rg48_int(struct from_planar_data d, const int in_depth, int rind, int gind, int bind)
 {
-        assert((uintptr_t) d.out_data % 2 == 0);
-        assert((uintptr_t) d.in_data[0] % 2 == 0);
-        assert((uintptr_t) d.in_data[1] % 2 == 0);
-        assert((uintptr_t) d.in_data[2] % 2 == 0);
+        ASSERT_IN_DIV(sizeof(uint16_t))
+        ASSERT_OUT_DIV(sizeof(uint16_t))
 
         for (ptrdiff_t y = 0; y < d.height; ++y) {
                 const uint16_t *src_r = (const void *) (d.in_data[rind] + (d.in_linesize[rind] * y));
@@ -215,9 +221,7 @@ gbrpXXle_to_r10k(struct from_planar_data d, const unsigned int in_depth,
                  int rind, int gind, int bind)
 {
         // __builtin_trap();
-        assert((uintptr_t) d.in_linesize[0] % 2 == 0);
-        assert((uintptr_t) d.in_linesize[1] % 2 == 0);
-        assert((uintptr_t) d.in_linesize[2] % 2 == 0);
+        ASSERT_IN_DIV(sizeof(uint16_t))
 
         for (size_t y = 0; y < (size_t) d.height; ++y) {
                 const uint16_t *src_r = (const void *) (d.in_data[rind] + (d.in_linesize[rind] * y));
@@ -305,6 +309,9 @@ decode_planar_parallel(decode_planar_func_t         *dec,
 void
 yuv422p10le_to_v210(const struct from_planar_data d)
 {
+        ASSERT_IN_DIV(sizeof(uint16_t))
+        ASSERT_OUT_DIV(sizeof(uint32_t))
+
         const int width = d.width;
         const int height = d.height;
 
@@ -434,6 +441,8 @@ yuv422p_to_uyvy(const struct from_planar_data d)
 
 static void yuv422pXXle_to_uyvy_int(const struct from_planar_data d, int in_depth)
 {
+        ASSERT_IN_DIV(sizeof(uint16_t))
+
         for(int y = 0; y < d.height; ++y) {
                 const uint16_t *src_y =  (const void *)(d.in_data[0] + d.in_linesize[0] * y);
                 const uint16_t *src_cb = (const void *)(d.in_data[1] + d.in_linesize[1] * y);
@@ -475,9 +484,7 @@ yuv422p_to_yuyv(const struct from_planar_data d)
 static void
 gbrpXXle_to_rgb(const struct from_planar_data d, unsigned int in_depth, int rind, int gind, int bind)
 {
-        assert((uintptr_t) d.in_linesize[0] % 2 == 0);
-        assert((uintptr_t) d.in_linesize[1] % 2 == 0);
-        assert((uintptr_t) d.in_linesize[2] % 2 == 0);
+        ASSERT_IN_DIV(sizeof(uint16_t))
 
         for (int y = 0; y < d.height; ++y) {
                 const uint16_t *src_r = (const void *) (d.in_data[rind] + ((d.in_linesize[rind] * y)));
@@ -498,10 +505,8 @@ gbrpXXle_to_rgb(const struct from_planar_data d, unsigned int in_depth, int rind
 static void
 gbrpXXle_to_rgba(const struct from_planar_data d, unsigned int in_depth)
 {
-        assert((uintptr_t) d.out_data  % 4 == 0);
-        assert((uintptr_t) d.in_data[0] % 2 == 0);
-        assert((uintptr_t) d.in_data[1] % 2 == 0);
-        assert((uintptr_t) d.in_data[2] % 2 == 0);
+        ASSERT_IN_DIV(sizeof(uint16_t))
+        ASSERT_OUT_DIV(sizeof(uint32_t))
 
         enum { R = 0, G = 1, B = 2 };
 
@@ -695,6 +700,9 @@ yuv420p_to_uyvy(const struct from_planar_data d)
 
 [[gnu::always_inline]] static inline void
 yuv444Xp1Xle_to_vuya(const struct from_planar_data d, int in_depth, bool src_has_alpha) {
+
+        ASSERT_IN_DIV(sizeof(uint16_t))
+
         for (int y = 0; y < d.height; ++y) {
                 const uint16_t *src_y = (const void *) (d.in_data[0] + d.in_linesize[0] * y);
                 const uint16_t *src_u = (const void *) (d.in_data[1] + d.in_linesize[1] * y);
@@ -743,13 +751,12 @@ yuv444p12le_to_vuya(const struct from_planar_data d)
 [[gnu::always_inline]] static inline void
 yuv444Xp1Xle_to_y416(struct from_planar_data d, int in_depth, bool src_has_alpha)
 {
+        ASSERT_IN_DIV(sizeof(uint16_t))
+        ASSERT_OUT_DIV(sizeof(uint16_t))
+
         const int width = d.width;
         const size_t height = d.height;
 
-        assert((uintptr_t) d.out_data % 2 == 0);
-        assert((uintptr_t) d.in_data[0] % 2 == 0);
-        assert((uintptr_t) d.in_data[1] % 2 == 0);
-        assert((uintptr_t) d.in_data[2] % 2 == 0);
         for (size_t y = 0; y < height; ++y) {
                 const uint16_t *src_y =
                     (const void *) (d.in_data[0] + (d.in_linesize[0] * y));
@@ -805,6 +812,8 @@ yuv4444p12le_to_y416(const struct from_planar_data d)
 [[gnu::always_inline]] static inline void
 yuv444p1Xle_to_uyvy(struct from_planar_data d, int in_depth)
 {
+        ASSERT_IN_DIV(sizeof(uint16_t))
+
         const int width = d.width;
         const size_t height = d.height;
 
@@ -847,6 +856,9 @@ yuv444p16le_to_uyvy(struct from_planar_data d)
 [[gnu::always_inline]] static inline void
 yuv444p1Xle_to_v210(struct from_planar_data d, int in_depth)
 {
+        ASSERT_IN_DIV(sizeof(uint16_t))
+        ASSERT_OUT_DIV(sizeof(uint32_t))
+
         const int width = d.width;
         const int height = d.height;
 
@@ -916,12 +928,10 @@ yuv444p16le_to_v210(struct from_planar_data d)
 [[gnu::always_inline]] static inline void
 yuv444pXXle_to_r12l(struct from_planar_data d, int depth)
 {
+        ASSERT_IN_DIV(sizeof(uint16_t))
+
         const int width = d.width;
         const size_t height = d.height;
-
-        assert((uintptr_t) d.in_linesize[0] % 2 == 0);
-        assert((uintptr_t) d.in_linesize[1] % 2 == 0);
-        assert((uintptr_t) d.in_linesize[2] % 2 == 0);
 
         int lmt_rng = d.in_ycbcr_full_rng ? 0 : depth;
         const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, lmt_rng);
@@ -1010,12 +1020,10 @@ yuv444p16le_to_r12l(struct from_planar_data  d)
 [[gnu::always_inline]] static inline void
 yuv444pXXle_to_r10k(struct from_planar_data d, int depth)
 {
+        ASSERT_IN_DIV(sizeof(uint16_t))
+
         const int width = d.width;
         const size_t height = d.height;
-
-        assert((uintptr_t) d.in_linesize[0] % 2 == 0);
-        assert((uintptr_t) d.in_linesize[1] % 2 == 0);
-        assert((uintptr_t) d.in_linesize[2] % 2 == 0);
 
         int lmt_rng = d.in_ycbcr_full_rng ? 0 : depth;
         const struct color_coeffs cfs = *get_color_coeffs(d.cs_coeffs, lmt_rng);
@@ -1077,6 +1085,8 @@ yuv444p16le_to_r10k(struct from_planar_data d)
 [[gnu::always_inline]] static inline void
 yuv444p10le_to_rgb(struct from_planar_data d, bool out_rgba)
 {
+        ASSERT_IN_DIV(sizeof(uint16_t))
+
         const int width = d.width;
         const size_t height = d.height;
 
@@ -1126,4 +1136,113 @@ void
 yuv444p10le_to_rgb32(struct from_planar_data d)
 {
         yuv444p10le_to_rgb(d, true);
+}
+
+void
+yuv420p10le_to_v210(struct from_planar_data d)
+{
+        ASSERT_IN_DIV(sizeof(uint16_t))
+        ASSERT_OUT_DIV(sizeof(uint32_t))
+
+        const int width = d.width;
+        const size_t height = d.height;
+
+        for (size_t y = 0; y < height / 2; ++y) {
+                const uint16_t *src_y1 = (const void *)(d.in_data[0] + (d.in_linesize[0] * y * 2));
+                const uint16_t *src_y2 = (const void *)(d.in_data[0] + (d.in_linesize[0] * ((y * 2) + 1)));
+                const uint16_t *src_cb = (const void *)(d.in_data[1] + (d.in_linesize[1] * y));
+                const uint16_t *src_cr = (const void *)(d.in_data[2] + (d.in_linesize[2] * y));
+                uint32_t *dst1 =
+                    (uint32_t *) (void *) (d.out_data + (y * 2 * d.out_pitch));
+                uint32_t *dst2 =
+                    (uint32_t *) (void *) (d.out_data +
+                                           (((y * 2) + 1) * d.out_pitch));
+
+                OPTIMIZED_FOR (int x = 0; x < width / 6; ++x) {
+                        uint32_t w0_0, w0_1, w0_2, w0_3;
+                        uint32_t w1_0, w1_1, w1_2, w1_3;
+
+                        w0_0 = *src_cb;
+                        w1_0 = *src_cb;
+                        src_cb++;
+                        w0_0 = w0_0 | (*src_y1++) << 10;
+                        w1_0 = w1_0 | (*src_y2++) << 10;
+                        w0_0 = w0_0 | (*src_cr) << 20;
+                        w1_0 = w1_0 | (*src_cr) << 20;
+                        src_cr++;
+
+                        w0_1 = *src_y1++;
+                        w1_1 = *src_y2++;
+                        w0_1 = w0_1 | (*src_cb) << 10;
+                        w1_1 = w1_1 | (*src_cb) << 10;
+                        src_cb++;
+                        w0_1 = w0_1 | (*src_y1++) << 20;
+                        w1_1 = w1_1 | (*src_y2++) << 20;
+
+                        w0_2 = *src_cr;
+                        w1_2 = *src_cr;
+                        src_cr++;
+                        w0_2 = w0_2 | (*src_y1++) << 10;
+                        w1_2 = w1_2 | (*src_y2++) << 10;
+                        w0_2 = w0_2 | (*src_cb) << 20;
+                        w1_2 = w1_2 | (*src_cb) << 20;
+                        src_cb++;
+
+                        w0_3 = *src_y1++;
+                        w1_3 = *src_y2++;
+                        w0_3 = w0_3 | (*src_cr) << 10;
+                        w1_3 = w1_3 | (*src_cr) << 10;
+                        src_cr++;
+                        w0_3 = w0_3 | (*src_y1++) << 20;
+                        w1_3 = w1_3 | (*src_y2++) << 20;
+
+                        *dst1++ = w0_0;
+                        *dst1++ = w0_1;
+                        *dst1++ = w0_2;
+                        *dst1++ = w0_3;
+
+                        *dst2++ = w1_0;
+                        *dst2++ = w1_1;
+                        *dst2++ = w1_2;
+                        *dst2++ = w1_3;
+                }
+        }
+}
+
+void
+yuv420p10le_to_uyvy(struct from_planar_data d)
+{
+        ASSERT_IN_DIV(sizeof(uint16_t))
+
+        const int width = d.width;
+        const size_t height = d.height;
+
+        for (size_t y = 0; y < height / 2; ++y) {
+                const uint16_t *src_y1 = (const void *)(d.in_data[0] + (d.in_linesize[0] * y * 2));
+                const uint16_t *src_y2 = (const void *)(d.in_data[0] + (d.in_linesize[0] * ((y * 2) + 1)));
+                const uint16_t *src_cb = (const void *)(d.in_data[1] + (d.in_linesize[1] * y));
+                const uint16_t *src_cr = (const void *)(d.in_data[2] + (d.in_linesize[2] * y));
+                uint8_t *dst1 =
+                    (uint8_t *) (void *) (d.out_data  + ((y * 2) * d.out_pitch));
+                uint8_t *dst2 =
+                    (uint8_t *) (void *) (d.out_data + (((y * 2) + 1) * d.out_pitch));
+
+                OPTIMIZED_FOR (int x = 0; x < width / 2; ++x) {
+                        uint8_t tmp;
+                        // U
+                        tmp = *src_cb++ >> 2;
+                        *dst1++ = tmp;
+                        *dst2++ = tmp;
+                        // Y
+                        *dst1++ = *src_y1++ >> 2;
+                        *dst2++ = *src_y2++ >> 2;
+                        // V
+                        tmp = *src_cr++ >> 2;
+                        *dst1++ = tmp;
+                        *dst2++ = tmp;
+                        // Y
+                        *dst1++ = *src_y1++ >> 2;
+                        *dst2++ = *src_y2++ >> 2;
+                }
+        }
 }

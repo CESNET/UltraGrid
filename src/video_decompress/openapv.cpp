@@ -91,6 +91,9 @@ state_video_decompress_openapv::state_video_decompress_openapv() {
 }
 
 const struct from_openapv_conversion from_openapv_conversions[] = {
+        { OAPV_CS_YCBCR420_10LE,  UYVY,    yuv420p10le_to_uyvy  },
+        { OAPV_CS_YCBCR420_10LE,  v210,    yuv420p10le_to_v210  },
+
         { OAPV_CS_YCBCR422_10LE,  UYVY,    yuv422p10le_to_uyvy  },
         { OAPV_CS_YCBCR422_10LE,  v210,    yuv422p10le_to_v210  },
 

@@ -115,6 +115,8 @@ decode_planar_func_t rgbpXXle_to_r12l;
 decode_planar_func_t yuv444p_to_vuya;
 decode_planar_func_t yuv420p_to_uyvy;
 decode_planar_func_t yuv420_to_i420;
+decode_planar_func_t yuv420p10le_to_uyvy;
+decode_planar_func_t yuv420p10le_to_v210;
 decode_planar_func_t yuv422p_to_uyvy;
 decode_planar_func_t yuv422p_to_yuyv;
 decode_planar_func_t yuv422pXX_to_uyvy;
