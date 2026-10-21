@@ -618,11 +618,13 @@ audio_sender_process_message(struct state_audio      *s,
         return new_response(RESPONSE_INT_SERV_ERR, nullptr);
 }
 
+namespace{
 struct asend_stats_processing_data {
         audio_frame2 frame;
-        double seconds;
-        bool muted_sender;
+        double seconds = 0.0;
+        bool muted_sender = false;
 };
+}
 
 static void *asend_compute_and_print_stats(void *arg) {
         auto *d = (struct asend_stats_processing_data*) arg;
