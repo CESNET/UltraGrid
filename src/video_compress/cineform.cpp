@@ -81,6 +81,7 @@
 #define DEFAULT_THREAD_COUNT 8
 #define MOD_NAME "[cineform] "
 
+namespace{
 struct state_video_compress_cineform{
         std::mutex mutex;
 
@@ -110,6 +111,7 @@ struct state_video_compress_cineform{
         std::map<uint32_t, struct timespec> times_map;
 #endif
 };
+}
 
 static void cineform_compress_done(void *state) {
         auto *s = (struct state_video_compress_cineform *) state;
@@ -124,7 +126,7 @@ static void cineform_compress_done(void *state) {
         delete s;
 }
 
-struct {
+constexpr struct {
         const char *label;
         const char *key;
         const char *description;
