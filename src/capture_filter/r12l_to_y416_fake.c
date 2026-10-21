@@ -228,8 +228,8 @@ filter(void *state, struct video_frame *in)
                 }
                 data[i].src = (uint8_t *) (in->tiles[0].data +
                                            (i * height * src_linesize));
-                data[i].dst = (uint16_t *) (out->tiles[0].data +
-                                            (i * height * dst_linesize));
+                data[i].dst =
+                    (void *) (out->tiles[0].data + (i * height * dst_linesize));
         }
         time_ns_t t0 = get_time_in_ns();
         runnable_t runner =

@@ -443,11 +443,11 @@ vc_copylineR12L(unsigned char * restrict dst, const unsigned char * restrict src
         uint32_t alpha_mask = 0xFFFFFFFFU ^ (0xFFU << rshift) ^ (0xFFU << gshift) ^ (0xFFU << bshift);
 
         OPTIMIZED_FOR (int x = 0; x < dstlen; x += 32) {
-                unsigned char tmpbuf[32];
+                uint32_t tmpbuf[8];
                 uint32_t *orig_d = 0;
                 if (x + 32 >= dstlen) {
                         orig_d = d;
-                        d = (uint32_t *) tmpbuf;
+                        d = tmpbuf;
                 }
                 uint8_t tmp;
                 uint8_t r, g, b;

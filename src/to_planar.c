@@ -483,12 +483,18 @@ r12l_to_rgbp12le(struct to_planar_data d)
 void
 y416_to_yuv4444p10(struct to_planar_data d)
 {
-        const uint16_t *in = (const uint16_t *) d.in_data;
+        assert((uintptr_t) d.in_data % sizeof(uint16_t) == 0);
+        assert((uintptr_t) d.out_data[0] % sizeof(uint16_t) == 0);
+        assert((uintptr_t) d.out_data[1] % sizeof(uint16_t) == 0);
+        assert((uintptr_t) d.out_data[2] % sizeof(uint16_t) == 0);
+        assert((uintptr_t) d.out_data[3] % sizeof(uint16_t) == 0);
+
+        const uint16_t *in = (const void *) d.in_data;
         for (size_t y = 0; y < (size_t) d.height; y++) {
-                uint16_t *out_y = (uint16_t *)(d.out_data[0] + (y * d.out_linesize[0]));
-                uint16_t *out_u = (uint16_t *)(d.out_data[1] + (y * d.out_linesize[1]));
-                uint16_t *out_v = (uint16_t *)(d.out_data[2] + (y * d.out_linesize[2]));
-                uint16_t *out_a = (uint16_t *)(d.out_data[3] + (y * d.out_linesize[3]));
+                uint16_t *out_y = (void *)(d.out_data[0] + (y * d.out_linesize[0]));
+                uint16_t *out_u = (void *)(d.out_data[1] + (y * d.out_linesize[1]));
+                uint16_t *out_v = (void *)(d.out_data[2] + (y * d.out_linesize[2]));
+                uint16_t *out_a = (void *)(d.out_data[3] + (y * d.out_linesize[3]));
                 for (size_t x = 0; x < (size_t) d.width; x++) {
                         *out_u++ = *in++ >> 4;
                         *out_y++ = *in++ >> 4;

@@ -579,7 +579,8 @@ void yuv444p_to_vuya(const struct from_planar_data d){
                 const unsigned char *src_cr = d.in_data[2] + d.in_linesize[2] * i;
                 unsigned char *dst = d.out_data + i * d.out_pitch;
 
-                OPTIMIZED_FOR(int j = 0; j < d.width; j++){
+                const int width = d.width;
+                OPTIMIZED_FOR(int j = 0; j < width; j++){
                         enum { ALPHA = 0xFF };
                         *dst++ = *src_cr++;
                         *dst++ = *src_cb++;

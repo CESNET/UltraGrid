@@ -35,9 +35,10 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <inttypes.h>               // for uint8_t, uint16_t
-#include <svt-jpegxs/SvtJpegxs.h>
+#include <assert.h>
+#include <stdint.h>                // for uint8_t, uint16_t, uintptr_t
 #include <string.h>
+#include <svt-jpegxs/SvtJpegxs.h>
 
 #include "debug.h"                 // for ERR_MSG
 #include "jpegxs_conv.h"
@@ -126,11 +127,16 @@ static void rgba_to_rgbp(const uint8_t *src, int width, int height, svt_jpeg_xs_
 
 static void v210_to_yuv422p10le(const uint8_t *src, int width, int height, svt_jpeg_xs_image_buffer_t *dst) {
 
+        assert((uintptr_t) src % sizeof(uint32_t) == 0);
+        assert((uintptr_t) dst->data_yuv[0] % sizeof(uint16_t) == 0);
+        assert((uintptr_t) dst->data_yuv[1] % sizeof(uint16_t) == 0);
+        assert((uintptr_t) dst->data_yuv[2] % sizeof(uint16_t) == 0);
+
         for (int y = 0; y < height; ++y) {
-                const uint32_t *src_row = (const uint32_t *)(src + y * vc_get_linesize(width, v210));
-                uint16_t *dst_y = (uint16_t *) dst->data_yuv[0] + y * dst->stride[0];
-                uint16_t *dst_u = (uint16_t *) dst->data_yuv[1] + y * dst->stride[1];
-                uint16_t *dst_v = (uint16_t *) dst->data_yuv[2] + y * dst->stride[2];
+                const uint32_t *src_row = (const void *)(src + y * vc_get_linesize(width, v210));
+                uint16_t *dst_y = (void *)((uint16_t *) dst->data_yuv[0] + y * dst->stride[0]);
+                uint16_t *dst_u = (void *)((uint16_t *) dst->data_yuv[1] + y * dst->stride[1]);
+                uint16_t *dst_v = (void *)((uint16_t *) dst->data_yuv[2] + y * dst->stride[2]);
 
                 for (int x = 0; x < width; x += 6) {
                         uint32_t w0 = *src_row++;
@@ -158,8 +164,10 @@ static void v210_to_yuv422p10le(const uint8_t *src, int width, int height, svt_j
 
 static void r10k_to_rgbp10le(const uint8_t *src, int width, int height, svt_jpeg_xs_image_buffer_t *dst) {
 
+        assert((uintptr_t) src % sizeof(uint32_t) == 0);
+
         for (int y = 0; y < height; ++y) {
-                const uint32_t *src_row = (const uint32_t *)(src + y * vc_get_linesize(width, R10k));
+                const uint32_t *src_row = (const void *)(src + y * vc_get_linesize(width, R10k));
                 uint16_t *dst_r = (uint16_t *) dst->data_yuv[0] + y * dst->stride[0];
                 uint16_t *dst_g = (uint16_t *) dst->data_yuv[1] + y * dst->stride[1];
                 uint16_t *dst_b = (uint16_t *) dst->data_yuv[2] + y * dst->stride[2];

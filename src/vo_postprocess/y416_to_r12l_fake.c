@@ -226,6 +226,7 @@ postprocess(void *state, struct video_frame *in, struct video_frame *out,
 
         assert(in->tile_count == 1);
         assert(in->color_spec == Y416);
+        assert((uintptr_t) in->tiles[0].data % sizeof(uint16_t) == 0);
 
         size_t    src_linesize = vc_get_linesize(in->tiles[0].width, Y416);
         size_t    dst_linesize = vc_get_linesize(in->tiles[0].width, R12L);
@@ -240,10 +241,10 @@ postprocess(void *state, struct video_frame *in, struct video_frame *out,
                         data[i].height = (int) (in->tiles[0].height -
                                                 (height * (cpu_count - 1)));
                 }
-                data[i].src       = (uint16_t *) (in->tiles[0].data +
-                                                  (i * height * src_linesize));
-                data[i].dst       = (uint8_t *) (out->tiles[0].data +
-                                                 (i * height * dst_linesize));
+                data[i].src = (const void *) (in->tiles[0].data +
+                                              (i * height * src_linesize));
+                data[i].dst = (uint8_t *) (out->tiles[0].data +
+                                           (i * height * dst_linesize));
                 data[i].dst_pitch = req_pitch;
         }
         time_ns_t t0 = get_time_in_ns();
