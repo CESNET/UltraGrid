@@ -48,6 +48,7 @@
 
 #define MOD_NAME "[Remap filter] "
 
+namespace{
 struct state_channel_remap{
         explicit state_channel_remap(struct module *mod) : mod(MODULE_CLASS_DATA, mod, this) {  }
 
@@ -62,6 +63,7 @@ struct state_channel_remap{
         std::vector<char> out_buffer;
         audio_frame out_frame = {};
 };
+}
 
 static void usage(){
         color_printf("Audio filter " TBOLD(
