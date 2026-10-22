@@ -3,7 +3,7 @@
  * @author Martin Pulec     <martin.pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2022-2025 CESNET, zájmové sdružení právnických osob
+ * Copyright (c) 2022-2026 CESNET, zájmové sdružení právnických osob
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -97,16 +97,17 @@ static_assert(sizeof(comp_type_t) * 8 >= COMP_BASE + 18, "comp_type_t not wide e
 #define FULL_HEAD(depth) ((255<<((depth)-8))-1)
 #define CLAMP_FULL(val, depth) CLAMP((val), FULL_FOOT(depth), FULL_HEAD(depth))
 
-#define RGB_TO_Y(t, r, g, b) ((r) * (t).y_r + (g) * (t).y_g + (b) * (t).y_b)
-#define RGB_TO_CB(t, r, g, b) \
-        ((r) * (t).cb_r + (g) * (t).cb_g + (b) * (t).cb_b)
-#define RGB_TO_CR(t, r, g, b) \
-        ((r) * (t).cr_r + (g) * (t).cr_g + (b) * (t).cr_b)
+#define RGB_TO_Y(t, r, g, b)                                                   \
+        (((r) * (t).y_r) + ((g) * (t).y_g) + ((b) * (t).y_b))
+#define RGB_TO_CB(t, r, g, b)                                                  \
+        (((r) * (t).cb_r) + ((g) * (t).cb_g) + ((b) * (t).cb_b))
+#define RGB_TO_CR(t, r, g, b)                                                  \
+        (((r) * (t).cr_r) + ((g) * (t).cr_g) + ((b) * (t).cr_b))
 /// @param y_scaled Y scaled (multiplied) by Y_SCALE()
-#define YCBCR_TO_R(t, y_scaled, cb, cr) ((y_scaled) + (cr) * (t).r_cr)
-#define YCBCR_TO_G(t, y_scaled, cb, cr) \
-        ((y_scaled) + (cb) * (t).g_cb + (cr) * (t).g_cr)
-#define YCBCR_TO_B(t, y_scaled, cb, cr) ((y_scaled) + (cb) * (t).b_cb)
+#define YCBCR_TO_R(t, y_scaled, cb, cr) ((y_scaled) + ((cr) * (t).r_cr))
+#define YCBCR_TO_G(t, y_scaled, cb, cr)                                        \
+        ((y_scaled) + ((cb) * (t).g_cb) + ((cr) * (t).g_cr))
+#define YCBCR_TO_B(t, y_scaled, cb, cr) ((y_scaled) + ((cb) * (t).b_cb))
 
 /**
  * @param alpha_mask alpha mask already positioned at target bit offset

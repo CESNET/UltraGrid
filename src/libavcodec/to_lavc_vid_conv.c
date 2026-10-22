@@ -781,20 +781,23 @@ static inline void r12l_to_yuv4XXpYYle(int depth, bool out_422, AVFrame * __rest
         assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
 
         const struct color_coeffs cfs = *get_color_coeffs(CS_DFL, depth);
-#define WRITE_RES(idx) \
-        res_y = (RGB_TO_Y(cfs, r, g, b) >> (COMP_BASE + 12 - depth)) + \
-                (1 << (depth - 4)); \
-        *dst_y++ = CLAMP_LIMITED_Y(res_y, depth); \
-        if (!out_422 || idx % 2 == 0) { \
-                res_cb = \
-                    (RGB_TO_CB(cfs, r, g, b) >> (COMP_BASE + 12 - depth)) + \
-                    (1 << (depth - 1)); \
-                res_cr = \
-                    (RGB_TO_CR(cfs, r, g, b) >> (COMP_BASE + 12 - depth)) + \
-                    (1 << (depth - 1)); \
-                *dst_cb++ = CLAMP_LIMITED_CBCR(res_cb, depth); \
-                *dst_cr++ = CLAMP_LIMITED_CBCR(res_cr, depth); \
-        }
+#define WRITE_RES(idx)                                                          \
+        do {                                                                    \
+                comp_type_t res_y =                                             \
+                    (RGB_TO_Y(cfs, r, g, b) >> (COMP_BASE + 12 - depth)) +      \
+                    (1 << (depth - 4));                                         \
+                *dst_y++ = CLAMP_LIMITED_Y(res_y, depth);                       \
+                if (!out_422 || (idx) % 2 == 0) {                               \
+                        comp_type_t res_cb = (RGB_TO_CB(cfs, r, g, b) >>        \
+                                              (COMP_BASE + 12 - depth)) +       \
+                                             (1 << (depth - 1));                \
+                        comp_type_t res_cr = (RGB_TO_CR(cfs, r, g, b) >>        \
+                                              (COMP_BASE + 12 - depth)) +       \
+                                             (1 << (depth - 1));                \
+                        *dst_cb++          = CLAMP_LIMITED_CBCR(res_cb, depth); \
+                        *dst_cr++          = CLAMP_LIMITED_CBCR(res_cr, depth); \
+                }                                                               \
+        } while (0)
 
         const int src_linesize = vc_get_linesize(width, R12L);
         for (int y = 0; y < height; ++y) {
@@ -803,78 +806,25 @@ static inline void r12l_to_yuv4XXpYYle(int depth, bool out_422, AVFrame * __rest
                 uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
                 uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
 
-                OPTIMIZED_FOR (int x = 0; x < width; x += 8) {
-			comp_type_t r = 0;
-			comp_type_t g = 0;
-			comp_type_t b = 0;
-                        comp_type_t res_y = 0;
-                        comp_type_t res_cb = 0;
-                        comp_type_t res_cr = 0;
-
-			r = src[0];
-			r |= (src[1] & 0xF) << 8;
-			g = src[2] << 4 | src[1] >> 4; // g0
-			b = src[3];
-			src += 4;
-
-			b |= (src[0] & 0xF) << 8;
-                        WRITE_RES(0)
-			r = src[1] << 4 | src[0] >> 4; // r1
-			g = src[2];
-			g |= (src[3] & 0xF) << 8;
-			b = src[3] >> 4;
-			src += 4;
-
-			b |= src[0] << 4; // b1
-                        WRITE_RES(1)
-			r = src[1];
-			r |= (src[2] & 0xF) << 8;
-			g = src[3] << 4 | src[2] >> 4; // g2
-			src += 4;
-
-			b = src[0];
-			b |= (src[1] & 0xF) << 8;
-                        WRITE_RES(2)
-			r = src[2] << 4 | src[1] >> 4; // r3
-			g = src[3];
-			src += 4;
-
-			g |= (src[0] & 0xF) << 8;
-			b = src[1] << 4 | src[0] >> 4; // b3
-                        WRITE_RES(3)
-			r = src[2];
-			r |= (src[3] & 0xF) << 8;
-			g = src[3] >> 4;
-			src += 4;
-
-			g |= src[0] << 4; // g4
-			b = src[1];
-			b |= (src[2] & 0xF) << 8;
-			WRITE_RES(4)
-			r = src[3] << 4 | src[2] >> 4; // r5
-			src += 4;
-
-			g = src[0];
-			g |= (src[1] & 0xF) << 8;
-			b = src[2] << 4 | src[1] >> 4; // b5
-                        WRITE_RES(5)
-			r = src[3];
-			src += 4;
-
-			r |= (src[0] & 0xF) << 8;
-			g = src[1] << 4 | src[0] >> 4; // g6
-			b = src[2];
-			b |= (src[3] & 0xF) << 8;
-                        WRITE_RES(6)
-			r = src[3] >> 4;
-			src += 4;
-
-			r |= src[0] << 4; // r7
-			g = src[1];
-			g |= (src[2] & 0xF) << 8;
-			b = src[3] << 4 | src[2] >> 4; // b7
-                        WRITE_RES(7)
-			src += 4;
+                int x = 0;
+#pragma GCC unroll 2
+                OPTIMIZED_FOR(; x < (width & ~1); x += 2)
+                {
+                        comp_type_t r = src[0] | (src[1] & 0xF) << 8;
+                        comp_type_t g = src[1] >> 4 | src[2] << 4;
+                        comp_type_t b = src[3] | (src[4] & 0xF) << 8;
+                        WRITE_RES(0);
+                        r = src[4] >> 4 | src[5] << 4;
+                        g = src[6] | (src[7] & 0xF) << 8;
+                        b = src[7] >> 4 | src[8] << 4;
+                        WRITE_RES(1);
+                        src += 9;
+                }
+                if (x < width) {
+                        comp_type_t r = src[0] | (src[1] & 0xF) << 8;
+                        comp_type_t g = src[1] >> 4 | src[2] << 4;
+                        comp_type_t b = src[3] | (src[4] & 0xF) << 8;
+                        WRITE_RES(0);
                 }
         }
 #undef WRITE_RES
