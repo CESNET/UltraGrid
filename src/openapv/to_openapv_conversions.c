@@ -153,35 +153,6 @@ static void rgb_to_yuv444p10(const uint8_t *src, int width, int height, oapv_img
         }
 }
 
-static void rgba_to_yuv4444p10(const uint8_t *src, int width, int height, oapv_imgb_t *dst) {
-        const struct color_coeffs cfs = *get_color_coeffs(CS_DFL, DEPTH10);
-        const int y_sp = dst->s[0] / (int) sizeof(uint16_t);
-        const int u_sp = dst->s[1] / (int) sizeof(uint16_t);
-        const int v_sp = dst->s[2] / (int) sizeof(uint16_t);
-        const int a_sp = dst->s[3] / (int) sizeof(uint16_t);
-        const int src_pitch = vc_get_linesize(width, RGBA);
-
-        for (int y = 0; y < height; ++y) {
-                const uint8_t *s = src + y * src_pitch;
-                uint16_t *dy = (uint16_t *) dst->a[0] + y * y_sp;
-                uint16_t *du = (uint16_t *) dst->a[1] + y * u_sp;
-                uint16_t *dv = (uint16_t *) dst->a[2] + y * v_sp;
-                uint16_t *da = (uint16_t *) dst->a[3] + y * a_sp;
-
-                for (int x = 0; x < width; ++x) {
-                        comp_type_t r = (comp_type_t) s[0] << 2;
-                        comp_type_t g = (comp_type_t) s[1] << 2;
-                        comp_type_t b = (comp_type_t) s[2] << 2;
-                        uint16_t    a = (uint16_t)    s[3] << 2;
-                        s += 4;
-                        *dy++ = (uint16_t) ((RGB_TO_Y (cfs, r, g, b) >> COMP_BASE) + (1 << (DEPTH10 - 4)));
-                        *du++ = (uint16_t) ((RGB_TO_CB(cfs, r, g, b) >> COMP_BASE) + (1 << (DEPTH10 - 1)));
-                        *dv++ = (uint16_t) ((RGB_TO_CR(cfs, r, g, b) >> COMP_BASE) + (1 << (DEPTH10 - 1)));
-                        *da++ = a;
-                }
-        }
-}
-
 static void r10k_to_yuv444p10(const uint8_t *src, int width, int height, oapv_imgb_t *dst) {
         const struct color_coeffs cfs = *get_color_coeffs(CS_DFL, DEPTH10);
         const int y_sp = dst->s[0] / (int) sizeof(uint16_t);
@@ -290,24 +261,40 @@ static const struct uv_to_openapv_conversion uv_to_openapv_conversions[] = {
         { YUYV,    OAPV_CS_YCBCR422_10LE,  yuyv_to_yuv422p,    nullptr            },
         { v210,    OAPV_CS_YCBCR422_10LE,  v210_to_yuv422p,    nullptr            },
         { RGB,     OAPV_CS_YCBCR444_10LE,  rgb_to_yuv444p10,   nullptr            },
-        { RGBA,    OAPV_CS_YCBCR4444_10LE, rgba_to_yuv4444p10, nullptr            },
+        { RGBA,    OAPV_CS_YCBCR4444_10LE, nullptr,            rgba_to_yuv4444p10 },
+        { RGBA,    OAPV_CS_YCBCR444_10LE,  nullptr,            rgba_to_yuv444p10  },
         { VUYA,    OAPV_CS_YCBCR4444_10LE, vuya_to_yuv4444p10, nullptr            },
         { R10k,    OAPV_CS_YCBCR444_10LE,  r10k_to_yuv444p10,  nullptr            },
         { R12L,    OAPV_CS_YCBCR444_12LE,  r12l_to_yuv444p12,  nullptr            },
-        { Y416,    OAPV_CS_YCBCR4444_12LE, nullptr,            y416_to_yuv4444p10 },
+        { Y416,    OAPV_CS_YCBCR4444_12LE, nullptr,            y416_to_yuv4444p12 },
+        { Y416,    OAPV_CS_YCBCR444_12LE,  nullptr,            y416_to_yuv444p12  },
         { VC_NONE, OAPV_CS_UNKNOWN,        nullptr,            nullptr            },
 };
 
 const struct uv_to_openapv_conversion *
-get_uv_to_openapv_conversion(codec_t src_codec, codec_t *dst_codec)
+get_uv_to_openapv_conversion(codec_t src_codec, bool drop_alpha,
+                             codec_t *dst_codec)
 {
         const struct uv_to_openapv_conversion *conv = uv_to_openapv_conversions;
         while (conv->src_color_format != VIDEO_CODEC_NONE) {
+                // skip 4444 dst formats if drop_alpha
+                if (drop_alpha && OAPV_CS_GET_FORMAT(conv->dst_color_format) ==
+                                      OAPV_CF_YCBCR4444) {
+                        conv++;
+                        continue;
+                }
+
                 if (conv->src_color_format == src_codec) {
                         *dst_codec = conv->dst_color_format;
                         return conv;
                 }
                 conv++;
+
+                // none found, reiterate without drop_alpha if originally set
+                if (conv->src_color_format == VC_NONE && drop_alpha) {
+                        conv       = uv_to_openapv_conversions;
+                        drop_alpha = false;
+                }
         }
 
         return NULL;

@@ -47,7 +47,8 @@ extern "C" {
 #endif
 
 const struct uv_to_openapv_conversion *
-get_uv_to_openapv_conversion(codec_t src_codec, codec_t *dst_codec);
+get_uv_to_openapv_conversion(codec_t src_codec, bool drop_alpha,
+                             codec_t *dst_codec);
 void openapv_convert_to_planar(const struct uv_to_openapv_conversion *conv,
                                const uint8_t *src, int width, int height,
                                oapv_imgb_t *dst);

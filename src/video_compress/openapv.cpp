@@ -44,6 +44,7 @@
 
 #include "debug.h"
 #include "lib_common.h"
+#include "types.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
 #include "utils/misc.h"
@@ -85,6 +86,7 @@ struct state_video_compress_oapv {
         bool configured = false;
 
         const struct uv_to_openapv_conversion *convert_to_planar = nullptr;
+        bool noalpha = false;
 };
 
 int map_color_spaces_to_profiles(int cs) {
@@ -153,6 +155,9 @@ const struct {
                 "\t\tQP offset for third chroma channel (Cg/A). Default: 0.\n",
                 ":qp-offset-c3=", false, "0"
         },
+        {"No Alpha", "noalpha",
+                "\t\tdo not keep alpha channel", ":noalpha", true, ""
+        },
 };
 
 bool state_video_compress_oapv::parse_fmt(std::string_view cfg)
@@ -161,6 +166,11 @@ bool state_video_compress_oapv::parse_fmt(std::string_view cfg)
                 auto tok = tokenize(cfg, ':', '"');
                 auto key = tokenize(tok, '=');
                 auto val = tokenize(tok, '=');
+
+                if (key == "noalpha") {
+                        noalpha = true;
+                        continue;
+                }
 
                 if(val.empty()){
                         MSG(ERROR, "Missing value for option: %s\n", SV_TO_CSTR(key));
@@ -232,7 +242,7 @@ bool state_video_compress_oapv::parse_fmt(std::string_view cfg)
 
 bool configure_with(state_video_compress_oapv *s, video_desc desc){
         codec_t dst_color_format = VC_NONE;
-        s->convert_to_planar = get_uv_to_openapv_conversion(desc.color_spec, &dst_color_format);
+        s->convert_to_planar = get_uv_to_openapv_conversion(desc.color_spec, s->noalpha, &dst_color_format);
         if (!s->convert_to_planar) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "unsupported codec\n");
                 return false;

@@ -48,12 +48,19 @@
 #include <pmmintrin.h>     // for _mm_lddqu_si128
 #endif
 
+#include "color_space.h"   // for get_color_coeffs
 #include "compat/c23.h"
 #include "types.h"         // for depth, v210, R12L, RGBA, UYVY, Y216
 #include "utils/macros.h"  // for OPTIMIZED_FOR
 #include "utils/misc.h"    // for get_cpu_core_count
 #include "utils/worker.h"  // for task_run_parallel
 #include "video_codec.h"   // for vc_get_linesize
+
+#define ASSERT_OUT_DIV(size, comp_count)                                       \
+        for (int i = 0; i < (comp_count); ++i) {                               \
+                assert((uintptr_t) d.out_data[i] % (size) == 0);               \
+                assert(d.out_linesize[i] % (size) == 0);                       \
+        }
 
 /**
  * converts v210 to P010 - 2-plane 10-bit YCbCr 4:2;0 with U/V combined (samples are
@@ -318,6 +325,49 @@ rgba_to_bgra(struct to_planar_data d)
         }
 }
 
+[[gnu::always_inline]] static inline void
+rgba_to_yuv444Xp10(struct to_planar_data d, bool alpha)
+{
+        ASSERT_OUT_DIV(sizeof(uint16_t), alpha ? 4 : 3)
+
+        const struct color_coeffs cfs = *get_color_coeffs(CS_DFL, DEPTH10);
+        const int src_linesize = vc_get_linesize(d.width, RGBA);
+
+        for (size_t y = 0; y < (unsigned) d.height; ++y) {
+                const uint8_t *s = d.in_data + (y * src_linesize);
+                uint16_t *dy = (void *) (d.out_data[0] + (y * d.out_linesize[0]));
+                uint16_t *du = (void *) (d.out_data[1] + (y * d.out_linesize[1]));
+                uint16_t *dv = (void *) (d.out_data[2] + (y * d.out_linesize[2]));
+                uint16_t *da = (void *) (alpha ?  (d.out_data[3] + (y * d.out_linesize[3])) : nullptr);
+
+                OPTIMIZED_FOR (int x = 0; x < d.width; ++x) {
+                        comp_type_t r = (comp_type_t) s[0] << 2;
+                        comp_type_t g = (comp_type_t) s[1] << 2;
+                        comp_type_t b = (comp_type_t) s[2] << 2;
+                        uint16_t    a = alpha ? (uint16_t) s[3] << 2 : 0;
+                        s += 4;
+                        *dy++ = (uint16_t) ((RGB_TO_Y (cfs, r, g, b) >> COMP_BASE) + (1 << (DEPTH10 - 4)));
+                        *du++ = (uint16_t) ((RGB_TO_CB(cfs, r, g, b) >> COMP_BASE) + (1 << (DEPTH10 - 1)));
+                        *dv++ = (uint16_t) ((RGB_TO_CR(cfs, r, g, b) >> COMP_BASE) + (1 << (DEPTH10 - 1)));
+                        if (alpha) {
+                                *da++ = a;
+                        }
+                }
+        }
+}
+
+void
+rgba_to_yuv4444p10(struct to_planar_data d)
+{
+        rgba_to_yuv444Xp10(d, true);
+}
+
+void
+rgba_to_yuv444p10(struct to_planar_data d)
+{
+        rgba_to_yuv444Xp10(d, false);
+}
+
 void vuya_to_i444(struct to_planar_data d){
         size_t src_linesize = vc_get_linesize(d.width, VUYA);
         for(int i = 0; i < d.height; ++i){
@@ -480,28 +530,41 @@ r12l_to_rgbp12le(struct to_planar_data d)
         r12l_to_gbrpXXle(d, DEPTH12, 0, 1, 2);
 }
 
-void
-y416_to_yuv4444p10(struct to_planar_data d)
+[[gnu::always_inline]] static inline void
+y416_to_yuv444Xp12(struct to_planar_data d, bool alpha)
 {
+        ASSERT_OUT_DIV(sizeof(uint16_t), alpha ? 4 : 3)
         assert((uintptr_t) d.in_data % sizeof(uint16_t) == 0);
-        assert((uintptr_t) d.out_data[0] % sizeof(uint16_t) == 0);
-        assert((uintptr_t) d.out_data[1] % sizeof(uint16_t) == 0);
-        assert((uintptr_t) d.out_data[2] % sizeof(uint16_t) == 0);
-        assert((uintptr_t) d.out_data[3] % sizeof(uint16_t) == 0);
 
         const uint16_t *in = (const void *) d.in_data;
         for (size_t y = 0; y < (size_t) d.height; y++) {
                 uint16_t *out_y = (void *)(d.out_data[0] + (y * d.out_linesize[0]));
                 uint16_t *out_u = (void *)(d.out_data[1] + (y * d.out_linesize[1]));
                 uint16_t *out_v = (void *)(d.out_data[2] + (y * d.out_linesize[2]));
-                uint16_t *out_a = (void *)(d.out_data[3] + (y * d.out_linesize[3]));
+                uint16_t *out_a = (void *) (alpha ? (d.out_data[3] + (y * d.out_linesize[3])) : nullptr);
                 for (size_t x = 0; x < (size_t) d.width; x++) {
                         *out_u++ = *in++ >> 4;
                         *out_y++ = *in++ >> 4;
                         *out_v++ = *in++ >> 4;
-                        *out_a++ = *in++ >> 4;
+                        if (alpha) {
+                                *out_a++ = *in++ >> 4;
+                        } else {
+                                in++;
+                        }
                 }
         }
+}
+
+void
+y416_to_yuv4444p12(struct to_planar_data d)
+{
+        y416_to_yuv444Xp12(d, true);
+}
+
+void
+y416_to_yuv444p12(struct to_planar_data d)
+{
+        y416_to_yuv444Xp12(d, false);
 }
 
 struct convert_task_data {
