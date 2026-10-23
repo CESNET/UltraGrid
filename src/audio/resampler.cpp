@@ -429,6 +429,6 @@ resampler_align_bps(struct audio_frame2_resampler *resampler, int orig_bps)
 }
 
 audio_frame2_resampler::~audio_frame2_resampler() = default;
-audio_frame2_resampler::audio_frame2_resampler(audio_frame2_resampler&&) = default;
-audio_frame2_resampler& audio_frame2_resampler::operator=(audio_frame2_resampler&&) = default;
+audio_frame2_resampler::audio_frame2_resampler(audio_frame2_resampler&&) noexcept = default;
+audio_frame2_resampler& audio_frame2_resampler::operator=(audio_frame2_resampler&&) noexcept = default;
 

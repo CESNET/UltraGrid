@@ -50,8 +50,8 @@ public:
         audio_frame2_resampler() noexcept(false);
         ~audio_frame2_resampler();
 
-        audio_frame2_resampler(audio_frame2_resampler&&);
-        audio_frame2_resampler& operator=(audio_frame2_resampler&&);
+        audio_frame2_resampler(audio_frame2_resampler&&) noexcept;
+        audio_frame2_resampler& operator=(audio_frame2_resampler&&) noexcept;
 
         std::tuple<bool, audio_frame2> resample(audio_frame2 &a, std::vector<audio_frame2::channel> &out, int new_sample_rate_num, int new_sample_rate_den);
         int align_bps(int orig);
