@@ -598,7 +598,12 @@ static bool parse_port(char *optarg, struct ug_options *opt) {
         char *save_ptr = nullptr;
         char *first_val = strtok_r(optarg, ":", &save_ptr);
         if (first_val == nullptr || strcmp(first_val, "help") == 0) {
-                color_printf("see\n\n    " TBOLD("%s --fullhelp") "\n\nfor port specification usage\n", uv_argv[0]);
+                color_printf(
+                    "Option " TBOLD("-P")
+                    " allows specification of RX/TX port number(s).\n\n");
+                color_printf("See\n\t" TBOLD("%s " TRED("--fullhelp"))
+                             "\n\nfor port specification usage.\n\n",
+                             uv_argv[0]);
                 return false;
         }
         struct rxtx_medium_params *audio = &opt->rxtx.medium[TX_MEDIA_AUDIO];
