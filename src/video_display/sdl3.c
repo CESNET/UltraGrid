@@ -1274,7 +1274,7 @@ convert_R10k_ABGR2101010(const struct video_frame *uv_frame,
 }
 
 static struct to_planar_data
-to_planar_data_from_avfame(const struct video_frame *uv_frame, unsigned char *tex_data,
+to_planar_data_from_avframe(const struct video_frame *uv_frame, unsigned char *tex_data,
                   size_t pitch_1st_plane, int ch_count, int chr_pitch, int chr_height)
 {
         struct to_planar_data d = { 0 };
@@ -1298,7 +1298,7 @@ static void
 convert_RGBA_BGRA(const struct video_frame *uv_frame, unsigned char *tex_data,
                   size_t pitch)
 {
-        rgba_to_bgra(to_planar_data_from_avfame(uv_frame, tex_data, pitch, 1, 0, 0));
+        rgba_to_bgra(to_planar_data_from_avframe(uv_frame, tex_data, pitch, 1, 0, 0));
 }
 
 static void
@@ -1307,7 +1307,7 @@ convert_UYVY_IYUV(const struct video_frame *uv_frame, unsigned char *tex_data,
 {
         const size_t y_h = uv_frame->tiles[0].height;
         const size_t chr_h = (y_h + 1) / 2;
-        uyvy_to_i420(to_planar_data_from_avfame(uv_frame, tex_data, y_pitch, 3,
+        uyvy_to_i420(to_planar_data_from_avframe(uv_frame, tex_data, y_pitch, 3,
                                                 (y_pitch + 1) / 2, chr_h));
 }
 
@@ -1316,7 +1316,7 @@ convert_UYVY_NV12(const struct video_frame *uv_frame, unsigned char *tex_data,
                   size_t y_pitch)
 {
         const size_t chr_h = ((y_pitch + 1) / 2) * 2;
-        uyvy_to_nv12(to_planar_data_from_avfame(uv_frame, tex_data, y_pitch, 2,
+        uyvy_to_nv12(to_planar_data_from_avframe(uv_frame, tex_data, y_pitch, 2,
                                                 chr_h, (y_pitch + 1) / 2));
 }
 
@@ -1329,7 +1329,7 @@ convert_Y216_P010(const struct video_frame *uv_frame, unsigned char *tex_data,
                   size_t y_pitch)
 {
         const size_t chr_h = ((y_pitch + 1) / 2) * 2;
-        y216_to_p010le(to_planar_data_from_avfame(uv_frame, tex_data, y_pitch,
+        y216_to_p010le(to_planar_data_from_avframe(uv_frame, tex_data, y_pitch,
                                                   2, chr_h, (y_pitch + 1) / 2));
 }
 
@@ -1339,7 +1339,7 @@ convert_v210_P010(const struct video_frame *uv_frame, unsigned char *tex_data,
                   size_t y_pitch)
 {
         const size_t chr_h = ((y_pitch + 1) / 2) * 2;
-        v210_to_p010le(to_planar_data_from_avfame(uv_frame, tex_data, y_pitch,
+        v210_to_p010le(to_planar_data_from_avframe(uv_frame, tex_data, y_pitch,
                                                   2, chr_h, (y_pitch + 1) / 2));
 }
 

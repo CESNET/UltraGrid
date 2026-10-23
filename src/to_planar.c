@@ -530,6 +530,95 @@ r12l_to_rgbp12le(struct to_planar_data d)
         r12l_to_gbrpXXle(d, DEPTH12, 0, 1, 2);
 }
 
+[[gnu::always_inline]]
+static inline void r12l_to_yuv4XXpYYle(int depth, bool out_422, struct to_planar_data d)
+{
+        ASSERT_OUT_DIV(sizeof(uint16_t), 3)
+        int width = d.width;
+        size_t height = d.height;
+
+        const struct color_coeffs cfs = *get_color_coeffs(CS_DFL, depth);
+#define WRITE_RES(idx)                                                          \
+        do {                                                                    \
+                comp_type_t res_y =                                             \
+                    (RGB_TO_Y(cfs, r, g, b) >> (COMP_BASE + 12 - depth)) +      \
+                    (1 << (depth - 4));                                         \
+                *dst_y++ = CLAMP_LIMITED_Y(res_y, depth);                       \
+                if (!out_422 || (idx) % 2 == 0) {                               \
+                        comp_type_t res_cb = (RGB_TO_CB(cfs, r, g, b) >>        \
+                                              (COMP_BASE + 12 - depth)) +       \
+                                             (1 << (depth - 1));                \
+                        comp_type_t res_cr = (RGB_TO_CR(cfs, r, g, b) >>        \
+                                              (COMP_BASE + 12 - depth)) +       \
+                                             (1 << (depth - 1));                \
+                        *dst_cb++          = CLAMP_LIMITED_CBCR(res_cb, depth); \
+                        *dst_cr++          = CLAMP_LIMITED_CBCR(res_cr, depth); \
+                }                                                               \
+        } while (0)
+
+        const int src_linesize = vc_get_linesize(width, R12L);
+        for (size_t y = 0; y < height; ++y) {
+                const unsigned char *src = d.in_data + (y * src_linesize);
+                uint16_t *dst_y = (void *) (d.out_data[0] + (d.out_linesize[0] * y));
+                uint16_t *dst_cb = (void *) (d.out_data[1] + (d.out_linesize[1] * y));
+                uint16_t *dst_cr = (void *) (d.out_data[2] + (d.out_linesize[2] * y));
+
+                int x = 0;
+#ifdef __GNUC__
+#pragma GCC unroll 2
+#endif
+                OPTIMIZED_FOR(; x < (width & ~1); x += 2)
+                {
+                        comp_type_t r = src[0] | (src[1] & 0xF) << 8;
+                        comp_type_t g = src[1] >> 4 | src[2] << 4;
+                        comp_type_t b = src[3] | (src[4] & 0xF) << 8;
+                        WRITE_RES(0);
+                        r = src[4] >> 4 | src[5] << 4;
+                        g = src[6] | (src[7] & 0xF) << 8;
+                        b = src[7] >> 4 | src[8] << 4;
+                        WRITE_RES(1);
+                        src += 9;
+                }
+                if (x < width) {
+                        comp_type_t r = src[0] | (src[1] & 0xF) << 8;
+                        comp_type_t g = src[1] >> 4 | src[2] << 4;
+                        comp_type_t b = src[3] | (src[4] & 0xF) << 8;
+                        WRITE_RES(0);
+                }
+        }
+#undef WRITE_RES
+}
+
+void r12l_to_yuv444p10le(struct to_planar_data d)
+{
+        r12l_to_yuv4XXpYYle(DEPTH10, false, d);
+}
+
+void r12l_to_yuv444p12le(struct to_planar_data d)
+{
+        r12l_to_yuv4XXpYYle(DEPTH12, false, d);
+}
+
+void r12l_to_yuv444p16le(struct to_planar_data d)
+{
+        r12l_to_yuv4XXpYYle(DEPTH16, false, d);
+}
+
+void r12l_to_yuv422p10le(struct to_planar_data d)
+{
+        r12l_to_yuv4XXpYYle(DEPTH10, true, d);
+}
+
+void r12l_to_yuv422p12le(struct to_planar_data d)
+{
+        r12l_to_yuv4XXpYYle(DEPTH12, true, d);
+}
+
+void r12l_to_yuv422p16le(struct to_planar_data d)
+{
+        r12l_to_yuv4XXpYYle(DEPTH16, true, d);
+}
+
 [[gnu::always_inline]] static inline void
 y416_to_yuv444Xp12(struct to_planar_data d, bool alpha)
 {

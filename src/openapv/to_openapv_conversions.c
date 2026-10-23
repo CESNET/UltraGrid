@@ -178,60 +178,6 @@ static void r10k_to_yuv444p10(const uint8_t *src, int width, int height, oapv_im
         }
 }
 
-static void r12l_to_yuv444p12(const uint8_t *src, int width, int height, oapv_imgb_t *dst) {
-        const struct color_coeffs cfs = *get_color_coeffs(CS_DFL, DEPTH12);
-        const int y_sp = dst->s[0] / (int) sizeof(uint16_t);
-        const int u_sp = dst->s[1] / (int) sizeof(uint16_t);
-        const int v_sp = dst->s[2] / (int) sizeof(uint16_t);
-        const int src_pitch = vc_get_linesize(width, R12L);
-
-        for (int y = 0; y < height; ++y) {
-                const uint8_t *s = src + y * src_pitch;
-                uint16_t *dy = (uint16_t *) dst->a[0] + y * y_sp;
-                uint16_t *du = (uint16_t *) dst->a[1] + y * u_sp;
-                uint16_t *dv = (uint16_t *) dst->a[2] + y * v_sp;
-
-                int x = 0;
-                while (x < width) {
-                        comp_type_t rgb[8][3];
-                        rgb[0][0] = ((comp_type_t) (s[1]  & 0x0F) << 8) |  s[0];
-                        rgb[0][1] = ((comp_type_t)  s[2]         << 4) | (s[1]  >> 4);
-                        rgb[0][2] = ((comp_type_t) (s[4]  & 0x0F) << 8) |  s[3];
-                        rgb[1][0] = ((comp_type_t)  s[5]         << 4) | (s[4]  >> 4);
-                        rgb[1][1] = ((comp_type_t) (s[7]  & 0x0F) << 8) |  s[6];
-                        rgb[1][2] = ((comp_type_t)  s[8]         << 4) | (s[7]  >> 4);
-                        rgb[2][0] = ((comp_type_t) (s[10] & 0x0F) << 8) |  s[9];
-                        rgb[2][1] = ((comp_type_t)  s[11]        << 4) | (s[10] >> 4);
-                        rgb[2][2] = ((comp_type_t) (s[13] & 0x0F) << 8) |  s[12];
-                        rgb[3][0] = ((comp_type_t)  s[14]        << 4) | (s[13] >> 4);
-                        rgb[3][1] = ((comp_type_t) (s[16] & 0x0F) << 8) |  s[15];
-                        rgb[3][2] = ((comp_type_t)  s[17]        << 4) | (s[16] >> 4);
-                        rgb[4][0] = ((comp_type_t) (s[19] & 0x0F) << 8) |  s[18];
-                        rgb[4][1] = ((comp_type_t)  s[20]        << 4) | (s[19] >> 4);
-                        rgb[4][2] = ((comp_type_t) (s[22] & 0x0F) << 8) |  s[21];
-                        rgb[5][0] = ((comp_type_t)  s[23]        << 4) | (s[22] >> 4);
-                        rgb[5][1] = ((comp_type_t) (s[25] & 0x0F) << 8) |  s[24];
-                        rgb[5][2] = ((comp_type_t)  s[26]        << 4) | (s[25] >> 4);
-                        rgb[6][0] = ((comp_type_t) (s[28] & 0x0F) << 8) |  s[27];
-                        rgb[6][1] = ((comp_type_t)  s[29]        << 4) | (s[28] >> 4);
-                        rgb[6][2] = ((comp_type_t) (s[31] & 0x0F) << 8) |  s[30];
-                        rgb[7][0] = ((comp_type_t)  s[32]        << 4) | (s[31] >> 4);
-                        rgb[7][1] = ((comp_type_t) (s[34] & 0x0F) << 8) |  s[33];
-                        rgb[7][2] = ((comp_type_t)  s[35]        << 4) | (s[34] >> 4);
-                        s += 36;
-
-                        const int n = (width - x) < 8 ? (width - x) : 8;
-                        for (int i = 0; i < n; ++i) {
-                                comp_type_t r = rgb[i][0], g = rgb[i][1], b = rgb[i][2];
-                                *dy++ = (uint16_t) ((RGB_TO_Y (cfs, r, g, b) >> COMP_BASE) + (1 << (DEPTH12 - 4)));
-                                *du++ = (uint16_t) ((RGB_TO_CB(cfs, r, g, b) >> COMP_BASE) + (1 << (DEPTH12 - 1)));
-                                *dv++ = (uint16_t) ((RGB_TO_CR(cfs, r, g, b) >> COMP_BASE) + (1 << (DEPTH12 - 1)));
-                        }
-                        x += 8;
-                }
-        }
-}
-
 static void vuya_to_yuv4444p10(const uint8_t *src, int width, int height, oapv_imgb_t *dst) {
         const int y_sp = dst->s[0] / (int) sizeof(uint16_t);
         const int u_sp = dst->s[1] / (int) sizeof(uint16_t);
@@ -265,7 +211,7 @@ static const struct uv_to_openapv_conversion uv_to_openapv_conversions[] = {
         { RGBA,    OAPV_CS_YCBCR444_10LE,  nullptr,            rgba_to_yuv444p10  },
         { VUYA,    OAPV_CS_YCBCR4444_10LE, vuya_to_yuv4444p10, nullptr            },
         { R10k,    OAPV_CS_YCBCR444_10LE,  r10k_to_yuv444p10,  nullptr            },
-        { R12L,    OAPV_CS_YCBCR444_12LE,  r12l_to_yuv444p12,  nullptr            },
+        { R12L,    OAPV_CS_YCBCR444_12LE,  nullptr,            r12l_to_yuv444p12le },
         { Y416,    OAPV_CS_YCBCR4444_12LE, nullptr,            y416_to_yuv4444p12 },
         { Y416,    OAPV_CS_YCBCR444_12LE,  nullptr,            y416_to_yuv444p12  },
         { VC_NONE, OAPV_CS_UNKNOWN,        nullptr,            nullptr            },

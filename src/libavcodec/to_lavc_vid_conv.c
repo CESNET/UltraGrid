@@ -114,7 +114,7 @@ to_lavc_vid_conv_cuda_destroy(struct to_lavc_vid_conv_cuda **state)
 #endif
 
 static struct to_planar_data
-to_planar_data_from_avfame(AVFrame *__restrict out_frame,
+to_planar_data_from_avframe(AVFrame *__restrict out_frame,
                            const unsigned char *__restrict in_data, int width,
                            int height)
 {
@@ -131,7 +131,7 @@ to_planar_data_from_avfame(AVFrame *__restrict out_frame,
 
 static void uyvy_to_yuv420p(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
-        uyvy_to_i420(to_planar_data_from_avfame(out_frame, in_data, width, height));
+        uyvy_to_i420(to_planar_data_from_avframe(out_frame, in_data, width, height));
 }
 
 static void uyvy_to_yuv422p(AVFrame * __restrict out_frame, const unsigned char * __restrict src, int width, int height)
@@ -207,7 +207,7 @@ uyvy_to_gray(AVFrame *__restrict out_frame, const unsigned char *__restrict src,
 
 static void to_lavc_uyvy_to_nv12(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
-        uyvy_to_nv12(to_planar_data_from_avfame(out_frame, in_data, width, height));
+        uyvy_to_nv12(to_planar_data_from_avframe(out_frame, in_data, width, height));
 }
 
 static void v210_to_yuv420p10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
@@ -578,7 +578,7 @@ to_lavc_v210_to_p010le(AVFrame *__restrict out_frame,
                        const unsigned char *__restrict in_data, int width,
                        int height)
 {
-        v210_to_p010le(to_planar_data_from_avfame(out_frame, in_data, width, height));
+        v210_to_p010le(to_planar_data_from_avframe(out_frame, in_data, width, height));
 }
 
 static void
@@ -586,7 +586,7 @@ to_lavc_y216_to_p010le(AVFrame *__restrict out_frame,
                        const unsigned char *__restrict in_data, int width,
                        int height)
 {
-        y216_to_p010le(to_planar_data_from_avfame(out_frame, in_data, width, height));
+        y216_to_p010le(to_planar_data_from_avframe(out_frame, in_data, width, height));
 }
 
 #if P210_PRESENT
@@ -770,94 +770,35 @@ static void r10k_to_yuv444p16le(AVFrame * __restrict out_frame, const unsigned c
         r10k_to_yuv444pXXle(16, out_frame, in_data, width, height);
 }
 
-#if defined __GNUC__
-static inline void r12l_to_yuv4XXpYYle(int depth, bool out_422,  AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
-        __attribute__((always_inline));
-#endif
-static inline void r12l_to_yuv4XXpYYle(int depth, bool out_422, AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
+
+static void to_lavc_r12l_to_yuv444p10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
-        assert((uintptr_t) out_frame->linesize[0] % 2 == 0);
-        assert((uintptr_t) out_frame->linesize[1] % 2 == 0);
-        assert((uintptr_t) out_frame->linesize[2] % 2 == 0);
-
-        const struct color_coeffs cfs = *get_color_coeffs(CS_DFL, depth);
-#define WRITE_RES(idx)                                                          \
-        do {                                                                    \
-                comp_type_t res_y =                                             \
-                    (RGB_TO_Y(cfs, r, g, b) >> (COMP_BASE + 12 - depth)) +      \
-                    (1 << (depth - 4));                                         \
-                *dst_y++ = CLAMP_LIMITED_Y(res_y, depth);                       \
-                if (!out_422 || (idx) % 2 == 0) {                               \
-                        comp_type_t res_cb = (RGB_TO_CB(cfs, r, g, b) >>        \
-                                              (COMP_BASE + 12 - depth)) +       \
-                                             (1 << (depth - 1));                \
-                        comp_type_t res_cr = (RGB_TO_CR(cfs, r, g, b) >>        \
-                                              (COMP_BASE + 12 - depth)) +       \
-                                             (1 << (depth - 1));                \
-                        *dst_cb++          = CLAMP_LIMITED_CBCR(res_cb, depth); \
-                        *dst_cr++          = CLAMP_LIMITED_CBCR(res_cr, depth); \
-                }                                                               \
-        } while (0)
-
-        const int src_linesize = vc_get_linesize(width, R12L);
-        for (int y = 0; y < height; ++y) {
-                const unsigned char *src = in_data + y * src_linesize;
-                uint16_t *dst_y = (uint16_t *)(void *) (out_frame->data[0] + out_frame->linesize[0] * y);
-                uint16_t *dst_cb = (uint16_t *)(void *) (out_frame->data[1] + out_frame->linesize[1] * y);
-                uint16_t *dst_cr = (uint16_t *)(void *) (out_frame->data[2] + out_frame->linesize[2] * y);
-
-                int x = 0;
-#pragma GCC unroll 2
-                OPTIMIZED_FOR(; x < (width & ~1); x += 2)
-                {
-                        comp_type_t r = src[0] | (src[1] & 0xF) << 8;
-                        comp_type_t g = src[1] >> 4 | src[2] << 4;
-                        comp_type_t b = src[3] | (src[4] & 0xF) << 8;
-                        WRITE_RES(0);
-                        r = src[4] >> 4 | src[5] << 4;
-                        g = src[6] | (src[7] & 0xF) << 8;
-                        b = src[7] >> 4 | src[8] << 4;
-                        WRITE_RES(1);
-                        src += 9;
-                }
-                if (x < width) {
-                        comp_type_t r = src[0] | (src[1] & 0xF) << 8;
-                        comp_type_t g = src[1] >> 4 | src[2] << 4;
-                        comp_type_t b = src[3] | (src[4] & 0xF) << 8;
-                        WRITE_RES(0);
-                }
-        }
-#undef WRITE_RES
+        r12l_to_yuv444p10le(to_planar_data_from_avframe(out_frame, in_data, width, height));
 }
 
-static void r12l_to_yuv444p10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
+static void to_lavc_r12l_to_yuv444p12le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
-        r12l_to_yuv4XXpYYle(10, false, out_frame, in_data, width, height);
+        r12l_to_yuv444p12le(to_planar_data_from_avframe(out_frame, in_data, width, height));
 }
 
-static void r12l_to_yuv444p12le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
+static void to_lavc_r12l_to_yuv444p16le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
-        r12l_to_yuv4XXpYYle(12, false, out_frame, in_data, width, height);
+        r12l_to_yuv444p16le(to_planar_data_from_avframe(out_frame, in_data, width, height));
 }
 
-static void r12l_to_yuv444p16le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
+static void to_lavc_r12l_to_yuv422p10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
-        r12l_to_yuv4XXpYYle(16, false, out_frame, in_data, width, height);
+        r12l_to_yuv422p10le(to_planar_data_from_avframe(out_frame, in_data, width, height));
 }
 
-static void r12l_to_yuv422p10le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
+static void to_lavc_r12l_to_yuv422p12le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
-        r12l_to_yuv4XXpYYle(10, true, out_frame, in_data, width, height);
+        r12l_to_yuv422p12le(to_planar_data_from_avframe(out_frame, in_data, width, height));
 }
 
-static void r12l_to_yuv422p12le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
+static void to_lavc_r12l_to_yuv422p16le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
 {
-        r12l_to_yuv4XXpYYle(12, true, out_frame, in_data, width, height);
-}
-
-static void r12l_to_yuv422p16le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
-{
-        r12l_to_yuv4XXpYYle(16, true, out_frame, in_data, width, height);
+        r12l_to_yuv422p16le(to_planar_data_from_avframe(out_frame, in_data, width, height));
 }
 
 #if P210_PRESENT
@@ -1328,7 +1269,7 @@ to_lavc_rgba_to_bgra(AVFrame *__restrict out_frame,
                      const unsigned char *__restrict in_data, int width,
                      int height)
 {
-        rgba_to_bgra(to_planar_data_from_avfame(out_frame, in_data, width, height));
+        rgba_to_bgra(to_planar_data_from_avframe(out_frame, in_data, width, height));
 }
 
 #if defined __GNUC__
@@ -1375,7 +1316,7 @@ av_r12l_to_gbrp12le(AVFrame *__restrict out_frame,
                     const unsigned char *__restrict in_data, int width,
                     int height)
 {
-        r12l_to_gbrp12le(to_planar_data_from_avfame(out_frame, in_data, width, height));
+        r12l_to_gbrp12le(to_planar_data_from_avframe(out_frame, in_data, width, height));
 }
 
 static void
@@ -1383,7 +1324,7 @@ av_r12l_to_gbrp16le(AVFrame *__restrict out_frame,
                     const unsigned char *__restrict in_data, int width,
                     int height)
 {
-        r12l_to_gbrp16le(to_planar_data_from_avfame(out_frame, in_data, width, height));
+        r12l_to_gbrp16le(to_planar_data_from_avframe(out_frame, in_data, width, height));
 }
 
 static void rg48_to_gbrp12le(AVFrame * __restrict out_frame, const unsigned char * __restrict in_data, int width, int height)
@@ -1440,12 +1381,12 @@ static const struct uv_to_av_conversion *get_uv_to_av_conversions() {
                 { R10k, AV_PIX_FMT_YUV444P10LE, r10k_to_yuv444p10le },
                 { R10k, AV_PIX_FMT_YUV444P12LE, r10k_to_yuv444p12le },
                 { R10k, AV_PIX_FMT_YUV444P16LE, r10k_to_yuv444p16le },
-                { R12L, AV_PIX_FMT_YUV444P10LE, r12l_to_yuv444p10le },
-                { R12L, AV_PIX_FMT_YUV444P12LE, r12l_to_yuv444p12le },
-                { R12L, AV_PIX_FMT_YUV444P16LE, r12l_to_yuv444p16le },
-                { R12L, AV_PIX_FMT_YUV422P10LE, r12l_to_yuv422p10le },
-                { R12L, AV_PIX_FMT_YUV422P12LE, r12l_to_yuv422p12le },
-                { R12L, AV_PIX_FMT_YUV422P16LE, r12l_to_yuv422p16le },
+                { R12L, AV_PIX_FMT_YUV444P10LE, to_lavc_r12l_to_yuv444p10le },
+                { R12L, AV_PIX_FMT_YUV444P12LE, to_lavc_r12l_to_yuv444p12le },
+                { R12L, AV_PIX_FMT_YUV444P16LE, to_lavc_r12l_to_yuv444p16le },
+                { R12L, AV_PIX_FMT_YUV422P10LE, to_lavc_r12l_to_yuv422p10le },
+                { R12L, AV_PIX_FMT_YUV422P12LE, to_lavc_r12l_to_yuv422p12le },
+                { R12L, AV_PIX_FMT_YUV422P16LE, to_lavc_r12l_to_yuv422p16le },
 #if P210_PRESENT
                 { R12L, AV_PIX_FMT_P210LE,      r12l_to_p210le },
 #endif // defined P210_PRESENT
