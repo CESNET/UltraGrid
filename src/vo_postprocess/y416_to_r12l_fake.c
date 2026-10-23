@@ -28,6 +28,7 @@ struct state_vopp_y416_to_r12l_fake {
         uint32_t            magic;
         bool                full_range;
         struct video_frame *f;
+        bool r10k;
 };
 
 static bool
@@ -48,21 +49,42 @@ get_property(void *state, int property, void *val, size_t *len)
         return false;
 }
 
+static bool
+parse_fmt(struct state_vopp_y416_to_r12l_fake *s, char *fmt)
+{
+        char *save_ptr = nullptr;
+        char *item = nullptr;
+        while ((item = strtok_r(fmt, ":", &save_ptr))) {
+                fmt = nullptr;
+                if (IS_PREFIX(item, "full-range")) {
+                        s->full_range = true;
+                } else if (strcasecmp(item, "r10k") == 0) {
+                        s->r10k = true;
+                } else {
+                        MSG(ERROR, "unknown argument '%s'; see :help.\n", item);
+                        return false;
+                }
+        }
+        return true;
+}
+
 static void *
 init(const char *config)
 {
         if (strcmp(config, "help") == 0) {
                 color_printf_wrapped(
-                    TBOLD("y416_to_r12l_fake")
-                    " fake-converts Y416 to R12L not doing any conversion, "
+                    TBOLD("y416_to_r1x_fake")
+                    " fake-converts Y416 to R12L or R10k not doing any conversion, "
                     "just pretending Y is G, Cb is R and Cr B (scaled from "
                     "limited range).\n\n");
                 color_printf_wrapped("Usage:\n\t" TBOLD(
-                    TRED("-p y416_to_r12l_fake") "[:full-range]")
+                    TRED("-p y416_to_r1x_fake") "[:full-range][:r10k]")
                                      "\n");
                 color_printf("\n");
                 color_printf_wrapped("Use " TBOLD(":full-range")
                                      " to disable limited->full scaling.\n");
+                color_printf_wrapped("Use " TBOLD(":r10k")
+                                     " convert to R10k instead of R12L.\n");
                 color_printf("\n");
                 return INIT_NOERR;
         }
@@ -70,10 +92,10 @@ init(const char *config)
         struct state_vopp_y416_to_r12l_fake *s = calloc(1, sizeof *s);
         s->magic                               = MAGIC;
 
-        if (IS_PREFIX(config, "full-range")) {
-                s->full_range = true;
-        } else if (strlen(config) > 0) {
-                MSG(ERROR, "unknown argument '%s'; see :help.\n", config);
+        char *fmt = strdup(config);
+        bool ret = parse_fmt(s, fmt);
+        free(fmt);
+        if (!ret) {
                 free(s);
                 return nullptr;
         }
@@ -112,6 +134,65 @@ struct task_data {
 // adapted yuv444pXXle_to_r12l from from_lavc_vid_conv.c
 [[gnu::always_inline]]
 static inline void *
+y416_to_r10k(void *arg, bool full_range)
+{
+        enum {
+                Y10_Y16_LMT_SCALE = 54, // floor((940-64)*(1<<6)/1024)
+                C10_C16_LMT_SCALE = 56, // floor((960-64)*(1<<6)/1024)
+                FOOTR_16B         = 4096,
+                MAXVAL_10B        = 1023,
+        };
+        struct task_data *d            = arg;
+        const int         width        = d->width;
+        const int         height       = d->height;
+        const uint16_t   *src          = d->src;
+
+        for (int y = 0; y < height; ++y) {
+                unsigned char *dst = d->dst + (y * d->dst_pitch);
+                for (int x = 0; x < width; x += 1) {
+                        uint16_t r = *src++;
+                        uint16_t g = *src++;
+                        uint16_t b = *src++;
+                        src++; // drop alpha
+                        if (full_range) {
+                                r = r >> 6;
+                                g = g >> 6;
+                                b = b >> 6;
+                        } else {
+                                r = MAX(FOOTR_16B, r);
+                                g = MAX(FOOTR_16B, g);
+                                b = MAX(FOOTR_16B, b);
+                                r = (r - FOOTR_16B) / C10_C16_LMT_SCALE;
+                                g = (g - FOOTR_16B) / Y10_Y16_LMT_SCALE;
+                                b = (b - FOOTR_16B) / C10_C16_LMT_SCALE;
+                        }
+                        r    = MIN(MAXVAL_10B, r);
+                        g    = MIN(MAXVAL_10B, g);
+                        b    = MIN(MAXVAL_10B, b);
+                        *dst++ = r >> 2;
+                        *dst++ = (r & 0x3) << 6 | g >> 4;
+                        *dst++ = (g & 0xF) << 4 | b >> 6;
+                        *dst++ = (b & 0x3F) << 2;
+                }
+        }
+        return nullptr;
+}
+
+static void *
+y416_to_r10k_full(void *arg)
+{
+        return y416_to_r10k(arg, true);
+}
+
+static void *
+y416_to_r10k_limited(void *arg)
+{
+        return y416_to_r10k(arg, false);
+}
+
+// adapted yuv444pXXle_to_r12l from from_lavc_vid_conv.c
+[[gnu::always_inline]]
+static inline void *
 y416_to_r12l(void *arg, bool full_range)
 {
         enum {
@@ -122,19 +203,17 @@ y416_to_r12l(void *arg, bool full_range)
         };
         struct task_data *d            = arg;
         const int         width        = d->width;
-        const int         height       = d->height;
+        const size_t      height       = d->height;
         const uint16_t   *src          = d->src;
-        unsigned char    *dst          = d->dst;
-        int               dst_linesize = vc_get_linesize(width, R12L);
-        assert(dst_linesize <= d->dst_pitch);
-        assert(width % 8 == 0);
 
-        for (int y = 0; y < height; ++y) {
-                for (int x = 0; x < width; x += 8) {
-                        uint16_t r[8];
-                        uint16_t g[8];
-                        uint16_t b[8];
-                        for (int j = 0; j < 8; ++j) {
+        for (size_t y = 0; y < height; ++y) {
+                unsigned char *dst = d->dst + (y * d->dst_pitch);
+                // if width is odd, last pixel is not written now
+                for (int x = 0; x < width - 1; x += 2) {
+                        uint16_t r[2];
+                        uint16_t g[2];
+                        uint16_t b[2];
+                        for (int j = 0; j < 2; ++j) {
                                 uint16_t rr = *src++;
                                 uint16_t gg = *src++;
                                 uint16_t bb = *src++;
@@ -159,45 +238,17 @@ y416_to_r12l(void *arg, bool full_range)
                                 b[j] = bb;
                         }
 
-                        dst[0]      = r[0] & 0xff;
-                        dst[1]      = (g[0] & 0xf) << 4 | r[0] >> 8;
-                        dst[2]      = g[0] >> 4;
-                        dst[3]      = b[0] & 0xff;
-                        dst[4 + 0]  = (r[1] & 0xf) << 4 | b[0] >> 8;
-                        dst[4 + 1]  = r[1] >> 4;
-                        dst[4 + 2]  = g[1] & 0xff;
-                        dst[4 + 3]  = (b[1] & 0xf) << 4 | g[1] >> 8;
-                        dst[8 + 0]  = b[1] >> 4;
-                        dst[8 + 1]  = r[2] & 0xff;
-                        dst[8 + 2]  = (g[2] & 0xf) << 4 | r[2] >> 8;
-                        dst[8 + 3]  = g[2] >> 4;
-                        dst[12 + 0] = b[2] & 0xff;
-                        dst[12 + 1] = (r[3] & 0xf) << 4 | b[2] >> 8;
-                        dst[12 + 2] = r[3] >> 4;
-                        dst[12 + 3] = g[3] & 0xff;
-                        dst[16 + 0] = (b[3] & 0xf) << 4 | g[3] >> 8;
-                        dst[16 + 1] = b[3] >> 4;
-                        dst[16 + 2] = r[4] & 0xff;
-                        dst[16 + 3] = (g[4] & 0xf) << 4 | r[4] >> 8;
-                        dst[20 + 0] = g[4] >> 4;
-                        dst[20 + 1] = b[4] & 0xff;
-                        dst[20 + 2] = (r[5] & 0xf) << 4 | b[4] >> 8;
-                        dst[20 + 3] = r[5] >> 4;
-                        dst[24 + 0] = g[5] & 0xff;
-                        dst[24 + 1] = (b[5] & 0xf) << 4 | g[5] >> 8;
-                        dst[24 + 2] = b[5] >> 4;
-                        dst[24 + 3] = r[6] & 0xff;
-                        dst[28 + 0] = (g[6] & 0xf) << 4 | r[6] >> 8;
-                        dst[28 + 1] = g[6] >> 4;
-                        dst[28 + 2] = b[6] & 0xff;
-                        dst[28 + 3] = (r[7] & 0xf) << 4 | b[6] >> 8;
-                        dst[32 + 0] = r[7] >> 4;
-                        dst[32 + 1] = g[7] & 0xff;
-                        dst[32 + 2] = (b[7] & 0xf) << 4 | g[7] >> 8;
-                        dst[32 + 3] = b[7] >> 4;
-                        dst += 36;
+                        dst[0] = r[0] & 0xff;
+                        dst[1] = (g[0] & 0xf) << 4 | r[0] >> 8;
+                        dst[2] = g[0] >> 4;
+                        dst[3] = b[0] & 0xff;
+                        dst[4] = (r[1] & 0xf) << 4 | b[0] >> 8;
+                        dst[5] = r[1] >> 4;
+                        dst[6] = g[1] & 0xff;
+                        dst[7] = (b[1] & 0xf) << 4 | g[1] >> 8;
+                        dst[8] = b[1] >> 4;
+                        dst += 9;
                 }
-                dst += d->dst_pitch - dst_linesize;
         }
         return nullptr;
 }
@@ -229,7 +280,7 @@ postprocess(void *state, struct video_frame *in, struct video_frame *out,
         assert((uintptr_t) in->tiles[0].data % sizeof(uint16_t) == 0);
 
         size_t    src_linesize = vc_get_linesize(in->tiles[0].width, Y416);
-        size_t    dst_linesize = vc_get_linesize(in->tiles[0].width, R12L);
+        size_t    dst_linesize = vc_get_linesize(in->tiles[0].width, out->color_spec);
         const int cpu_count    = get_cpu_core_count();
         struct task_data data[cpu_count];
         for (int i = 0; i < cpu_count; ++i) {
@@ -248,8 +299,12 @@ postprocess(void *state, struct video_frame *in, struct video_frame *out,
                 data[i].dst_pitch = req_pitch;
         }
         time_ns_t t0 = get_time_in_ns();
-        runnable_t runner =
-            s->full_range ? y416_to_r12l_full : y416_to_r12l_limited;
+        runnable_t runner = nullptr;
+        if (s->r10k) {
+                runner = s->full_range ? y416_to_r10k_full : y416_to_r10k_limited;
+        } else {
+                runner = s->full_range ? y416_to_r12l_full : y416_to_r12l_limited;
+        }
         task_run_parallel(runner, cpu_count, data, sizeof data[0], nullptr);
         time_ns_t t1 = get_time_in_ns();
         MSG(DEBUG, "duration %f ms\n", NS_TO_MS_DBL(t1 - t0));
@@ -273,7 +328,7 @@ get_out_desc(void *state, struct video_desc *out, int *in_display_mode)
         struct state_vopp_y416_to_r12l_fake *s = state;
 
         struct video_desc desc = video_desc_from_frame(s->f);
-        desc.color_spec        = R12L;
+        desc.color_spec        = s->r10k ? R10k : R12L;
         *out                   = desc;
         // this doesn't matter unless multiple tiles implemented
         *in_display_mode = DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
@@ -283,5 +338,8 @@ static const struct vo_postprocess_info vo_pp_y416_to_r12l = {
         init, reconfigure, getf, get_out_desc, get_property, postprocess, done,
 };
 
-REGISTER_MODULE(y416_to_r12l_fake, &vo_pp_y416_to_r12l,
+REGISTER_MODULE(y416_to_r1x_fake, &vo_pp_y416_to_r12l,
+                LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);
+// compat - remove in future
+REGISTER_HIDDEN_MODULE(y416_to_r12l_fake, &vo_pp_y416_to_r12l,
                 LIBRARY_CLASS_VIDEO_POSTPROCESS, VO_PP_ABI_VERSION);

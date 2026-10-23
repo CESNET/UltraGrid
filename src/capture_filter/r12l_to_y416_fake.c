@@ -36,12 +36,12 @@ init(struct module *parent, const char *cfg, void **state)
 
         if (strcmp(cfg, "help") == 0) {
                 color_printf_wrapped(
-                    TBOLD("r12l_to_y416_fake")
-                    " fake-converts R12L to Y416 not doing actual conversion, "
+                    TBOLD("r1x_to_y416_fake")
+                    " fake-converts R10k or R12L to Y416 not doing actual conversion, "
                     "just pretending G is Y, R is Cb and B Cr (scaled to "
                     "limited range).\n\n");
                 color_printf_wrapped("Usage:\n\t" TBOLD(
-                    TRED("-F r12l_to_y416_fake") "[:full-range]")
+                    TRED("-F r1x_to_y416_fake") "[:full-range]")
                                      "\n");
                 color_printf("\n");
                 color_printf_wrapped("Use " TBOLD(":full-range")
@@ -84,6 +84,64 @@ struct task_data {
         uint16_t *restrict dst;
 };
 
+// adapted r10k_to_yuv4XXpYYle from to_lavc_vid_conv.c
+[[gnu::always_inline]] static inline void *
+r10k_to_y416(void *arg, bool full_range)
+{
+        enum {
+                Y10_Y16_LMT_SCALE = 54, // floor((940-64)*(1<<6)/1024)
+                C10_C16_LMT_SCALE = 56, // floor((960-64)*(1<<6)/1024)
+                FOOTR_16B          = 4096,
+        };
+        struct task_data *d      = arg;
+        int               width  = d->width;
+        int               height = d->height;
+        uint16_t         *out    = d->dst;
+#define WRITE_RES                                                              \
+        if (full_range) {                                                      \
+                *out++ = r << 6;                                               \
+                *out++ = g << 6;                                               \
+                *out++ = b << 6;                                               \
+        } else {                                                               \
+                *out++ = (C10_C16_LMT_SCALE * r) + FOOTR_16B;                  \
+                *out++ = (Y10_Y16_LMT_SCALE * g) + FOOTR_16B;                  \
+                *out++ = (C10_C16_LMT_SCALE * b) + FOOTR_16B;                  \
+        }                                                                      \
+        *out++ = 0xFFFF;
+
+        size_t src_linesize = vc_get_linesize(width, R10k);
+        for (int y = 0; y < height; ++y) {
+                const uint8_t *src = d->src + (y * src_linesize);
+                OPTIMIZED_FOR(int x = 0; x < width; x += 1)
+                {
+                        unsigned int byte1 = *src++;
+                        unsigned int byte2 = *src++;
+                        unsigned int byte3 = *src++;
+                        unsigned int byte4 = *src++;
+                        uint16_t     r     = byte1 << 2U | (byte2 & 0xC0U) >> 6;
+                        uint16_t g = (byte2 & 0x3FU) << 4U | (byte3 & 0xF0U)
+                                                                  >> 4U;
+                        uint16_t b = (byte3 & 0xFU) << 6U | (byte4 & 0xFCU)
+                                                                 >> 2U;
+                        WRITE_RES
+                }
+        }
+        return nullptr;
+#undef WRITE_RES
+}
+
+static void *
+r10k_to_y416_full(void *arg)
+{
+        return r10k_to_y416(arg, true);
+}
+
+static void *
+r10k_to_y416_limited(void *arg)
+{
+        return r10k_to_y416(arg, false);
+}
+
 // adapted r12l_to_yuv4XXpYYle from to_lavc_vid_conv.c
 [[gnu::always_inline]] static inline void *
 r12l_to_y416(void *arg, bool full_range)
@@ -96,7 +154,6 @@ r12l_to_y416(void *arg, bool full_range)
         struct task_data *d      = arg;
         int               width  = d->width;
         int               height = d->height;
-        const uint8_t    *src    = d->src;
         uint16_t         *out    = d->dst;
 #define WRITE_RES                                                              \
         if (full_range) {                                                      \
@@ -110,77 +167,27 @@ r12l_to_y416(void *arg, bool full_range)
         }                                                                      \
         *out++ = 0xFFFF;
 
-        assert(width % 8 == 0);
+        size_t src_linesize = vc_get_linesize(width, R12L);
         for (int y = 0; y < height; ++y) {
-                for (int x = 0; x < width; x += 8) {
-                        uint16_t r = 0;
-                        uint16_t g = 0;
-                        uint16_t b = 0;
-
-                        r = src[0];
-                        r |= (src[1] & 0xF) << 8;
-                        g = src[2] << 4 | src[1] >> 4; // g0
-                        b = src[3];
-                        src += 4;
-
-                        b |= (src[0] & 0xF) << 8;
+                const uint8_t *src = d->src + (y * src_linesize);
+                int            x   = 0;
+                OPTIMIZED_FOR(; x < (width & ~1); x += 2)
+                {
+                        uint16_t r = src[0] | (src[1] & 0xF) << 8;
+                        uint16_t g = src[1] >> 4 | src[2] << 4;
+                        uint16_t b = src[3] | (src[4] & 0xF) << 8;
                         WRITE_RES
-                        r = src[1] << 4 | src[0] >> 4; // r1
-                        g = src[2];
-                        g |= (src[3] & 0xF) << 8;
-                        b = src[3] >> 4;
-                        src += 4;
-
-                        b |= src[0] << 4; // b1
+                        r = src[4] >> 4 | src[5] << 4;
+                        g = src[6] | (src[7] & 0xF) << 8;
+                        b = src[7] >> 4 | src[8] << 4;
                         WRITE_RES
-                        r = src[1];
-                        r |= (src[2] & 0xF) << 8;
-                        g = src[3] << 4 | src[2] >> 4; // g2
-                        src += 4;
-
-                        b = src[0];
-                        b |= (src[1] & 0xF) << 8;
+                        src += 9;
+                }
+                if (x < width) {
+                        uint16_t r = src[0] | (src[1] & 0xF) << 8;
+                        uint16_t g = src[1] >> 4 | src[2] << 4;
+                        uint16_t b = src[3] | (src[4] & 0xF) << 8;
                         WRITE_RES
-                        r = src[2] << 4 | src[1] >> 4; // r3
-                        g = src[3];
-                        src += 4;
-
-                        g |= (src[0] & 0xF) << 8;
-                        b = src[1] << 4 | src[0] >> 4; // b3
-                        WRITE_RES
-                        r = src[2];
-                        r |= (src[3] & 0xF) << 8;
-                        g = src[3] >> 4;
-                        src += 4;
-
-                        g |= src[0] << 4; // g4
-                        b = src[1];
-                        b |= (src[2] & 0xF) << 8;
-                        WRITE_RES
-                        r = src[3] << 4 | src[2] >> 4; // r5
-                        src += 4;
-
-                        g = src[0];
-                        g |= (src[1] & 0xF) << 8;
-                        b = src[2] << 4 | src[1] >> 4; // b5
-                        WRITE_RES
-                        r = src[3];
-                        src += 4;
-
-                        r |= (src[0] & 0xF) << 8;
-                        g = src[1] << 4 | src[0] >> 4; // g6
-                        b = src[2];
-                        b |= (src[3] & 0xF) << 8;
-                        WRITE_RES
-                        r = src[3] >> 4;
-                        src += 4;
-
-                        r |= src[0] << 4; // r7
-                        g = src[1];
-                        g |= (src[2] & 0xF) << 8;
-                        b = src[3] << 4 | src[2] >> 4; // b7
-                        WRITE_RES
-                        src += 4;
                 }
         }
         return nullptr;
@@ -207,8 +214,8 @@ filter(void *state, struct video_frame *in)
                 return nullptr;
         }
         assert(in->tile_count == 1);
-        assert(in->color_spec == R12L);
-        size_t    src_linesize = vc_get_linesize(in->tiles[0].width, R12L);
+        assert(in->color_spec == R12L || in->color_spec == R10k);
+        size_t    src_linesize = vc_get_linesize(in->tiles[0].width, in->color_spec);
         size_t    dst_linesize = vc_get_linesize(in->tiles[0].width, Y416);
         const int cpu_count    = get_cpu_core_count();
         struct task_data  data[cpu_count];
@@ -232,8 +239,14 @@ filter(void *state, struct video_frame *in)
                     (void *) (out->tiles[0].data + (i * height * dst_linesize));
         }
         time_ns_t t0 = get_time_in_ns();
-        runnable_t runner =
-            s->full_range ? r12l_to_y416_full : r12l_to_y416_limited;
+        runnable_t runner = nullptr;
+        if (in->color_spec == R10k) {
+                runner =
+                    s->full_range ? r10k_to_y416_full : r10k_to_y416_limited;
+        } else {
+                runner = s->full_range ? r12l_to_y416_full
+                                      : r12l_to_y416_limited;
+        }
         task_run_parallel(runner, cpu_count, data, sizeof data[0], nullptr);
         time_ns_t t1 = get_time_in_ns();
         MSG(DEBUG, "duration %f ms\n", NS_TO_MS_DBL(t1 - t0));
@@ -241,11 +254,14 @@ filter(void *state, struct video_frame *in)
         return out;
 }
 
-static const struct capture_filter_info r12l_to_y416_fake_info = {
+static const struct capture_filter_info r1x_to_y416_fake_info = {
         .init   = init,
         .done   = done,
         .filter = filter,
 };
 
-REGISTER_MODULE(r12l_to_y416_fake, &r12l_to_y416_fake_info,
+REGISTER_MODULE(r1x_to_y416_fake, &r1x_to_y416_fake_info,
+                LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
+// compat - remove in future
+REGISTER_HIDDEN_MODULE(r12l_to_y416_fake, &r1x_to_y416_fake_info,
                 LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION);
