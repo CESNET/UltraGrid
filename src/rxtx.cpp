@@ -288,9 +288,7 @@ void *rxtx::video_sender_loop() {
 }
 
 /**
- * @returns the rxtx state (not nullptr)
- * @throws 1 help shown
- * @throws -1 on error
+ * @returns the rxtx state if successful, INIT_NOERR if help shown, or nullptr on error
  */
 rxtx *
 rxtx::create(string const              &proto,
