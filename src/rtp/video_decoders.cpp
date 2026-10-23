@@ -182,7 +182,7 @@ using change_il_t = void (*)(char *dst, char *src, int linesize, int height, voi
 
 // prototypes
 static bool reconfigure_decoder(struct state_video_decoder *decoder,
-                struct video_desc desc, struct pixfmt_desc comp_int_desc);
+                struct video_desc desc, struct pixfmt_desc comp_int_prop);
 static void check_for_mode_change(struct state_video_decoder *decoder, const uint32_t *hdr);
 static void wait_for_framebuffer_swap(struct state_video_decoder *decoder);
 static void *fec_thread(void *args);
