@@ -57,9 +57,8 @@
 
 #define MOD_NAME "[Echo cancel] "
 
-using steady_clock = std::chrono::steady_clock;
+using std::chrono::steady_clock;
 using time_point = steady_clock::time_point;
-using duration = steady_clock::duration;
 
 namespace {
         struct Echo_state_deleter{
