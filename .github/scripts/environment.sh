@@ -140,15 +140,15 @@ fi
 set_ximea_url() {
         if [ "$(uname -s)" = Darwin ]; then
                 if [ "$(uname -m)" = arm64 ]; then
-                        ximea_pattern=XIMEA_macOS_ARM_SP_Stable.dmg
+                        ximea_pattern=macOS-ARM-SP-Stable.pkg
                 else
-                        ximea_pattern=XIMEA_macOX_SP_Stable.dmg
+                        ximea_pattern=macOS-SP-Stable.pkg
                 fi
         elif [ "$(uname -s)" = Linux ]; then
                 if expr "$GITHUB_WORKFLOW" : ARM >/dev/null; then
-                        ximea_pattern=XIMEA_Linux_ARM_SP.tgz
+                        ximea_pattern=Linux-ARM-SP-Stable.tgz
                 else
-                        ximea_pattern=XIMEA_Linux_SP_Stable.tgz
+                        ximea_pattern=Linux-SP-Stable.tgz
                 fi
         else
                 ximea_pattern=XIMEA_Windows_SP_Stable.exe
@@ -164,6 +164,10 @@ set_ximea_url() {
         ximea_path=$(sed -n "/$ximea_pattern/"\
 ' { s-^.*\(/attachment[^"]*\).*$-\1-; p; }' < "${xi_dl?}" | head -n 1)
         rm "$xi_dl"
+        if [ ! "$ximea_path" ]; then
+                echo "Empty \$ximea_path - check file name change at \
+https://www.ximea.com/software-downloads for $(uname -s) $(uname -m)" 1>&2
+        fi
         export XIMEA_DOWNLOAD_URL="https://www.ximea.com${ximea_path:?}"
         printf "XIMEA_DOWNLOAD_URL=%s\n" "$XIMEA_DOWNLOAD_URL" >> "$GITHUB_ENV"
 }
