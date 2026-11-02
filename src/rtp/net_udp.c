@@ -173,7 +173,7 @@ struct socket_udp_local {
         bool is_wsa_overlapped;
 #endif
 #ifdef HAVE_LINUX_UDP_SEGMENT
-        int req_gso;
+        unsigned req_gso; //< max nr of packets aggregated in offload
 #endif
 
         // for multithreaded receiving
@@ -1315,13 +1315,22 @@ udp_is_gso_supported()
 bool
 udp_set_gso(socket_udp *s, int val)
 {
-        if (val < RTP_GSO_AUTO || val > 64) {
+        enum { UDP_MAX_SEGMENTS = 64 }; // udp(7)
+        if (val < RTP_GSO_OFF || val > 64) {
                 MSG(ERROR, "Invalid value %d for GSO!\n", val);
                 return false;
         }
         if (udp_is_gso_supported()) {
 #ifdef HAVE_LINUX_UDP_SEGMENT
+                if (val == RTP_GSO_ON) {
+                        val = UDP_MAX_SEGMENTS;
+                }
                 s->local->req_gso = val;
+                if (val > RTP_GSO_ON) {
+                        MSG(VERBOSE,
+                            "using UDP Segmentation Offload (%d packets)\n",
+                            val);
+                }
                 return true;
 #endif
         }
@@ -1363,10 +1372,6 @@ udp_sendv_gso(socket_udp *s, struct iovec *vector, int count, void *d)
 {
         assert(s);
         assert(s->ovlp_gso_pkt_count < s->gso_exp_packets);
-        enum { UDP_MAX_SEGMENTS = 64 }; // udp(7)
-        unsigned max_segments = s->local->req_gso > RTP_GSO_ON
-                                    ? s->local->req_gso
-                                    : UDP_MAX_SEGMENTS;
 
         ssize_t ret = 0;
 
@@ -1387,7 +1392,7 @@ udp_sendv_gso(socket_udp *s, struct iovec *vector, int count, void *d)
             s->gso_mtu != this_pkt_mtu &&
             (!is_last_pkt || this_pkt_mtu > s->gso_mtu); // last pkt can be shorter...
         if (mtu_changed || new_segm_sz > USHRT_MAX ||
-            new_pkt_count > max_segments || new_iov_count > IOV_MAX) {
+            new_pkt_count > s->local->req_gso || new_iov_count > IOV_MAX) {
                 ret        = gso_flush(s);
                 s->gso_mtu = this_pkt_mtu;
         }
@@ -1986,20 +1991,13 @@ udp_async_start(socket_udp *s, int nr_packets, int mtu)
                 return;
         }
 #elif defined HAVE_LINUX_UDP_SEGMENT
-        enum { MB4 = 4000 * 1000 }; // 4 MB -> ~1 Gbps video stream for 24/25 fps
         switch (s->local->req_gso) {
-        case RTP_GSO_AUTO:
-                if (nr_packets * mtu > MB4) {
-                        break;
-                }
-                return;
         case RTP_GSO_OFF:
                 return;
         case RTP_GSO_ON:
         default:
                 break;
         }
-        MSG_ONCE(INFO, "using UDP Segmentation Offload\n");
 #else
         return;
 #endif

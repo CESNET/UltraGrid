@@ -230,10 +230,10 @@ typedef enum {
 	RTP_OPT_PEEK              = 5,
 	RTP_OPT_RECORD_SOURCE     = 6,  /* Record network source (sockaddr_storage) at the   */
                                         /* end of the packet                                 */
-	RTP_OPT_USE_UDP_GSO       = 7,  /* Linux GSO/USO - 0 off, 1 on, -1 auto/dfl or 2-64  */
+	RTP_OPT_USE_UDP_GSO       = 7,  /* Linux GSO/USO - 0 off, 1 on, 2-64 max pkt cnt     */
 } rtp_option;
 
-enum { RTP_GSO_AUTO = -1, RTP_GSO_OFF = 0, RTP_GSO_ON = 1 };
+enum { RTP_GSO_OFF = 0, RTP_GSO_ON = 1 };
 
 struct msghdr;
 struct sockaddr;

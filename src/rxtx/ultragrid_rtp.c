@@ -170,8 +170,6 @@ parse_fmt(char *opts, rtp_common_params *params)
                                 gso_force = 1;
                         } else if (strcasecmp(val, "off") == 0) {
                                 params->video_udp_gso = RTP_GSO_OFF;
-                        } else if (strcasecmp(val, "auto") == 0) {
-                                params->video_udp_gso = RTP_GSO_AUTO;
                         } else {
                                 char *endptr = nullptr;
                                 long  count  = strtol(val, &endptr, 10);
@@ -199,10 +197,15 @@ static void usage() {
         color_printf_wrapped(
             "\n" TBOLD("udp-gso")
             " controls UDP Segmentation / Generic Segmentation Offload (Linux "
-            "only) for video, affects TX only. Possible values:\n");
+            "only) for video, affects TX only. Default is " TBOLD("off")
+            " unless '" TBOLD("-l unlimited")
+            "' is explicitly specified (in that case " TBOLD("on")
+            "). Possible values:\n");
         color_printf("  - " TBOLD("off")
                      " - always disabled\n");
-        color_printf("  - " TBOLD("on") " - always enabled\n");
+        color_printf(
+            "  - " TBOLD("on")
+            " - always enabled (same as the number 64 described below)\n");
         color_printf_wrapped(
             "  - " TBOLD("force")
             " - on (always) + enable UDP segments also where not "
@@ -211,12 +214,8 @@ static void usage() {
             "9000 B packets (but 12 standard). Receiver must retain TX pixfmt "
             "otherwise the output may be broken!\n");
         color_printf_wrapped(
-            "  - " TBOLD("auto")
-            " [default] - enable for 4+ MB frames if rate "
-            "limiter unspecified, for unlimited rate on, otherwise off\n");
-        color_printf_wrapped(
             "  - " TBOLD("[2-64]")
-            " - same as on but limit maximal pkt count to "
+            " - same as \"on\" but limit maximal pkt count to "
             "specified value per offload (GSO fine-tuning)\n");
         color_printf("\n");
 }

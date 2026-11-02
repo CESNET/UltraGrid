@@ -67,7 +67,7 @@ extern "C" {
 
 // to be passed to rxtx_params.video_bitrate_limit
 #define RTP_RATE_UNLIMITED "unlimited"
-#define RTP_GSO_AUTOSELECT (-2)
+#define RTP_GSO_AUTOSELECT (-1)
 
 struct rtp_rxtx_medium {
         struct rtp     *network_device;

@@ -454,7 +454,6 @@ adjust_params(struct rxtx_params *rxtx, long long *vbitrate, int *video_udp_gso)
         struct rxtx_medium_params *video = &rxtx->medium[TX_MEDIA_VIDEO];
 
         adjust_ports(rxtx);
-        bool rate_implicit = *vbitrate == RATE_AUTOSELECT;
 
         // If we are sure that this UltraGrid is sending to itself we can
         // optimize some parameters (aka "-m 9000 -l unlimited"). If ports
@@ -477,15 +476,11 @@ adjust_params(struct rxtx_params *rxtx, long long *vbitrate, int *video_udp_gso)
 
         // udp-gso not specified for UG RTP - adjust the default value
         if (*video_udp_gso == RTP_GSO_AUTOSELECT) {
-                if (udp_is_gso_supported()) {
-                        if (*vbitrate == RATE_UNLIMITED) {
-                                *video_udp_gso = RTP_GSO_ON;
-                        } else if (rate_implicit) {
-                                *video_udp_gso = RTP_GSO_AUTO;
-                        } else { // rate-limit other than unlimited explicitly
-                                 // specified
-                                *video_udp_gso = RTP_GSO_OFF;
-                        }
+                if (udp_is_gso_supported() && *vbitrate == RATE_UNLIMITED) {
+                        MSG(INFO,
+                            "auto-enabling UDP Segmentation Offload "
+                            "when bitrate limit is set to \"unlimited\"\n");
+                        *video_udp_gso = RTP_GSO_ON;
                 } else {
                         *video_udp_gso = RTP_GSO_OFF;
                 }
