@@ -17,16 +17,11 @@ fi
 
 # Install XIMEA (see <dmg>/install.app/Contents/MacOS/install.sh)
 install_ximea() (
-        installer=/private/var/tmp/XIMEA_OSX_SP.dmg
+        installer=/private/var/tmp/XIMEA.pkg
         if [ ! -f $installer ]; then
                 curl -Sf -L "${XIMEA_DOWNLOAD_URL:?}" -o $installer
         fi
-        hdiutil mount $installer
-        sudo cp -a /Volumes/XIMEA/m3api.framework \
-                "$(xcrun --show-sdk-path)/System/Library/Frameworks/"
-        sudo xattr -dr com.apple.quarantine \
-                "$(xcrun --show-sdk-path)/System/Library/Frameworks/"
-        umount /Volumes/XIMEA
+        sudo installer -pkg $installer -target /
 )
 
 install_deltacast() (

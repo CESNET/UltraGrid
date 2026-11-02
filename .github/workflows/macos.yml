@@ -56,11 +56,11 @@ jobs:
       id: cache-macos-ximea
       uses: actions/cache@main
       with:
-        path: /var/tmp/XIMEA_OSX_SP.dmg
+        path: /var/tmp/XIMEA.pkg
         key: cache-ximea-${{ matrix.os }}-${{ steps.etags.outputs.ximea }}
     - name: Download XIMEA
       if: steps.cache-macos-ximea.outputs.cache-hit == ''
-      run: curl -LSf "$XIMEA_DOWNLOAD_URL" -o /private/var/tmp/XIMEA_OSX_SP.dmg
+      run: curl -LSf "$XIMEA_DOWNLOAD_URL" -o /private/var/tmp/XIMEA.pkg
     - name: Run actions/cache for NDI
       id: cache-ndi
       uses: actions/cache@main
