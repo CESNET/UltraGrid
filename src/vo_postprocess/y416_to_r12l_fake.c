@@ -67,7 +67,7 @@ init(const char *config)
                 return INIT_NOERR;
         }
 
-        struct state_vopp_y416_to_r12l_fake *s = malloc(sizeof *s);
+        struct state_vopp_y416_to_r12l_fake *s = calloc(1, sizeof *s);
         s->magic                               = MAGIC;
 
         if (IS_PREFIX(config, "full-range")) {
