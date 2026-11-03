@@ -74,6 +74,7 @@
 #include "types.h"                 // for tx_media_type
 #include "utils/audio_buffer.h"
 #include "utils/macros.h"
+#include "utils/misc.h"
 #include "utils/net.h"             // for get_sockaddr_addr_str
 #include "utils/thread.h"
 
@@ -106,61 +107,40 @@ public:
 static void mixer_dummy_rtp_callback(struct rtp *session [[gnu::unused]], rtp_event * e [[gnu::unused]]) {
 }
 
+namespace{
+using tx_uniq = std::unique_ptr<tx, deleter_from_fcn<tx_done>>;
+using rtp_uniq = std::unique_ptr<rtp, deleter_from_fcn<rtp_done>>;
+using audio_buffer_uniq = std::unique_ptr<audio_buffer, deleter_from_fcn<audio_buffer_destroy>>;
+using audio_codec_state_uniq = std::unique_ptr<audio_codec_state, deleter_from_fcn<audio_codec_done>>;
+
 struct am_participant {
         am_participant(struct socket_udp_local *l, struct sockaddr_storage *ss,
                        string const &audio_codec)
         {
                 assert(l != nullptr && ss != nullptr);
-                m_buffer = audio_buffer_init(SAMPLE_RATE, BPS, CHANNELS, get_commandline_param("low-latency-audio") ? 50 : 5);
+                m_buffer.reset(audio_buffer_init(SAMPLE_RATE, BPS, CHANNELS, get_commandline_param("low-latency-audio") ? 50 : 5));
                 assert(m_buffer != NULL);
 
-                m_network_device = rtp_init_with_udp_socket(
-                    l, (struct sockaddr *) ss, mixer_dummy_rtp_callback);
+                m_network_device.reset(rtp_init_with_udp_socket(
+                        l, (struct sockaddr *) ss, mixer_dummy_rtp_callback));
                 assert(m_network_device != NULL);
-                m_tx_session = tx_init(NULL, 1500, TX_MEDIA_AUDIO, NULL, NULL, RATE_UNLIMITED);
+                m_tx_session.reset(tx_init(NULL, 1500, TX_MEDIA_AUDIO, NULL, NULL, RATE_UNLIMITED));
                 assert(m_tx_session != NULL);
 
-                m_audio_coder = audio_codec_init_cfg(audio_codec.c_str(), AUDIO_CODER);
+                m_audio_coder.reset(audio_codec_init_cfg(audio_codec.c_str(), AUDIO_CODER));
                 if (!m_audio_coder) {
                         LOG(LOG_LEVEL_ERROR) << "Audio coder init failed!\n";
                         throw 1;
                 }
         }
-        ~am_participant() {
-                if (m_tx_session) {
-                        tx_done(m_tx_session);
-                }
-                if (m_network_device) {
-                        rtp_done(m_network_device);
-                }
-                if (m_buffer) {
-                        audio_buffer_destroy(m_buffer);
-                }
-                if (m_audio_coder) {
-                        audio_codec_done(m_audio_coder);
-                }
-	}
-	am_participant& operator=(am_participant&& other) {
-		m_audio_coder = std::move(other.m_audio_coder);
-		m_buffer = std::move(other.m_buffer);
-		m_network_device = std::move(other.m_network_device);
-		m_tx_session = std::move(other.m_tx_session);
-		last_seen = std::move(other.last_seen);
-		other.m_audio_coder = nullptr;
-		other.m_buffer = nullptr;
-		other.m_tx_session = nullptr;
-		other.m_network_device = nullptr;
-		return *this;
-	}
-        am_participant(am_participant && other) {
-                *this = std::move(other);
-        }
-        struct audio_codec_state *m_audio_coder;
-        struct audio_buffer *m_buffer;
-        struct rtp *m_network_device;
-        struct tx *m_tx_session;
+
+        audio_codec_state_uniq m_audio_coder;
+        audio_buffer_uniq m_buffer;
+        rtp_uniq m_network_device;
+        tx_uniq m_tx_session;
         chrono::steady_clock::time_point last_seen;
 };
+}
 
 template<typename source_t, typename intermediate_t>
 class generic_mix_algo {
@@ -399,7 +379,7 @@ void state_audio_mixer::worker()
                         static_assert(CHANNELS == 1, "Currently only one channel is implemented here.");
                         participant_frames[participant_index].resize(0, data_len_source);
                         char *particip_data = participant_frames[participant_index].get_data(0);
-                        int ret = audio_buffer_read(p.second.m_buffer, particip_data, data_len_source);
+                        int ret = audio_buffer_read(p.second.m_buffer.get(), particip_data, data_len_source);
                         memset(particip_data, 0, data_len_source - ret);
 
                         sample_type_source *src = (sample_type_source *)(void *) particip_data;
@@ -427,8 +407,8 @@ void state_audio_mixer::worker()
                 participant_index = 0;
                 for (auto & p : participants) {
                         audio_frame2 *uncompressed = &participant_frames[participant_index];
-                        while (audio_frame2 *compressed = audio_codec_compress(p.second.m_audio_coder, uncompressed)) {
-                                audio_tx_send(p.second.m_tx_session, p.second.m_network_device, compressed);
+                        while (audio_frame2 *compressed = audio_codec_compress(p.second.m_audio_coder.get(), uncompressed)) {
+                                audio_tx_send(p.second.m_tx_session.get(), p.second.m_network_device.get(), compressed);
                                 uncompressed = nullptr;
                                 audio_frame2_delete(compressed);
                         }
@@ -511,7 +491,7 @@ static void audio_play_mixer_put_frame(void *state, const struct audio_frame *fr
                 return;
         }
 
-        audio_buffer_write(s->participants.at(ss).m_buffer, frame->data, frame->data_len);
+        audio_buffer_write(s->participants.at(ss).m_buffer.get(), frame->data, frame->data_len);
 }
 
 static void audio_play_mixer_done(void *state)
