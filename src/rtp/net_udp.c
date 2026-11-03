@@ -1332,6 +1332,8 @@ udp_set_gso(socket_udp *s, int val)
                             val);
                 }
                 return true;
+#else
+                (void) s;
 #endif
         }
         if (val >= RTP_GSO_ON) {

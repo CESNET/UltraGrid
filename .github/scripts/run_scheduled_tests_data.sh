@@ -25,6 +25,16 @@ add_test "-c lavc:wrongopt -t testcard"        should_fail
 add_test "-x nonexistent"                      should_fail
 add_test "-x sdp:wrongopt"                     should_fail
 
+# UDP Segmentation Offload (Linux)
+add_test "-t testcard -x ultragrid_rtp:udp-gso=off"            should_timeout
+add_test "-t testcard -x ultragrid_rtp:udp-gso=-1"             should_fail
+add_test "-t testcard -x ultragrid_rtp:udp-gso=65"             should_fail
+add_test "-t testcard -x ultragrid_rtp:udp-gso=bad"            should_fail
+add_test "-t testcard -x ultragrid_rtp:udp-gso=on -d dummy"    should_fail,Windows_only,macOS_only
+add_test "-t testcard -x ultragrid_rtp:udp-gso=on -d dummy"    should_timeout,Linux_only
+add_test "-t testcard -x ultragrid_rtp:udp-gso=force -d dummy" should_timeout,Linux_only
+add_test "-t testcard -x ultragrid_rtp:udp-gso=8 -d dummy"     should_timeout,Linux_only
+
 # reflector
 add_test -v                                    run_reflector # basic sanity test
 add_test "8M 5004"                             run_reflector,should_timeout
