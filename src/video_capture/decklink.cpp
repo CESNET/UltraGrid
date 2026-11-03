@@ -1408,7 +1408,7 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
                                 INIT_ERR();
                         }
                         BMDPixelFormat pf = it->second;
-                        BMD_BOOL supported = 0;
+                        BMD_BOOL supported = false;
                         const BMDVideoConnection connection = s->device_options.find(bmdDeckLinkConfigVideoInputConnection) != s->device_options.end()
                                 ? (BMDVideoConnection) s->device_options.at(bmdDeckLinkConfigVideoInputConnection).get_int() : (BMDVideoConnection) bmdVideoConnectionUnspecified;
                         BMD_CHECK(deckLinkInput->DoesSupportVideoMode(connection, displayMode->GetDisplayMode(), pf, supported_conversion_mode, s->supported_flags, nullptr, &supported), "DoesSupportVideoMode", INIT_ERR());
@@ -1474,7 +1474,7 @@ bool device_state::init(struct vidcap_decklink_state *s, struct tile *t, BMDAudi
                 s->enable_flags |=  bmdVideoInputEnableFormatDetection;
         }
 
-        BMD_BOOL supported = 0;
+        BMD_BOOL supported = false;
         const BMDVideoConnection connection = s->device_options.find(bmdDeckLinkConfigVideoInputConnection) != s->device_options.end()
                 ? (BMDVideoConnection) s->device_options.at(bmdDeckLinkConfigVideoInputConnection).get_int() : (BMDVideoConnection) bmdVideoConnectionUnspecified;
         BMD_CHECK(deckLinkInput->DoesSupportVideoMode(connection, displayMode->GetDisplayMode(), pf, supported_conversion_mode, s->supported_flags, nullptr, &supported), "DoesSupportVideoMode", INIT_ERR());
