@@ -46,18 +46,16 @@
 #include "audio/types.h"
 #include "host.h"                  // for INIT_NOERR
 #include "lib_common.h"
+#include "utils/misc.h"
 
 namespace{
-        struct Export_state_deleter{
-                void operator()(struct audio_export* e) { audio_export_destroy(e); }
-        };
 
 struct audio_dump_state{
-        std::unique_ptr<struct audio_export, Export_state_deleter> exporter;
-        struct audio_desc desc;
+        std::unique_ptr<struct audio_export, deleter_from_fcn<audio_export_destroy>> exporter;
+        audio_desc desc = {};
 
         std::string filename;
-        unsigned file_name_num;
+        unsigned file_name_num = 0;
 };
 }
 
