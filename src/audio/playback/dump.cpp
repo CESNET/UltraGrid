@@ -51,7 +51,6 @@ namespace{
         struct Export_state_deleter{
                 void operator()(struct audio_export* e) { audio_export_destroy(e); }
         };
-}
 
 struct audio_dump_state{
         std::unique_ptr<struct audio_export, Export_state_deleter> exporter;
@@ -60,6 +59,7 @@ struct audio_dump_state{
         std::string filename;
         unsigned file_name_num;
 };
+}
 
 static void audio_play_dump_help() {
         printf("dump usage:\n"
