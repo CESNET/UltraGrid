@@ -192,9 +192,6 @@ install_openapv() (
                 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
         cmake --build openapv/build --parallel "$(nproc)"
         sudo cmake --install openapv/build
-        if is_win; then
-                mv /usr/local/lib/import/liboapv.dll.a /usr/local/lib
-        fi
 )
 
 install_pyrowave() (
