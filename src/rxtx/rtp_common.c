@@ -589,21 +589,31 @@ initialize_network(const char *addr, int recv_port, int send_port,
         if (device == nullptr) {
                 return nullptr;
         }
-        rtp_set_option(device, RTP_OPT_WEAK_VALIDATION, true);
-        rtp_set_option(device, RTP_OPT_PROMISC, true);
-        rtp_set_sdes(device, rtp_my_ssrc(device),
-                     RTCP_SDES_TOOL, PACKAGE_STRING, strlen(PACKAGE_STRING));
+#define SET_CHECK(cmd)                                                         \
+        do {                                                                   \
+                if (!(cmd)) {                                                  \
+                        MSG(ERROR, "Cannot set: " #cmd "!\n");                 \
+                        rtp_done(device);                                      \
+                        return nullptr;                                        \
+                }                                                              \
+        } while (0)
+
+        SET_CHECK(rtp_set_option(device, RTP_OPT_WEAK_VALIDATION, true));
+        SET_CHECK(rtp_set_option(device, RTP_OPT_PROMISC, true));
+        SET_CHECK(rtp_set_sdes(device, rtp_my_ssrc(device), RTCP_SDES_TOOL,
+                               PACKAGE_STRING, strlen(PACKAGE_STRING)));
 
         if (medium == TX_MEDIA_VIDEO) {
                 rtp_set_send_buf(device, INITIAL_VIDEO_SEND_BUFFER_SIZE);
-                rtp_set_option(device, RTP_OPT_USE_UDP_GSO, video_gso);
+                SET_CHECK(
+                    rtp_set_option(device, RTP_OPT_USE_UDP_GSO, video_gso));
         } else {
-                rtp_set_option(device, RTP_OPT_RECORD_SOURCE, true);
+                SET_CHECK(rtp_set_option(device, RTP_OPT_RECORD_SOURCE, true));
         }
         rtp_set_recv_buf(device, buf_size);
 
         pdb_add(participants, rtp_my_ssrc(device));
-
+#undef SET_CHECK
         return device;
 }
 
