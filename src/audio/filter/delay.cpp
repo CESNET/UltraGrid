@@ -51,10 +51,9 @@ namespace{
         struct Ring_buf_deleter{
                 void operator()(ring_buffer_t *ring){ ring_buffer_destroy(ring); }
         };
-}
 
 struct state_delay{
-        state_delay(struct module *mod) : mod(MODULE_CLASS_DATA, mod, this) {  }
+        explicit state_delay(struct module *mod) : mod(MODULE_CLASS_DATA, mod, this) {  }
 
         module_raii mod;
 
@@ -68,6 +67,7 @@ struct state_delay{
         int delay_size = 0;
         std::unique_ptr<ring_buffer_t, Ring_buf_deleter> ring;
 };
+}
 
 static void usage(){
         printf("Delays audio:\n\n");
