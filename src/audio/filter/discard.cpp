@@ -43,8 +43,9 @@
 #include "audio/types.h"
 #include "lib_common.h"
 
+namespace{
 struct state_discard{
-        state_discard(struct module *mod) : mod(MODULE_CLASS_DATA, mod, this)
+        explicit state_discard(struct module *mod) : mod(MODULE_CLASS_DATA, mod, this)
         {
         }
 
@@ -54,6 +55,7 @@ struct state_discard{
         int ch_count = 0;
         int sample_rate = 0;
 };
+}
 
 static void usage(){
         printf("discard:\n");
