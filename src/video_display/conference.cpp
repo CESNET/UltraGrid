@@ -406,7 +406,7 @@ const char *layout_get_name(Video_mixer::Layout layout){
 static constexpr unsigned int IN_QUEUE_MAX_BUFFER_LEN = 5;
 
 struct state_conference_common{
-        state_conference_common(struct module *parent) :
+        explicit state_conference_common(struct module *parent) :
                 parent(parent),
                 mod(MODULE_CLASS_DATA, parent, this) {  }
 
