@@ -196,7 +196,7 @@ static void audio_play_pw_put_frame(void *state, const audio_frame *frame){
         ring_buffer_write(s->ring_buf.get(), frame->data, to_write);
 }
 
-static bool is_format_supported(void *data, size_t *len){
+static bool is_format_supported(const void *data, const size_t *len){
         audio_desc desc{};
         if (*len < sizeof(desc)) {
                 return false;
