@@ -401,7 +401,6 @@ const char *layout_get_name(Video_mixer::Layout layout){
         return "invalid_layout";
 }
 
-}//anon namespace
 
 [[maybe_unused]] static constexpr std::chrono::milliseconds SOURCE_TIMEOUT(500);
 static constexpr unsigned int IN_QUEUE_MAX_BUFFER_LEN = 5;
@@ -431,6 +430,7 @@ struct state_conference {
         std::shared_ptr<state_conference_common> common;
         struct video_desc desc;
 };
+}//anon namespace
 
 static struct display *display_conference_fork(void *state)
 {
