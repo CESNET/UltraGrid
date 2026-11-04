@@ -94,7 +94,7 @@ struct Sap_session{
 
 struct Allocated_audio_frame{
         Allocated_audio_frame() = default;
-        Allocated_audio_frame(const audio_desc& desc){
+        explicit Allocated_audio_frame(const audio_desc& desc){
                 frame.ch_count = desc.ch_count;
                 frame.bps = desc.bps;
                 frame.sample_rate = desc.sample_rate;
