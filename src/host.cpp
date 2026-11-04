@@ -843,28 +843,30 @@ static void probe_compress(std::string const & name, const void *mod) noexcept {
         }
 }
 
+using probe_fptr = void (*)(const std::string& name, const void *);
+
 const static struct {
         std::string_view desc;
         std::string_view cap_str;
         enum library_class cls;
         int abi_ver;
-        void (*probe_print)(std::string name, const void *);
+        probe_fptr probe_print;
 } mod_classes[] = {
         {"Compressions", "compress",
                 LIBRARY_CLASS_VIDEO_COMPRESS, VIDEO_COMPRESS_ABI_VERSION,
-                [](std::string name, const void *m) { probe_compress(name, m); }},
+                [](const std::string& name, const void *m) { probe_compress(name, m); }},
         {"Capture filters", "capture_filter",
                 LIBRARY_CLASS_CAPTURE_FILTER, CAPTURE_FILTER_ABI_VERSION,
                 nullptr},
         {"Capturers", "capture",
                 LIBRARY_CLASS_VIDEO_CAPTURE, VIDEO_CAPTURE_ABI_VERSION,
-                [](std::string name, const void *m){ probe_device<const video_capture_info *>("capture", name, m); }},
+                [](const std::string& name, const void *m){ probe_device<const video_capture_info *>("capture", name, m); }},
         {"Displays", "display",
                 LIBRARY_CLASS_VIDEO_DISPLAY, VIDEO_DISPLAY_ABI_VERSION,
-                [](std::string name, const void *m){ probe_device<const video_display_info *>("video_disp", name, m); }},
+                [](const std::string& name, const void *m){ probe_device<const video_display_info *>("video_disp", name, m); }},
         {"Audio capturers", "audio_cap",
                 LIBRARY_CLASS_AUDIO_CAPTURE, AUDIO_CAPTURE_ABI_VERSION,
-                [](std::string name, const void *m){ probe_device<const audio_capture_info *>("audio_cap", name, m); }},
+                [](const std::string& name, const void *m){ probe_device<const audio_capture_info *>("audio_cap", name, m); }},
         {"Audio filters", "audio_filter",
                 LIBRARY_CLASS_AUDIO_FILTER, AUDIO_FILTER_ABI_VERSION,
                 nullptr},
@@ -873,7 +875,7 @@ const static struct {
                 nullptr},
         {"Audio playback", "audio_play",
                 LIBRARY_CLASS_AUDIO_PLAYBACK, AUDIO_PLAYBACK_ABI_VERSION,
-                [](std::string name, const void *m){ probe_device<const audio_playback_info *>("audio_play", name, m); }},
+                [](const std::string& name, const void *m){ probe_device<const audio_playback_info *>("audio_play", name, m); }},
 };
 
 
@@ -930,7 +932,7 @@ void print_capabilities(const char *cfg)
                 auto mod_sv = tokenize(conf, ':');
 
                 enum library_class cls = LIBRARY_CLASS_UNDEFINED;
-                void (*probe_print)(std::string name, const void *) = nullptr;
+                probe_fptr probe_print = nullptr;
                 for(const auto& i : mod_classes){
                         if(i.cap_str == class_sv){
                                 cls = i.cls;
