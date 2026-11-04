@@ -106,7 +106,7 @@ uint64_t get_pkt_time_ns(unsigned frames_per_pkt, uint32_t sample_rate){
         return (frames_per_pkt * 1'000'000'000ull) / sample_rate;
 }
 
-std::string get_sdp(Sap_session& sap){
+std::string get_sdp(const Sap_session& sap){
         std::string sdp;
         auto& stream = sap.stream;
         sdp += "v=0\r\n";
@@ -496,7 +496,7 @@ static void audio_play_aes67_put_frame(void *state, const struct audio_frame *fr
         ring_advance_write_idx(s->ring_buf.get(), to_write);
 }
 
-static bool is_format_supported(void *data, size_t *len){
+static bool is_format_supported(const void *data, const size_t *len){
         struct audio_desc desc;
         if (*len < sizeof(desc)) {
                 return false;
