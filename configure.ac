@@ -172,6 +172,7 @@ fi
 if test $system = Windows; then
 	LIBS="$LIBS -lsetupapi -lws2_32 -liphlpapi -lole32 -loleaut32"
 	LIBS="$LIBS -ldbghelp"
+        LDFLAGS="$LDFLAGS -Wl,-u,ldexp -Wl,-u,scalblnf"
 	AC_CHECK_FUNCS(SetThreadDescription)
         if $CXX -dM -E - </dev/null | grep clang >/dev/null; then
                 AC_CHECK_PROG([LLD], [lld], [yes])
