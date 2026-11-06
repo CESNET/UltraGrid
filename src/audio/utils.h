@@ -120,7 +120,7 @@ void interleaved2noninterleaved_float(char **out, const char *in, int in_bps,
  */
 void mux_and_mix_channel(char *out, const char *in, int bps, int in_len, int out_stream_channels, int chan_pos_stream, double scale);
 void remux_and_mix_channel(char *out, const char *in, int bps, int frames, int in_stream_channels, int out_stream_channels, int in_channel, int out_channel, double scale);
-double get_avg_volume(char *data, int bps, int in_len, int stream_channels, int chan_pos_stream);
+double get_avg_volume(char *data, int bps, int sample_count, int stream_channels, int chan_pos_stream);
 
 /**
  * This function converts from normalized float to int32_t representation
