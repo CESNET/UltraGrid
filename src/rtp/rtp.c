@@ -571,7 +571,7 @@ static inline source *get_source(struct rtp *session, uint32_t ssrc)
 }
 
 static source *really_create_source(struct rtp *session, uint32_t ssrc,
-                                    int probation, source * s)
+                                    int probation)
 {
         /* Create a new source entry, and add it to the database.    */
         /* The database is a hash table, using the separate chaining */
@@ -582,7 +582,7 @@ static source *really_create_source(struct rtp *session, uint32_t ssrc,
         check_database(session);
         /* This is a new source, we have to create it... */
         h = ssrc_hash(ssrc);
-        s = (source *) malloc(sizeof(source));
+        source *s = malloc(sizeof(source));
         memset(s, 0, sizeof(source));
         s->magic = 0xc001feed;
         s->next = session->db[h];
@@ -628,7 +628,7 @@ static inline source *create_source(struct rtp *session, uint32_t ssrc,
 {
         source *s = get_source(session, ssrc);
         if (s == NULL) {
-                return really_create_source(session, ssrc, probation, s);
+                return really_create_source(session, ssrc, probation);
         }
         /* Source is already in the database... Mark it as */
         /* active and exit (this is the common case...)    */
