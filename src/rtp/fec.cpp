@@ -243,9 +243,9 @@ fec_destroy(struct fec *s)
  dispose callback
  */
 struct video_frame *
-fec_encode_video_frame(struct fec *fec, const struct video_frame *f)
+fec_encode_video_frame(struct fec *s, const struct video_frame *f)
 {
-        return fec->encode_video_frame(f);
+        return s->encode_video_frame(f);
 }
 
 struct audio_frame2 *
