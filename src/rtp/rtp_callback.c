@@ -218,8 +218,7 @@ void rtp_recv_callback(struct rtp *session, rtp_event * e)
 
         switch (e->type) {
         case RX_RTP:
-                tfrc_recv_data(state->tfrc_state, get_time_in_ns(), pckt_rtp->seq,
-                               pckt_rtp->data_len + 40);
+                tfrc_recv_data(state->tfrc_state, pckt_rtp->seq, pckt_rtp->data_len + 40);
                 if (pckt_rtp->data_len > 0) {   /* Only process packets that contain data... */
                         pbuf_insert(state->playout_buffer, pckt_rtp);
                 }

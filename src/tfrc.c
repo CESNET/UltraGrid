@@ -247,18 +247,16 @@ record_loss(struct tfrc *state, uint32_t s1, uint32_t s2, uint32_t ts1,
 }
 
 static void
-save_arrival(struct tfrc *state, time_ns_t curr_time, uint16_t seq)
+save_arrival(struct tfrc *state, uint16_t seq)
 {
         int kk, inc, last_jj;
         uint16_t udelta;
-        uint32_t now;
         uint32_t ext_seq;
         static uint16_t last_seq;
         static uint32_t ext_last_ack;
         static int last_ack_jj = 0;
 
-        curr_time = get_time_in_ns();
-        now = (curr_time - state->start_time) / 1000;
+        const uint32_t now = (get_time_in_ns() - state->start_time) / 1000;
 
         if (state->jj == -1) {
                 /* first packet arrival */
@@ -435,8 +433,7 @@ void tfrc_done(struct tfrc *state)
 }
 
 void
-tfrc_recv_data(struct tfrc *state, time_ns_t curr_time, uint16_t seqnum,
-               unsigned length)
+tfrc_recv_data(struct tfrc *state, uint16_t seqnum, unsigned length)
 {
         /* This is called each time an RTP packet is received. Accordingly, */
         /* it needs to be _very_ fast, otherwise we'll drop packets.        */
@@ -444,7 +441,7 @@ tfrc_recv_data(struct tfrc *state, time_ns_t curr_time, uint16_t seqnum,
         validate_tfrc_state(state);
 
         if (state->RTT > 0) {
-                save_arrival(state, curr_time, seqnum);
+                save_arrival(state, seqnum);
                 state->p_prev = state->p;
 #ifdef NDEF
                 state->p = compute_loss_event(state);
