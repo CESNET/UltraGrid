@@ -221,7 +221,7 @@ install_pcp() {
                         > configure.ac.fixed
                 mv configure.ac.fixed configure.ac
                 ./autogen.sh
-                ./configure
+                ./configure --disable-server --disable-cli-client
                 make -j "$(nproc)"
                 sudo make install
         )
