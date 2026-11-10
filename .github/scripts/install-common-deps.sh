@@ -154,7 +154,8 @@ install_omt() (
                 if [ "$ID" != ubuntu ]; then
                         return # no build for Debian (ARM) and AlmaLinux (alt)
                 fi
-                sudo apt install dotnet8
+                pkg=$(apt-cache search -n '^dotnet[0-9][0-9]*$' | sed 's/ .*//;q')
+                sudo apt install "$pkg"
                 build=buildlinuxx64.sh
                 omtdir=linux-x64
                 libext=so
