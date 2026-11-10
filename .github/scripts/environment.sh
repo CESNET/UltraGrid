@@ -108,9 +108,6 @@ case "$RUNNER_OS" in
 --enable-libbacktrace \
 --enable-syphon \
 "
-                if is_arm; then
-                        FEATURES="$FEATURES --disable-opencv --disable-resize --disable-video-mixer"
-                fi
                 ;;
         Windows)
                 FEATURES="$FEATURES $CUDA_FEATURES \
