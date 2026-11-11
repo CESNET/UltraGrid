@@ -277,7 +277,7 @@ audio_play_decklink_init(const struct audio_playback_opts *opts)
 
         if (s->audio_consumer_levels != -1) {
                 result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigAnalogAudioConsumerLevels,
-                                s->audio_consumer_levels == 1 ? true : false);
+                                s->audio_consumer_levels == 1);
                         if(result != S_OK) {
                                 fprintf(stderr, "[DeckLink capture] Unable set input audio consumer levels.\n");
                         }
