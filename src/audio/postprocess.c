@@ -231,7 +231,7 @@ audio_postprocess_init(const char *channel_map, const char *scale,
                 }
         }
 
-        s->fixed_scale = scale_auto ? false : true;
+        s->fixed_scale = !scale_auto;
         s->scale = calloc(1, sizeof *s->scale);
         s->scale[0].scale   = scale_factor;
         s->scale[0].vol_avg = 1.0;
