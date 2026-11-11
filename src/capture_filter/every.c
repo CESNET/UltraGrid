@@ -94,7 +94,7 @@ static int init(struct module *parent, const char *cfg, void **state)
         UNUSED(parent);
 
         int n;
-        int denom = 1;;
+        int denom = 1;
         if (strlen(cfg) == 0) {
                 usage();
                 return -1;

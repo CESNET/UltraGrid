@@ -129,7 +129,7 @@ dictionary_lookup(struct dictionary *dictionary, const char *key)
                 if (strcmp(cur->key, key) > 0) {
                         return NULL;
                 }
-        };
+        }
         return NULL;
 }
 
@@ -186,6 +186,6 @@ dictionary_destroy(struct dictionary *dictionary)
                 free(cur->val);
                 free(cur);
                 cur = next;
-        };
+        }
         free(dictionary);
 }

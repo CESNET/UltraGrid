@@ -173,7 +173,7 @@ parse_fmt(struct state_file *s, char *fmt)
                 char *val = strchr(item, '=');
                 if (val != nullptr) {
                         val += 1;
-                };
+                }
                 if (IS_KEY_PREFIX(item, "file") || IS_KEY_PREFIX(item, "name")) {
                         snprintf(s->filename, sizeof s->filename, "%s", val);
                 } else if (IS_KEY_PREFIX(item, "max_av_diff")) {

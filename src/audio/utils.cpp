@@ -617,7 +617,7 @@ interleaved2noninterleaved_float(char **out_ch, const char *in, int in_bps, int 
                                 *(float *) (void *) (out_ch[ch] +
                                                      (ptrdiff_t) i * 4) =
                                     (float) val / -INT8_MIN;
-                                in++;;
+                                in++;
                         }
                 }
         } else {
@@ -705,7 +705,7 @@ void swap_endianity(char *buf, int bps, unsigned sample_count) {
                 for(int j = 0; j < swap_count; j++){
                         unsigned char tmp = buf[j];
                         buf[j] = buf[bps - j - 1];
-                        buf[bps - j - 1] = tmp;;
+                        buf[bps - j - 1] = tmp;
                 }
                 buf += bps;
         }

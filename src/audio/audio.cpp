@@ -190,7 +190,7 @@ audio_init_real(struct state_audio *s, const struct audio_options *opt)
         }
 
         if(opt->filter_cfg){
-                std::string_view cfg_sv = opt->filter_cfg;;
+                std::string_view cfg_sv = opt->filter_cfg;
                 std::string_view item;
                 while(item = tokenize(cfg_sv, '#'), !item.empty()) {
                         if(!s->filter_chain.emplace_new(item)) {

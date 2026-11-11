@@ -313,7 +313,7 @@ static bool display_v4l2_reconfigure(void *state, struct video_desc desc)
         if (xioctl(s->fd, VIDIOC_STREAMON, &reqbuf.type) != 0) {
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to start stream");
                 return false;
-        };
+        }
 
         s->f = vf_alloc_desc(desc);
 

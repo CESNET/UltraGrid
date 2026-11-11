@@ -131,7 +131,7 @@ static void worker(struct state_preview_filter *s, std::string path){
                 if(!frame)
                         break;
 
-                if(!ipc_frame_writer_write(writer.get(), frame.get())){;
+                if(!ipc_frame_writer_write(writer.get(), frame.get())){
                         writer.reset();
                 }
 

@@ -132,7 +132,7 @@ static void vidcap_v4l2_common_cleanup(struct vidcap_v4l2_state *s) {
         int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         if (s->fd != -1 && xioctl(s->fd, VIDIOC_STREAMOFF, &type) != 0) {
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Stream stopping error");
-        };
+        }
 
         pthread_mutex_lock(&s->lock);
         enqueue_all_finished_frames(s);
@@ -524,7 +524,7 @@ static bool
 parse_fmt(char *fmt, struct parsed_opts *opts)
 {
         char *save_ptr = NULL;
-        char *item = NULL;;
+        char *item = NULL;
         while ((item = strtok_r(fmt, ":", &save_ptr))) {
                 fmt = NULL;
                 if (IS_KEY_PREFIX(item, "device")) {
@@ -764,7 +764,7 @@ static int vidcap_v4l2_init(const struct vidcap_params *params, void **state)
         if(xioctl(s->fd, VIDIOC_STREAMON, &reqbuf.type) != 0) {
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to start stream");
                 goto error;
-        };
+        }
 
         MSG(INFO, "Capturing %dx%d @%.2f%s %s from %s\n", s->desc.width,
             s->desc.height, s->desc.fps,
@@ -830,7 +830,7 @@ static struct video_frame * vidcap_v4l2_grab(void *state, struct audio_frame **a
         if(xioctl(s->fd, VIDIOC_DQBUF, &buf) != 0) {
                 log_perror(LOG_LEVEL_ERROR, MOD_NAME "Unable to dequeue buffer");
                 return NULL;
-        };
+        }
 
         s->dequeued_buffers += 1;
 

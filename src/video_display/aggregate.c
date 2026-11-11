@@ -105,7 +105,7 @@ static void *display_aggregate_init(struct module *parent, const char *fmt, unsi
         struct display_aggregate_state *s;
         char *save_ptr = NULL;
         char *item;
-        char *parse_string = NULL;;
+        char *parse_string = NULL;
         char *tmp;
         int i;
 

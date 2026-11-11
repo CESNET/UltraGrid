@@ -314,7 +314,7 @@ bool VulkanDisplay::is_image_description_supported(ImageDescription description)
         if(!is_format_supported(context.get_gpu(), context.is_yCbCr_supported(), get_buffer_size(description),
                 format_info.buffer_format, vk::ImageTiling::eLinear, vk::ImageUsageFlagBits::eSampled))
         {
-                return false;;
+                return false;
         }
 
         if (format_info.conversion_image_format == vk::Format::eUndefined){

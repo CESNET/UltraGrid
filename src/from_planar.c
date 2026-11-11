@@ -126,7 +126,7 @@ gbrpXXle_to_r12l(struct from_planar_data d, const int in_depth, int rind, int gi
                         dst[20 + 0] = S(*src_g++) >> 4;
                         dst[20 + 1] = S(*src_b) & 0xff;
                         dst[20 + 2] = (S(*src_r) & 0xf) << 4 | S(*src_b++) >> 8;
-                        dst[20 + 3] = S(*src_r++) >> 4;;
+                        dst[20 + 3] = S(*src_r++) >> 4;
                         dst[24 + 0] = S(*src_g) & 0xff;
                         dst[24 + 1] = (S(*src_b) & 0xf) << 4 | S(*src_g++) >> 8;
                         dst[24 + 2] = S(*src_b++) >> 4;
@@ -980,7 +980,7 @@ yuv444pXXle_to_r12l(struct from_planar_data d, int depth)
                         dst[20 + 0] = g[4] >> 4;
                         dst[20 + 1] = b[4] & 0xff;
                         dst[20 + 2] = (r[5] & 0xf) << 4 | b[4] >> 8;
-                        dst[20 + 3] = r[5] >> 4;;
+                        dst[20 + 3] = r[5] >> 4;
                         dst[24 + 0] = g[5] & 0xff;
                         dst[24 + 1] = (b[5] & 0xf) << 4 | g[5] >> 8;
                         dst[24 + 2] = b[5] >> 4;

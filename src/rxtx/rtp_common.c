@@ -407,7 +407,7 @@ adjust_ports(struct rxtx_params *rxtx)
         }
         if (rxtx->port_base == -1) {
                 rxtx->port_base = RTP_PORT_BASE;
-        };
+        }
 
         if (video->rx_port == -1) {
                 if ((video->rxtx_mode & MODE_RECEIVER) == 0U) {

@@ -141,7 +141,7 @@ static void compute_transfer_rate(void)
 
 static int set_zero(int first, int last, uint16_t u)
 {
-        int i, count = 0;;
+        int i, count = 0;
 
         assert((first >= 0) && (first < MAX_HISTORY));
         assert((last >= 0) && (last < MAX_HISTORY));

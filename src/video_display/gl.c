@@ -2386,7 +2386,7 @@ display_gl_get_property(void *state, int property, void *val, size_t *len)
                         }
                         memcpy((char *) val + *len, &c, sizeof c);
                         *len += sizeof c;
-                };
+                }
                 return true;
         }
         case DISPLAY_PROPERTY_RGB_SHIFT:

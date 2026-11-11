@@ -84,7 +84,7 @@ inline FormatInfo format_info(vulkan_display::Format format){
         case F::UYVA16_4444_conv: return { VkF::eR16G16B16A16Uint,     "UYVA16_conv", VkF::eR16G16B16A16Sfloat };
         case F::RGB10A2_conv:     return { VkF::eR8G8B8A8Uint,         "RGB10A2_conv", VkF::eA2B10G10R10UnormPack32 };
         case F::RGB16:            return { VkF::eR16G16B16Unorm        };
-        };
+        }
         abort();
 }
 

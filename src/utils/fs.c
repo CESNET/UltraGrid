@@ -279,7 +279,7 @@ FILE *get_temp_file(const char **filename) {
         int fd = mkstemp(filename_buf);
         if (fd == -1) {
                 return NULL;
-        };
+        }
         FILE *ret = fdopen(fd, "w+b");
         if (ret == NULL) {
                 return NULL;

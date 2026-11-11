@@ -115,7 +115,7 @@ parse_quant_tables(struct decode_data_rtsp *dec, unsigned char **pckt_data,
                     " > %td remaining bytes! "
                     "Dropping packet...\n",
                     length, remaining_bytes);
-                *pckt_data += remaining_bytes;;
+                *pckt_data += remaining_bytes;
                 return;
         }
 

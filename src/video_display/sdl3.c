@@ -877,7 +877,7 @@ display_sdl3_reconfigure_real(void *state, struct video_desc desc)
                 MSG(ERROR, "Unable to create window: %s\n", SDL_GetError());
                 return false;
         }
-        ;
+
         if (!sdl3_set_window_position(s)) {
                 return false;
         }

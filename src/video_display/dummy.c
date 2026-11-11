@@ -151,7 +151,7 @@ dummy_parse_opts(struct dummy_display_state *s, char *fmt, const char **audio_dr
                 } else if (strcmp(item, "discard") == 0) {
                         s->discard = true;
                 } else if (IS_KEY_PREFIX(item, "audio")) {
-                        *audio_drv = strchr(item, '=') + 1;;
+                        *audio_drv = strchr(item, '=') + 1;
                 } else {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "Unrecognized option: %s\n", item);
                         return false;

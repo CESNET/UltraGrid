@@ -1036,7 +1036,7 @@ static vector<pair<struct pixfmt_desc, codec_t>> video_decoder_order_output_code
         for (auto codec : display_codecs) {
                 if (used.contains(codec)) {
                         continue;
-                };
+                }
                 if (pixdesc_equals(get_pixfmt_desc(codec), comp_int_prop)) {
                         ret.emplace_back(comp_int_prop, codec);
                         if (comp_int_prop.depth != 0) {
@@ -1050,7 +1050,7 @@ static vector<pair<struct pixfmt_desc, codec_t>> video_decoder_order_output_code
         for (auto codec : display_codecs) {
                 if (used.contains(codec)) {
                         continue;
-                };
+                }
                 remaining.emplace_back(codec);
         }
         if (comp_int_prop.depth != 0) {
