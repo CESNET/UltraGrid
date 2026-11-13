@@ -29,6 +29,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@main
+      with:
+        submodules: true
     - name: Init environment variables
       run: . .github/scripts/environment.sh
     - name: Prepare

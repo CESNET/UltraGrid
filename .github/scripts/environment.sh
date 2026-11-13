@@ -55,6 +55,7 @@ export FEATURES="\
  --enable-jack\
  --enable-jack-transport\
  --enable-libavcodec\
+ --enable-mpegts\
  --enable-natpmp\
  --enable-ndi\
  --enable-omt\

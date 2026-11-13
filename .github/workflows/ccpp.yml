@@ -38,6 +38,7 @@ jobs:
       id: checkout
       with:
         persist-credentials: true
+        submodules: true
     - name: Init environment variables
       run: . .github/scripts/environment.sh
     - name: Retag continuous

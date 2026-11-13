@@ -54,6 +54,8 @@ jobs:
 
     # sync with the appropriate part in linux.yml (literal copy)
     - uses: actions/checkout@main
+      with:
+        submodules: true
     - name: Fetch SDKs ETags
       id: etags
       run: |

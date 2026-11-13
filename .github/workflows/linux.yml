@@ -21,6 +21,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@main
+      with:
+        submodules: true
     - name: Set environment
       run: . .github/scripts/environment.sh
     - name: Identify OS version
