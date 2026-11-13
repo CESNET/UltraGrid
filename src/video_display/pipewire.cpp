@@ -159,6 +159,7 @@ namespace{
         }
 }
 
+namespace{
 struct display_pw_state{
         pipewire_state_common pw;
 
@@ -172,6 +173,7 @@ struct display_pw_state{
 
         video_desc desc = {};
 };
+}
 
 static void on_state_changed(void *state, enum pw_stream_state old, enum pw_stream_state new_state, const char *error)
 {

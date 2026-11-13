@@ -58,6 +58,7 @@
 
 constexpr static std::string_view PLAYBACK_MEDIA_CLASS = "Audio/Sink";
 
+namespace{
 struct state_pipewire_play{
         pipewire_state_common pw;
 
@@ -71,6 +72,7 @@ struct state_pipewire_play{
         unsigned buf_len_ms = 100;
         unsigned quant = 128;
 };
+}
 
 static void audio_play_pw_probe(device_info **available_devices, int *count, void (**deleter)(void *))
 {

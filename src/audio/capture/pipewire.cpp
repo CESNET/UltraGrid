@@ -53,6 +53,7 @@
 
 constexpr static std::string_view CAPTURE_MEDIA_CLASS = "Audio/Source";
 
+namespace{
 struct state_pipewire_cap{
         pipewire_state_common pw;
 
@@ -72,6 +73,7 @@ struct state_pipewire_cap{
         unsigned bps = 2;
         unsigned buf_len_ms = 100;
 };
+}
 
 /*
  * Called from real time thread. Only realtime-safe function calls allowed here.
