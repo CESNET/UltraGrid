@@ -289,9 +289,6 @@ namespace{
 
         };
 
-} //anon namespace
-  //
-
 struct Drm_state {
         Fd_uniq dri_fd;
 
@@ -351,6 +348,8 @@ struct drm_display_state {
 
         std::vector<frame_uniq> free_frames;
 };
+
+} //anon namespace
 
 static std::string get_connector_str(uint32_t type, uint32_t id){
         std::string res;
