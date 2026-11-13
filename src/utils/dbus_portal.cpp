@@ -87,8 +87,6 @@ using GMainLoop_uniq = std::unique_ptr<GMainLoop, deleter_from_fcn<g_main_loop_u
 using GDBusConnection_uniq = std::unique_ptr<GDBusConnection, deleter_from_fcn<g_object_unref>>;
 using GDBusProxy_uniq = std::unique_ptr<GDBusProxy, deleter_from_fcn<g_object_unref>>;
 
-} //anon namespace
-
 class ScreenCastPortal final : public PipewirePortal{
 private:
         template<auto callback>
@@ -428,6 +426,8 @@ PipewirePortalResult ScreenCastPortal::run(){
 
         return {get_pw_fd(), get_pw_node()};
 }
+} //anon namespace
+
 
 std::unique_ptr<PipewirePortal> CreateScreenCastPortal(const std::string& restore_file, bool show_cursor){
         return std::make_unique<ScreenCastPortal>(restore_file, show_cursor);
