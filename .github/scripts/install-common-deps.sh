@@ -229,13 +229,7 @@ install_pcp() {
         rm -rf libpcpnatpmp
 }
 
-install_zfec() (
-        git clone --depth 1 https://github.com/tahoe-lafs/zfec zfec
-        sudo mkdir -p /usr/local/src
-        sudo mv zfec/zfec /usr/local/src
-)
-
-install_items="aja ews juice live555 openapv pcp zfec"
+install_items="aja ews juice live555 openapv pcp"
 if ! is_arm && ! is_win; then
         install_items="$install_items cineform"
 fi
