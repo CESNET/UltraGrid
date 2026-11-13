@@ -63,6 +63,7 @@
 #include <cuda_runtime.h>
 
 #include "utils/cuda_pix_conv.h"
+#include "utils/misc.h"
 #include "utils/profile_timer.hpp"
 
 #define PI 3.14159265
@@ -83,8 +84,9 @@ static void show_help()
         color_printf(TERM_BOLD"\t\ttiled" TERM_RESET " - Use if input is a tiled image from one capture device\n");
 
 }
-struct vidcap_params_deleter{ void operator()(vidcap_params *p) const{ vidcap_params_free(p); }};
 
+namespace{
+using vidcap_params_uniq = std::unique_ptr<vidcap_params, deleter_from_fcn<vidcap_params_free>>;
 struct grab_worker_state;
 
 struct vidcap_gpustitch_state {
@@ -129,7 +131,7 @@ struct grab_worker_state {
         std::condition_variable grabbed_cv;
 
         vidcap_gpustitch_state *s = nullptr;
-        std::unique_ptr<vidcap_params, vidcap_params_deleter> cap_params;
+        vidcap_params_uniq cap_params;
 
         bool tiled = false;
 
@@ -149,6 +151,7 @@ struct grab_worker_state {
 
         cudaStream_t tmp_in_frame_stream{};
 };
+} //anon namespace
 
 static void vidcap_gpustitch_probe(device_info **available_cards, int *count, void (**deleter)(void *))
 {
