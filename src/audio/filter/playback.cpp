@@ -57,7 +57,7 @@ using Playback_dev_uniq = std::unique_ptr<state_audio_playback, deleter_from_fcn
 
 namespace{
 struct state_playback{
-        state_playback(struct module *mod) : mod(MODULE_CLASS_DATA, mod, this) {  }
+        explicit state_playback(struct module *mod) : mod(MODULE_CLASS_DATA, mod, this) {  }
 
         module_raii mod;
 
