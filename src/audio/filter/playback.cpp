@@ -52,10 +52,10 @@
 struct state_audio_playback;
 
 namespace{
-struct Playback_dev_deleter{ void operator()(state_audio_playback *p){ audio_playback_done(p); } };
-using Playback_dev_uniq = std::unique_ptr<state_audio_playback, Playback_dev_deleter>;
+using Playback_dev_uniq = std::unique_ptr<state_audio_playback, deleter_from_fcn<audio_playback_done>>;
 }
 
+namespace{
 struct state_playback{
         state_playback(struct module *mod) : mod(MODULE_CLASS_DATA, mod, this) {  }
 
@@ -68,6 +68,7 @@ struct state_playback{
         Playback_dev_uniq playback_dev;
 
 };
+}
 
 static void usage(){
         printf("Plays audio using an UltraGrid playback device:\n\n");
