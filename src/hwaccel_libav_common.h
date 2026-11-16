@@ -98,7 +98,6 @@ int create_hw_device_ctx(enum AVHWDeviceType type, AVBufferRef **device_ref);
 /**
  * @brief Creates hw. frames context with given parameters
  *
- * @param s Codec context containing information about decoded video
  * @param format Format of hardware surfaces
  * @param sw_format Internal software format
  * @param decode_surfaces Initial pool size
