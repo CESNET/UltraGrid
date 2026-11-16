@@ -379,7 +379,8 @@ void debug_file_dump(const char *key, void (*serialize)(const void *data, FILE *
 /**
  * @brief prints the error with the advice to report the bug
  *
- * @param msg the message to be printed, can be prefixed with particular
+ * @param level log level
+ * @param format the message to be printed, can be prefixed with particular
  * MOD_NAME. Should end with either ' ' or '\n' (what fits the caller better).
  */
 void
