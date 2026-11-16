@@ -344,7 +344,7 @@ static void vc_copyliner10ktoRGB(unsigned char * __restrict dst, const unsigned 
  *
  * @param[out] dst     4B-aligned buffer that will contain result
  * @param[in]  src     buffer containing pixels in R12L
- * @param[in]  dst_len length of data that should be written to dst buffer (in bytes)
+ * @param[in]  dstlen length of data that should be written to dst buffer (in bytes)
  * @param[in]  rshift  ignored
  * @param[in]  gshift  ignored
  * @param[in]  bshift  ignored
@@ -527,7 +527,7 @@ vc_copylineR12L(unsigned char * restrict dst, const unsigned char * restrict src
  *
  * @param[out] dst     4B-aligned buffer that will contain result
  * @param[in]  src     4B-aligned buffer containing pixels in RGBA
- * @param[in]  dst_len length of data that should be written to dst buffer (in bytes)
+ * @param[in]  len length of data that should be written to dst buffer (in bytes)
  * @param[in]  rshift  destination red shift
  * @param[in]  gshift  destination green shift
  * @param[in]  bshift  destination blue shift
@@ -766,34 +766,34 @@ static void vc_copylineRGB(unsigned char * __restrict dst, const unsigned char *
  * In opposite to the defined semantic of {r,g,b}shift, here instead of destination
  * shifts the shifts define the source codec properties.
  */
-static void vc_copylineRGBAtoRGBwithShift(unsigned char * __restrict dst2, const unsigned char * __restrict src2, int dst_len, int rshift, int gshift, int bshift)
+static void vc_copylineRGBAtoRGBwithShift(unsigned char * __restrict dst, const unsigned char * __restrict src, int dst_len, int rshift, int gshift, int bshift)
 {
-	register const uint32_t * src = (const uint32_t *)(const void *) src2;
-	register uint32_t * dst = (uint32_t *)(void *) dst2;
+	register const uint32_t * src2 = (const uint32_t *)(const void *) src;
+	register uint32_t * dst2 = (uint32_t *)(void *) dst;
         int x;
         OPTIMIZED_FOR (x = 0; x <= dst_len - 12; x += 12) {
-		register uint32_t in1 = *src++;
-		register uint32_t in2 = *src++;
-		register uint32_t in3 = *src++;
-		register uint32_t in4 = *src++;
+		register uint32_t in1 = *src2++;
+		register uint32_t in2 = *src2++;
+		register uint32_t in3 = *src2++;
+		register uint32_t in4 = *src2++;
 
-                *dst++ = ((in2 >> rshift)) << 24 |
+                *dst2++ = ((in2 >> rshift)) << 24 |
                         ((in1 >> bshift) & 0xff) << 16 |
                         ((in1 >> gshift) & 0xff) << 8 |
                         ((in1 >> rshift) & 0xff);
-                *dst++ = ((in3 >> gshift)) << 24 |
+                *dst2++ = ((in3 >> gshift)) << 24 |
                         ((in3 >> rshift) & 0xff) << 16 |
                         ((in2 >> bshift) & 0xff) << 8 |
                         ((in2 >> gshift) & 0xff);
-                *dst++  = ((in4 >> bshift)) << 24 |
+                *dst2++  = ((in4 >> bshift)) << 24 |
                         ((in4 >> gshift) & 0xff) << 16 |
                         ((in4 >> rshift) & 0xff) << 8 |
                         ((in3 >> bshift) & 0xff);
         }
 
-        uint8_t *dst_c = (uint8_t *) dst;
+        uint8_t *dst_c = (uint8_t *) dst2;
         for (; x <= dst_len - 3; x += 3) {
-		register uint32_t in = *src++;
+		register uint32_t in = *src2++;
                 *dst_c++ = (in >> rshift) & 0xff;
                 *dst_c++ = (in >> gshift) & 0xff;
                 *dst_c++ = (in >> bshift) & 0xff;
