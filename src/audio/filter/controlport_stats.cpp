@@ -46,6 +46,7 @@
 #include "audio/utils.h"
 #include "lib_common.h"
 
+namespace{
 struct state_controlport_stats{
         explicit state_controlport_stats(struct module *mod)
             : mod(MODULE_CLASS_DATA, mod, this), control(get_control_state(mod))
@@ -61,6 +62,7 @@ struct state_controlport_stats{
         int sample_rate = 0;
                 
 };
+}
 
 static void usage(){
         printf("controlport_stats:\n");
