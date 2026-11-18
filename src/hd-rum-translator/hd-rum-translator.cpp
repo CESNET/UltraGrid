@@ -748,7 +748,7 @@ static int parse_global_opts(int argc, char **argv,
                 case 'V':
                         break; // already handled in common_preinit()
                 case 'O':
-                        if (!parse_params(optarg, false)) {
+                        if (!parse_param_optarg(optarg, false)) {
                                 return 1;
                         }
                         break;

@@ -140,7 +140,7 @@ void set_commandline_param(const char *key, const char *val);
 bool tok_in_argv(char **argv, const char *tok);
 int set_audio_capture_format(const char *optarg);
 int set_pixfmt_conv_policy(const char *optarg);
-bool parse_params(const char *optarg, bool preinit);
+bool parse_param_optarg(const char *optarg, bool preinit);
 void print_pixel_formats(void);
 void print_video_codecs(void);
 void register_param(const char *param, const char *doc);

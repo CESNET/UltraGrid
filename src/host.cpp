@@ -409,7 +409,7 @@ static bool parse_opts_set_logging(int argc, char *argv[])
                         }
                         break;
                 case 'O':
-                        if (!parse_params(optarg, true)) {
+                        if (!parse_param_optarg(optarg, true)) {
                                 return false;
                         }
                         break;
@@ -1087,7 +1087,8 @@ bool validate_param(const char *param)
  * other hand not all params can be set immediately -- modules are not yet registered, so it
  * is called once more the preinit is done.
  */
-bool parse_params(const char *optarg, bool preinit)
+bool
+parse_param_optarg(const char *optarg, bool preinit)
 {
         if (!preinit && strcmp(optarg, "help") == 0) {
                 puts("Use of params below is experimental and should be used with a caution and a knowledge of consequences and affected functionality!\n");

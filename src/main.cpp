@@ -962,7 +962,7 @@ parse_options_internal(int argc, char *argv[], struct ug_options *opt)
                 case 'L':
                         return list_all_modules() ? 1 : -EXIT_FAILURE;
                 case 'O':
-                        if (!parse_params(optarg, false)) {
+                        if (!parse_param_optarg(optarg, false)) {
                                 return 1;
                         }
                         break;

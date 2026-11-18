@@ -32,11 +32,14 @@
 #include "audio/types.h"   // for AC_OPUS, AC_AAC, audio_frame2_get_c...
 #include "compat/c23.h"    // for countof
 #include "debug.h"         // for LOG_LEVEL_DEBUG, MSG
+#include "host.h"          // for INIT_NOERR
 #include "lib_common.h"    // for REGISTER_MODULE, library_class
 #include "rtp/net_udp.h"   // for socket_udp, udp_init, udp_send
 #include "rxtx.h"          // for rxtx_params, RXTX_ABI_VERSION, rxtx...
+#include "types.h"         // for video_frame, tile
+#include "utils/color_out.h" // for color_printf
 #include "utils/list.h"
-#include "utils/macros.h"  // for CONST_CAST
+#include "utils/macros.h"  // for CONST_CAST...
 #include "utils/pthread.h" // for ug_pthread_mutex_init
 #include "video_codec.h"   // for get_codec_name
 
@@ -63,8 +66,6 @@ enum {
         /// drop_excess_audio_frames()
         MAX_AUDIO_FRAMES_BUF = 20,
 };
-
-#include "types.h"
 
 struct rxtx_mpegts {
         uint32_t        magic;
@@ -100,12 +101,58 @@ struct rxtx_mpegts {
         long audio_overflows;
 };
 
+static void done(void *state);
 static void send_audio_frame_impl(struct rxtx_mpegts        *s,
                                   const struct audio_frame2 *f);
+
+static bool
+parse_params(struct rxtx_mpegts *s, char *params)
+{
+        assert(params);
+        char *save_ptr = nullptr;
+        char *item = nullptr;
+        while ((item = strtok_r(params, ":", &save_ptr))) {
+                params = nullptr;
+                char *val = strchr(item, '=');
+                if (val) {
+                        val += 1;
+                }
+                if (IS_PREFIX(item, "dump")) {
+                        assert(!s->dump_f); // prevent leak if entered twice
+                        s->dump_f = fopen(IF_NOT_NULL_ELSE(val, "out.ts"), "wb");
+                        if (!s->dump_f) {
+                                MSG(ERROR, "cannot open dump file: %s\n",
+                                    ug_strerror(errno));
+                                return false;
+                        }
+                } else {
+                        MSG(ERROR, "unknown option: %s\n", item);
+                        return false;
+                }
+        }
+        return true;
+}
+
+static void
+usage()
+{
+        color_printf(TBOLD("MPEG TS") " standard transport\n");
+        color_printf("\nUsage:\n");
+        color_printf("\t" TBOLD(TRED("-x mpegts") "[:dump=[<f>]]")
+                     "\n");
+        color_printf("\n");
+        color_printf("Options:\n");
+        color_printf("\t" TBOLD("dump") " - dump entire produced stream to a file\n");
+        color_printf("\n");
+}
 
 static void *
 init(struct rxtx_params *params)
 {
+        if (!strcmp(params->protocol_opts, "help")) {
+                usage();
+                return INIT_NOERR;
+        }
         if (params->mtu == 0) {
                 params->mtu = DEFAULT_MTU;
         }
@@ -121,8 +168,12 @@ init(struct rxtx_params *params)
         s->use_audio = params->medium[TX_MEDIA_AUDIO].rxtx_mode & MODE_SENDER;
         s->use_video = params->medium[TX_MEDIA_VIDEO].rxtx_mode & MODE_SENDER;
 
-        if (strcmp(params->protocol_opts, "dump") == 0) {
-                s->dump_f = fopen("out.ts", "wb");
+        char *fmt = strdup(params->protocol_opts);
+        bool params_ok = parse_params(s, fmt);
+        free(fmt);
+        if (!params_ok) {
+                done(s);
+                return nullptr;
         }
 
         s->audio_frames = simple_linked_list_init();
@@ -571,7 +622,12 @@ done(void *state)
                 MSG(VERBOSE, "Audio underflows: %ld, overflows: %ld\n",
                     s->audio_underflows, s->audio_overflows);
         }
+        if (s->writer) {
+                ts_close_writer(s->writer);
+        }
+        udp_exit(s->sock);
         simple_linked_list_destroy(s->audio_frames);
+        CHK_PTHR(pthread_mutex_destroy(&s->lock));
         free(s);
 }
 
