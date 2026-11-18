@@ -65,6 +65,7 @@ using std::numeric_limits;
 using std::vector;
 using std::thread;
 
+namespace{
 struct state_capture_filter_gamma {
 public:
         int out_depth; ///< 0, 8 or 16 (0 means keep)
@@ -149,6 +150,7 @@ private:
         vector<uint8_t>  lut16_8;
         vector<uint16_t> lut8_16;
 };
+}
 
 static auto init(struct module *parent, const char *cfg, void **state)
 {
