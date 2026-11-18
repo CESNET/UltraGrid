@@ -17,6 +17,7 @@
  */
 
 #include <assert.h>  // for assert
+#include <errno.h>   // for errno
 #include <math.h>    // for fabs
 #include <pthread.h> // for pthread_mutex_t
 #include <stdint.h>  // for uint8_t, int64_t, uint32_t
@@ -233,7 +234,11 @@ udp_send_packets(struct rxtx_mpegts *s, uint8_t *output, int output_len)
                 if (output_len < len) {
                         len = output_len;
                 }
-                udp_send(s->sock, (char *) output, len);
+                int rc = udp_send(s->sock, (char *) output, len);
+                if (rc == -1) {
+                        MSG(WARNING, "sending UDP datagram: %s\n",
+                            ug_strerror(errno));
+                }
                 output_len -= len;
                 output += len;
         }
