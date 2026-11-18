@@ -155,6 +155,13 @@ struct replica {
     socklen_t sockaddr_len;
 };
 
+struct item {
+        struct item *next;
+        long size;
+        char *buf;
+};
+
+
 struct hd_rum_translator_state {
     hd_rum_translator_state() {
         init_root_module(&mod);
@@ -243,12 +250,6 @@ struct wsa_aux_storage {
 #else
 #define SIZE MAX_PKT_SIZE
 #endif
-
-struct item {
-    struct item *next;
-    long size;
-    char *buf;
-};
 
 static struct item *qinit(int qsize)
 {
