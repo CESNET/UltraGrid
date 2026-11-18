@@ -86,6 +86,7 @@ using std::vector;
 #define AUDIO_DECODER_MAGIC 0x12ab332bu
 #define MOD_NAME "[audio dec.] "
 
+namespace{
 struct state_audio_decoder_summary {
 private:
         unsigned long int last_bufnum = -1;
@@ -127,6 +128,7 @@ public:
                 }
         }
 };
+}
 
 struct state_audio_decoder {
         uint32_t magic;
