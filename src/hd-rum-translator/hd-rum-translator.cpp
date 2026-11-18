@@ -110,6 +110,7 @@ set_replica_mod_name(size_t buflen, char *buf, const char *addr,
 
 static void new_message_received(struct module *);
 
+namespace{
 struct replica {
     replica(const char *addr, uint16_t rx_port, uint16_t tx_port, int bufsize, struct module *parent, int force_ip_version) {
         magic = REPLICA_MAGIC;
@@ -196,6 +197,7 @@ struct hd_rum_translator_state {
     bool capture_filter_set = false;
     struct state_recompress *recompress = nullptr;
 };
+} //anon namespace
 
 /*
  * Prototypes
@@ -627,6 +629,7 @@ static void usage(const char *progname) {
            "for uncompressed transmission (see 'uv -c help' for list).\n");
 }
 
+namespace{
 struct host_opts {
     char *addr;
     int rx_port;
@@ -650,6 +653,7 @@ struct cmdline_parameters {
     int log_level = -1;
     const char *conference_compression = nullptr;
 };
+} //anon namespace
 
 /// unit_evaluate() is similar but uses SI prefixes
 static int
@@ -902,6 +906,7 @@ static bool sockaddr_equal(struct sockaddr_storage *a, struct sockaddr_storage *
         }
 }
 
+namespace{
 struct Conf_participant{
         struct sockaddr_storage addr;
         socklen_t addrlen;
@@ -1008,6 +1013,7 @@ private:
             }
         }
 };
+} //anon namespace
 
 static void hd_rum_translator_should_exit_callback(void *arg) {
     volatile auto *should_exit = (volatile bool *) arg;
