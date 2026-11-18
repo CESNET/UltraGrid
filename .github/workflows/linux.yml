@@ -23,6 +23,9 @@ jobs:
     - uses: actions/checkout@main
     - name: Set environment
       run: . .github/scripts/environment.sh
+    - name: Identify OS version
+      id: image
+      run: echo "os=${ImageOS?}" >> "$GITHUB_OUTPUT"
     - name: Fetch SDKs ETags
       id: etags
       run: |
@@ -41,7 +44,7 @@ jobs:
       uses: actions/cache@main
       with:
         path: '/var/tmp/ffmpeg'
-        key: cache-ffmpeg-${{ github.workflow }}-${{ runner.os }}-${{
+        key: cache-ffmpeg-${{ github.workflow }}-${{ steps.image.outputs.os }}-${{
          hashFiles( '.github/scripts/Linux/install_ffmpeg.sh',
          '.github/scripts/Linux/install_other.sh',
          '.github/scripts/Linux/ffmpeg-patches/*') }}
@@ -49,13 +52,13 @@ jobs:
       uses: actions/cache@main
       with:
         path: '/var/tmp/sdl'
-        key: cache-sdl-${{ github.workflow }}-${{ runner.os }}-${{ hashFiles(
+        key: cache-sdl-${{ github.workflow }}-${{ steps.image.outputs.os }}-${{ hashFiles(
          '.github/scripts/Linux/install_sdl.sh' ) }}
     - name: Cache GLFW
       uses: actions/cache@main
       with:
         path: '/var/tmp/glfw'
-        key: cache-glfw-${{ github.workflow }}-${{ runner.os }}-${{
+        key: cache-glfw-${{ github.workflow }}-${{ steps.image.outputs.os }}-${{
          hashFiles(
          '.github/scripts/Linux/install_glfw.sh',
          '.github/scripts/Linux/glfw-patches/*') }}
