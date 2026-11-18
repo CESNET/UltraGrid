@@ -131,21 +131,21 @@ public:
 }
 
 struct state_audio_decoder {
-        uint32_t magic;
+        uint32_t magic = AUDIO_DECODER_MAGIC;
 
-        struct packet_counter *packet_counter;
+        struct packet_counter *packet_counter = nullptr;
 
-        struct audio_codec_state *audio_decompress;
+        struct audio_codec_state *audio_decompress = nullptr;
 
-        struct audio_desc saved_desc; // from network
-        uint32_t saved_audio_tag;
+        struct audio_desc saved_desc{}; // from network
+        uint32_t saved_audio_tag = 0;
 
-        const struct openssl_decrypt_info *dec_funcs;
-        struct openssl_decrypt *decrypt;
+        const struct openssl_decrypt_info *dec_funcs = nullptr;
+        struct openssl_decrypt *decrypt = nullptr;
 
-        struct control_state *control;
-        fec *fec_state;
-        fec_desc fec_state_desc;
+        struct control_state *control = nullptr;
+        fec *fec_state = nullptr;
+        fec_desc fec_state_desc{};
 
         struct state_audio_decoder_summary summary;
 
@@ -155,8 +155,6 @@ void *
 audio_decoder_init(const char *encryption, struct module *parent)
 {
         auto *s = new struct state_audio_decoder();
-        s->magic = AUDIO_DECODER_MAGIC;
-        s->audio_decompress = NULL;
         s->packet_counter = packet_counter_init();
         s->control = get_control_state(parent);
 
