@@ -64,13 +64,12 @@
 
 #define MOD_NAME "hd-rum-recompress"
 
+using namespace std;
+
 namespace {
 struct compress_state_deleter{
         void operator()(struct compress_state *s) const{ compress_done(s); }
 };
-}
-
-using namespace std;
 
 struct recompress_output_port {
         recompress_output_port() = default;
@@ -103,6 +102,7 @@ struct recompress_worker_ctx {
 
         std::thread thread;
 };
+}
 
 struct state_recompress {
         struct module *parent = nullptr;
