@@ -46,6 +46,9 @@
 struct audio_frame2;
 
 #define DEFAULT_MPEGTS_COMPRESSION "lavc:c=H.264"
+#define DEFAULT_PROVIDER_NAME      "CESNET"
+#define DEFAULT_SERVICE_NAME       "UltraGrid"
+#define MAGIC                      to_fourcc('R', 'T', 'm', 't')
 #define MOD_NAME                   "[rxtx/mpegts] "
 
 // definitions
@@ -65,6 +68,7 @@ enum {
         /// received), otherwise excessive audio frames are handled with
         /// drop_excess_audio_frames()
         MAX_AUDIO_FRAMES_BUF = 20,
+        SDT_STR_LEN = 256, ///< limited by SDT field len
 };
 
 struct rxtx_mpegts {
@@ -76,6 +80,10 @@ struct rxtx_mpegts {
         pthread_mutex_t lock;
 
         FILE *dump_f;
+
+        // command-line parameters
+        char provider_name[SDT_STR_LEN];
+        char service_name[SDT_STR_LEN];
 
         struct simple_linked_list *audio_frames;
 
@@ -125,6 +133,10 @@ parse_params(struct rxtx_mpegts *s, char *params)
                                     ug_strerror(errno));
                                 return false;
                         }
+                } else if (IS_KEY_PREFIX(item, "provider_name")) {
+                        strcpy_ch(s->provider_name, val);
+                } else if (IS_KEY_PREFIX(item, "service_name")) {
+                        strcpy_ch(s->service_name, val);
                 } else {
                         MSG(ERROR, "unknown option: %s\n", item);
                         return false;
@@ -138,11 +150,13 @@ usage()
 {
         color_printf(TBOLD("MPEG TS") " standard transport\n");
         color_printf("\nUsage:\n");
-        color_printf("\t" TBOLD(TRED("-x mpegts") "[:dump=[<f>]]")
+        color_printf("\t" TBOLD(TRED("-x mpegts") "[:opts]")
                      "\n");
         color_printf("\n");
         color_printf("Options:\n");
-        color_printf("\t" TBOLD("dump") " - dump entire produced stream to a file\n");
+        color_printf("\t" TBOLD("dump[=<f>]") " - dump entire produced stream to a file\n");
+        color_printf("\t" TBOLD("provider_name=<n>") " - service provider name in the SDT\n");
+        color_printf("\t" TBOLD("service_name=<n>") " - service name in the SDT\n");
         color_printf("\n");
 }
 
@@ -160,11 +174,18 @@ init(struct rxtx_params *params)
                 params->port_base= DEFAULT_PORT;
         }
         struct rxtx_mpegts *s = calloc(1, sizeof *s);
+        s->magic = MAGIC;
+        strcpy_ch(s->provider_name, DEFAULT_PROVIDER_NAME);
+        strcpy_ch(s->service_name, DEFAULT_SERVICE_NAME);
         ug_pthread_mutex_init(&s->lock);
         s->mtu                = params->mtu / TS_PACKET_SIZE * TS_PACKET_SIZE;
         s->writer             = ts_create_writer();
         s->sock               = udp_init(params->receiver, 0, 1234, params->ttl,
                                          params->force_ip_version, false);
+        if (!s->sock) {
+                done(s);
+                return nullptr;
+        }
         s->use_audio = params->medium[TX_MEDIA_AUDIO].rxtx_mode & MODE_SENDER;
         s->use_video = params->medium[TX_MEDIA_VIDEO].rxtx_mode & MODE_SENDER;
 
@@ -184,6 +205,10 @@ init(struct rxtx_params *params)
                           DEFAULT_MPEGTS_COMPRESSION);
         }
         snprintf_ch(params->audio_compression, "Opus");
+
+        MSG(WARNING, "MPEG TS TX support is incomplete and currently preview "
+                     "only! It is in an early state of development. Feel free "
+                     "to report bugs and compatibility issues.\n");
 
         return s;
 }
@@ -217,7 +242,13 @@ init_libmpegts(struct rxtx_mpegts *s)
                 str_cnt += 1;
         }
 
-        ts_program_t prog = { 0 }; // = &main_params.programs[0];
+        ts_program_t prog = {
+                .sdt.service_type  = s->use_video
+                                         ? DVB_SERVICE_TYPE_DIGITAL_TELEVISION
+                                         : DVB_SERVICE_TYPE_DIGITAL_RADIO_SOUND,
+                .sdt.service_name  = s->service_name,
+                .sdt.provider_name = s->provider_name,
+        };
         prog.program_num  = 1;
         prog.pmt_pid      = PMT_PID;
         prog.pcr_pid      = PCR_PID;
@@ -615,6 +646,7 @@ static void
 done(void *state)
 {
         struct rxtx_mpegts *s = state;
+        assert(s->magic == MAGIC);
         if (s->dump_f) {
                 fclose(s->dump_f);
         }

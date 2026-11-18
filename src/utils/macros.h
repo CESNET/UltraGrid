@@ -116,6 +116,7 @@
                     "\n%s:%d: %s: snprintf truncates %s (%zu B given)!\n\n",   \
                     __FILE__, __LINE__, __func__, #str, sizeof str);           \
         } while (0)
+#define strcpy_ch(var, val) snprintf_ch(var, "%s", val)
 
 #define STARTS_WITH(str, token) !strncmp(str, token, strlen(token))
 
