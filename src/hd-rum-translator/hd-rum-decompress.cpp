@@ -74,7 +74,7 @@ using std::string;
 using std::thread;
 using std::unique_lock;
 
-namespace hd_rum_decompress {
+namespace {
 struct state_transcoder_decompress final {
         struct rxtx *rxtx = nullptr;
         struct rtp_rxtx_common *rtp_common_state = nullptr;
@@ -128,9 +128,7 @@ void state_transcoder_decompress::frame_arrived(void *state, struct video_frame 
         l.unlock();
         s->have_frame_cv.notify_one();
 }
-} // namespace hd_rum_decompress
-
-using namespace hd_rum_decompress;
+} // anon namespace
 
 ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count)
 {
