@@ -3,4 +3,4 @@
 	url = https://github.com/tahoe-lafs/zfec
 [submodule "ext-deps/libmpegts"]
 	path = ext-deps/libmpegts
-	url = https://github.com/kierank/libmpegts
+	url = https://github.com/MartinPulec/libmpegts
