@@ -1,5 +1,5 @@
 /**
- * @file   utils/overlay_scale.c
+ * @file
  * @author Ben Roeder     <ben@sohonet.com>
  * @brief  Resize a 16-bit RGBA overlay via libswscale.
  */
@@ -46,7 +46,7 @@
 #include <libavutil/opt.h>
 #include <libswscale/swscale.h>
 
-#include "utils/overlay_scale.h"
+#include "vo_postprocess/overlay/overlay_scale.h"
 
 /* libavutil's RGBA64LE matches our 16-bit RGBA layout (R then G then B then
  * A, native uint16_t per component) on all little-endian targets. There's

@@ -1,5 +1,5 @@
 /**
- * @file   utils/overlay_config.h
+ * @file
  * @author Ben Roeder     <ben@sohonet.com>
  * @brief  Parser for the overlay postprocessor's configuration string.
  */
@@ -36,14 +36,14 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UTILS_OVERLAY_CONFIG_H_8F2A1B6D_3E5C_4A7F_B9D2_5C8A1E4F7B3D
-#define UTILS_OVERLAY_CONFIG_H_8F2A1B6D_3E5C_4A7F_B9D2_5C8A1E4F7B3D
+#ifndef VO_POSTPROCESS_OVERLAY_OVERLAY_CONFIG_H
+#define VO_POSTPROCESS_OVERLAY_OVERLAY_CONFIG_H
 
 #include <stdbool.h>
 
-#include "utils/overlay_layout.h"
+#include "vo_postprocess/overlay/overlay_layout.h"
 #include "utils/fs.h"
-#include "utils/overlay_scale.h"
+#include "vo_postprocess/overlay/overlay_scale.h"
 
 #ifdef __cplusplus
 extern "C" {

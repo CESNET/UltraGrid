@@ -1,5 +1,5 @@
 /**
- * @file   utils/alpha_blend.h
+ * @file
  * @author Ben Roeder     <ben@sohonet.com>
  * @brief  Alpha blending of 16-bit RGBA overlay onto native video formats
  */
@@ -36,8 +36,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UTILS_ALPHA_BLEND_H_5A8F2C1B_4E73_4D8A_B6F0_2C9E1F4A8B3D
-#define UTILS_ALPHA_BLEND_H_5A8F2C1B_4E73_4D8A_B6F0_2C9E1F4A8B3D
+#ifndef VO_POSTPROCESS_OVERLAY_ALPHA_BLEND_H
+#define VO_POSTPROCESS_OVERLAY_ALPHA_BLEND_H
 
 #include <stdint.h>
 

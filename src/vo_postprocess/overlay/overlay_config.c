@@ -1,5 +1,5 @@
 /**
- * @file   utils/overlay_config.c
+ * @file
  * @author Ben Roeder     <ben@sohonet.com>
  * @brief  Parser for the overlay postprocessor's configuration string.
  */
@@ -49,7 +49,7 @@
 #include "debug.h"
 #include "utils/macros.h"
 #include "utils/misc.h"
-#include "utils/overlay_config.h"
+#include "vo_postprocess/overlay/overlay_config.h"
 
 #define MOD_NAME "[overlay_config] "
 

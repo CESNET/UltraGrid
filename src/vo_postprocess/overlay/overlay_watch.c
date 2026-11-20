@@ -1,5 +1,5 @@
 /**
- * @file   utils/overlay_watch.c
+ * @file
  * @author Ben Roeder     <ben@sohonet.com>
  * @brief  mtime/size-based file change detection for overlay hot-reload.
  */
@@ -42,7 +42,7 @@
 
 #include <sys/stat.h>
 
-#include "utils/overlay_watch.h"
+#include "vo_postprocess/overlay/overlay_watch.h"
 
 /* Snapshot the file's mtime+size, returning false if the file is absent
  * (transient — e.g. mid-atomic-rename). Centralises the platform-specific

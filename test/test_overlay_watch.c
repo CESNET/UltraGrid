@@ -1,7 +1,7 @@
 /**
  * @file   test/test_overlay_watch.c
  * @author Ben Roeder     <ben@sohonet.com>
- * @brief  Unit tests for utils/overlay_watch.c
+ * @brief  Unit tests for vo_postprocess/overlay/overlay_watch.c
  */
 /*
  * Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
@@ -51,7 +51,7 @@
 #include "test_overlay_watch.h"
 #include "unit_common.h"
 #include "utils/fs.h"
-#include "utils/overlay_watch.h"
+#include "vo_postprocess/overlay/overlay_watch.h"
 
 static bool write_file(const char **path_out, const char *body, size_t len)
 {

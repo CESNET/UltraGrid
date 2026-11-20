@@ -1,5 +1,5 @@
 /**
- * @file   utils/overlay_scale.h
+ * @file
  * @author Ben Roeder     <ben@sohonet.com>
  * @brief  Resize a 16-bit RGBA overlay via libswscale.
  */
@@ -36,8 +36,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UTILS_OVERLAY_SCALE_H_5C8F2A1B_3D6E_4A8F_9C7D_2E5B1F4A8C3D
-#define UTILS_OVERLAY_SCALE_H_5C8F2A1B_3D6E_4A8F_9C7D_2E5B1F4A8C3D
+#ifndef VO_POSPROCESS_OVERLAY_OVERLAY_SCALE_H
+#define VO_POSPROCESS_OVERLAY_OVERLAY_SCALE_H
 
 #include <stdbool.h>
 #include <stdint.h>

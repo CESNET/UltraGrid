@@ -1,7 +1,7 @@
 /**
  * @file   test/test_overlay_config.c
  * @author Ben Roeder     <ben@sohonet.com>
- * @brief  Unit tests for utils/overlay_config.c
+ * @brief  Unit tests for vo_postprocess/overlay/overlay_config.c
  */
 /*
  * Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
@@ -45,7 +45,7 @@
 
 #include "test_overlay_config.h"
 #include "unit_common.h"
-#include "utils/overlay_config.h"
+#include "vo_postprocess/overlay/overlay_config.h"
 
 /* file=PATH alone: position defaults to center; help is false. */
 int overlay_config_test_minimal_file_only(void)

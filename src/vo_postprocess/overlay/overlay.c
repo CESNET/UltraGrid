@@ -1,5 +1,5 @@
 /**
- * @file   vo_postprocess/overlay.c
+ * @file
  * @author Ben Roeder     <ben@sohonet.com>
  * @brief  Image overlay postprocessor (native-format alpha blending).
  */
@@ -51,15 +51,15 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "tv.h"
-#include "utils/alpha_blend.h"
+#include "vo_postprocess/overlay/alpha_blend.h"
 #include "utils/color_out.h"
 #include "utils/macros.h"
-#include "utils/overlay_config.h"
-#include "utils/overlay_layout.h"
-#include "utils/overlay_pam.h"
-#include "utils/overlay_scale.h"
-#include "utils/overlay_soft_edge.h"
-#include "utils/overlay_watch.h"
+#include "vo_postprocess/overlay/overlay_config.h"
+#include "vo_postprocess/overlay/overlay_layout.h"
+#include "vo_postprocess/overlay/overlay_pam.h"
+#include "vo_postprocess/overlay/overlay_scale.h"
+#include "vo_postprocess/overlay/overlay_soft_edge.h"
+#include "vo_postprocess/overlay/overlay_watch.h"
 #include "utils/worker.h"
 #include "video_codec.h"
 #include "video_frame.h"

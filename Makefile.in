@@ -540,10 +540,10 @@ e2e-tests: $(TARGET)
 @HAVE_RAPIDCHECK_TRUE@	$(POSTPROCESS_DEPS)
 
 @HAVE_RAPIDCHECK_TRUE@bin/rapidcheck_tests: $(RAPIDCHECK_TEST_OBJS) \
-@HAVE_RAPIDCHECK_TRUE@		src/utils/alpha_blend.o src/color_space.o \
-@HAVE_RAPIDCHECK_TRUE@		src/utils/overlay_layout.o \
-@HAVE_RAPIDCHECK_TRUE@		src/utils/overlay_soft_edge.o \
-@HAVE_RAPIDCHECK_TRUE@		src/utils/overlay_watch.o
+@HAVE_RAPIDCHECK_TRUE@		src/vo_postprocess/overlay/alpha_blend.o src/color_space.o \
+@HAVE_RAPIDCHECK_TRUE@		src/vo_postprocess/overlay/overlay_layout.o \
+@HAVE_RAPIDCHECK_TRUE@		src/vo_postprocess/overlay/overlay_soft_edge.o \
+@HAVE_RAPIDCHECK_TRUE@		src/vo_postprocess/overlay/overlay_watch.o
 @HAVE_RAPIDCHECK_TRUE@	$(CXX) $(CXXFLAGS) $(RAPIDCHECK_CFLAGS) -o $@ $^ \
 @HAVE_RAPIDCHECK_TRUE@		./ext-deps/rapidcheck/build/librapidcheck.a -pthread
 

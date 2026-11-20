@@ -1,5 +1,5 @@
 /**
- * @file   utils/alpha_blend.c
+ * @file
  * @author Ben Roeder     <ben@sohonet.com>
  * @brief  Alpha blending of 16-bit RGBA overlay onto native video formats
  */
@@ -44,7 +44,7 @@
 
 #include "color_space.h"      // for get_color_coeffs, RGB_TO_*, COMP_BASE, LIMIT_*
 #include "types.h"            // for DEPTH8, DEPTH10, DEPTH16
-#include "utils/alpha_blend.h"
+#include "vo_postprocess/overlay/alpha_blend.h"
 #include "utils/macros.h"     // for CLAMP
 
 /* For 16-bit RGB input through DEPTH-N coefficients, the right-shift accounts

@@ -1,5 +1,5 @@
 /**
- * @file   utils/overlay_soft_edge.h
+ * @file
  * @author Ben Roeder     <ben@sohonet.com>
  * @brief  Linear alpha-edge fade for the overlay buffer.
  */
@@ -36,30 +36,38 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UTILS_OVERLAY_SOFT_EDGE_H_4D2A8B7F_3E1C_4F6A_9B5D_8C2E1F4A6B3D
-#define UTILS_OVERLAY_SOFT_EDGE_H_4D2A8B7F_3E1C_4F6A_9B5D_8C2E1F4A6B3D
-
-#include <stdint.h>
-
-#ifdef __cplusplus
-extern "C" {
+#ifdef HAVE_CONFIG_H
+#include "config.h"
 #endif
 
-/*
- * Apply a linear alpha ramp around the edges of a 16-bit RGBA overlay.
- * For every pixel, alpha is multiplied by min(d, edge_w) / edge_w where
- * d is the distance to the nearest edge — pixels on the outer row/column
- * end up at alpha=0, and pixels at distance >= edge_w are unchanged.
- *
- * RGB components are not touched. edge_w == 0 is a no-op. edge_w larger
- * than min(width, height) / 2 is silently clamped to that limit (so the
- * centre still keeps non-zero alpha for pathological config values).
- */
+#include "utils/macros.h"
+#include "vo_postprocess/overlay/overlay_soft_edge.h"
+
 void overlay_apply_soft_edge(uint16_t *rgba16,
-                             int width, int height, int edge_w);
+                             int width, int height, int edge_w)
+{
+        if (edge_w <= 0 || width <= 0 || height <= 0) return;
 
-#ifdef __cplusplus
+        /* Clamp so the centre always keeps non-zero alpha. For a 4-wide
+         * buffer the deepest interior pixel is at distance 2 from each
+         * edge, so the maximum useful edge_w is width/2 (and height/2). */
+        const int max_edge = MIN(width, height) / 2;
+        if (edge_w > max_edge) edge_w = max_edge;
+        /* Reachable for a 1xN or Nx1 buffer (max_edge=0); also prevents
+         * the divide-by-zero in the inner loop. */
+        if (edge_w == 0) return;
+
+        for (int y = 0; y < height; y++) {
+                const int dy = MIN(y, height - 1 - y);
+                for (int x = 0; x < width; x++) {
+                        const int dx = MIN(x, width - 1 - x);
+                        const int d = MIN(dx, dy);
+                        if (d >= edge_w) continue;
+                        uint16_t *a = &rgba16[(y * width + x) * 4 + 3];
+                        /* Linear ramp: alpha *= d / edge_w. uint32_t holds
+                         * 65535 * (edge_w - 1) since edge_w is clamped to
+                         * MIN(w, h)/2 — well below 2^16. */
+                        *a = (uint16_t)(((uint32_t)*a * (uint32_t)d) / (uint32_t)edge_w);
+                }
+        }
 }
-#endif
-
-#endif

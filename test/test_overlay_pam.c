@@ -1,7 +1,7 @@
 /**
  * @file   test/test_overlay_pam.c
  * @author Ben Roeder     <ben@sohonet.com>
- * @brief  Unit tests for utils/overlay_pam.c, registered via run_tests.c
+ * @brief  Unit tests for vo_postprocess/overlay/overlay_pam.c, registered via run_tests.c
  */
 /*
  * Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
@@ -50,7 +50,7 @@
 #include "test_overlay_pam.h"
 #include "unit_common.h"
 #include "utils/fs.h"
-#include "utils/overlay_pam.h"
+#include "vo_postprocess/overlay/overlay_pam.h"
 
 /* Write a temp PAM file with the given header + data and return its path via
  * *path_out (caller will unlink). Returns true on success. */

@@ -1,5 +1,5 @@
 /**
- * @file   utils/overlay_layout.c
+ * @file
  * @author Ben Roeder     <ben@sohonet.com>
  * @brief  Overlay positioning math
  */
@@ -41,7 +41,7 @@
 #endif
 
 #include "utils/macros.h"
-#include "utils/overlay_layout.h"
+#include "vo_postprocess/overlay/overlay_layout.h"
 
 /* 1D placement: the overlay's left edge wants to be at signed
  * coordinate `pos` within a frame of size `frame_size`. Compute the

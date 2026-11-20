@@ -1,7 +1,7 @@
 /**
  * @file   test/test_overlay_scale.c
  * @author Ben Roeder     <ben@sohonet.com>
- * @brief  Unit tests for utils/overlay_scale.c
+ * @brief  Unit tests for vo_postprocess/overlay/overlay_scale.c
  */
 /*
  * Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
@@ -46,7 +46,7 @@
 
 #include "test_overlay_scale.h"
 #include "unit_common.h"
-#include "utils/overlay_scale.h"
+#include "vo_postprocess/overlay/overlay_scale.h"
 
 static void
 fill_solid_red(uint16_t *buf, int w, int h)

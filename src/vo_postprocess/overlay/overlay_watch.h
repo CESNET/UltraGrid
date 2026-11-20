@@ -1,5 +1,5 @@
 /**
- * @file   utils/overlay_watch.h
+ * @file
  * @author Ben Roeder     <ben@sohonet.com>
  * @brief  mtime/size-based file change detection for overlay hot-reload.
  */
@@ -36,8 +36,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UTILS_OVERLAY_WATCH_H_7F3D9A2B_1E5C_4A8F_B6D3_2C9E5A1F8B4D
-#define UTILS_OVERLAY_WATCH_H_7F3D9A2B_1E5C_4A8F_B6D3_2C9E5A1F8B4D
+#ifndef VO_POSTPROCESS_OVERLAY_OVERLAY_WATCH_H
+#define VO_POSTPROCESS_OVERLAY_OVERLAY_WATCH_H
 
 #include <stdbool.h>
 #include <stdint.h>

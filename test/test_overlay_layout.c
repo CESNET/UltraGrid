@@ -1,7 +1,7 @@
 /**
  * @file   test/test_overlay_layout.c
  * @author Ben Roeder     <ben@sohonet.com>
- * @brief  Unit tests for utils/overlay_layout.c
+ * @brief  Unit tests for vo_postprocess/overlay/overlay_layout.c
  */
 /*
  * Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
@@ -42,7 +42,7 @@
 
 #include "test_overlay_layout.h"
 #include "unit_common.h"
-#include "utils/overlay_layout.h"
+#include "vo_postprocess/overlay/overlay_layout.h"
 
 /* Center: a 200x100 overlay in 1920x1080 frame -> (860, 490, 200, 100). */
 int overlay_layout_test_center(void)

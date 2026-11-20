@@ -45,7 +45,7 @@
 
 #include "test_alpha_blend.h"
 #include "unit_common.h"
-#include "utils/alpha_blend.h"
+#include "vo_postprocess/overlay/alpha_blend.h"
 
 static void mk_pixel16(uint16_t *p, int r, int g, int b, int a)
 {
@@ -508,7 +508,7 @@ int alpha_blend_test_v210_alpha_max_white(void)
         return 0;
 }
 
-/* R10k: see alpha_blend_r10k in src/utils/alpha_blend.c for layout. */
+/* R10k: see alpha_blend_r10k in src/vo_postprocess/overlay/alpha_blend.c for layout. */
 
 int alpha_blend_test_r10k_alpha_zero(void)
 {
@@ -545,7 +545,7 @@ int alpha_blend_test_r10k_alpha_max_white(void)
         return 0;
 }
 
-/* R12L: see alpha_blend_r12l in src/utils/alpha_blend.c for layout. */
+/* R12L: see alpha_blend_r12l in src/vo_postprocess/overlay/alpha_blend.c for layout. */
 
 /* Unpack a 12-bit pixel from a 9-byte R12L sub-block. */
 static void r12l_unpack_pixel(const uint8_t *block, int pixel,

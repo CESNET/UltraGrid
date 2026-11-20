@@ -1,7 +1,7 @@
 /**
  * @file   test/test_alpha_blend_rapidcheck.cpp
  * @author Ben Roeder     <ben@sohonet.com>
- * @brief  Property-based tests for utils/alpha_blend.c — every codec.
+ * @brief  Property-based tests for vo_postprocess/overlay/alpha_blend.c — every codec.
  */
 /*
  * Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
@@ -43,7 +43,7 @@
 #include <vector>
 
 extern "C" {
-#include "utils/alpha_blend.h"
+#include "vo_postprocess/overlay/alpha_blend.h"
 }
 
 namespace {

@@ -1,5 +1,5 @@
 /**
- * @file   utils/overlay_pam.c
+ * @file
  * @author Ben Roeder     <ben@sohonet.com>
  * @brief  PAM image loader normalised to 16-bit RGBA
  */
@@ -42,7 +42,7 @@
 
 #include <stdlib.h>           // for free, malloc
 
-#include "utils/overlay_pam.h"
+#include "vo_postprocess/overlay/overlay_pam.h"
 #include "utils/pam.h"
 
 bool overlay_load_pam_rgba16(const char *path, uint16_t **out_data,

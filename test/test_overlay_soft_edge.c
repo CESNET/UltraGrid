@@ -1,7 +1,7 @@
 /**
  * @file   test/test_overlay_soft_edge.c
  * @author Ben Roeder     <ben@sohonet.com>
- * @brief  Unit tests for utils/overlay_soft_edge.c
+ * @brief  Unit tests for vo_postprocess/overlay/overlay_soft_edge.c
  */
 /*
  * Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
@@ -45,7 +45,7 @@
 
 #include "test_overlay_soft_edge.h"
 #include "unit_common.h"
-#include "utils/overlay_soft_edge.h"
+#include "vo_postprocess/overlay/overlay_soft_edge.h"
 
 /* Fill an opaque-white WxH RGBA16 buffer (alpha = 65535). */
 static void

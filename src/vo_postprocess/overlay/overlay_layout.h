@@ -1,5 +1,5 @@
 /**
- * @file   utils/overlay_layout.h
+ * @file
  * @author Ben Roeder     <ben@sohonet.com>
  * @brief  Overlay positioning math for the overlay postprocessor.
  */
@@ -36,8 +36,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UTILS_OVERLAY_LAYOUT_H_5C2D8A1B_3E7F_4A9B_8D6C_2F5E1A8B7C3D
-#define UTILS_OVERLAY_LAYOUT_H_5C2D8A1B_3E7F_4A9B_8D6C_2F5E1A8B7C3D
+#ifndef VO_POSTPROCESS_OVERLAY_OVERLAY_LAYOUT_H
+#define VO_POSTPROCESS_OVERLAY_OVERLAY_LAYOUT_H
 
 #ifdef __cplusplus
 extern "C" {

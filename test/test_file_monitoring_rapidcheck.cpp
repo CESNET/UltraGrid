@@ -1,7 +1,7 @@
 /**
  * @file   test/test_file_monitoring_rapidcheck.cpp
  * @author Ben Roeder     <ben@sohonet.com>
- * @brief  Property-based tests for utils/overlay_watch.c.
+ * @brief  Property-based tests for vo_postprocess/overlay/overlay_watch.c.
  */
 /*
  * Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
@@ -47,7 +47,7 @@
 #include <vector>
 
 extern "C" {
-#include "utils/overlay_watch.h"
+#include "vo_postprocess/overlay/overlay_watch.h"
 }
 
 namespace {

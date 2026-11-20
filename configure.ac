@@ -3813,14 +3813,14 @@ overlay=no
 if test "${overlay_req?}" != no; then
         if test "${found_libswscale?}" = yes; then
                 overlay_obj="\
-src/vo_postprocess/overlay.o \
-src/utils/alpha_blend.o \
-src/utils/overlay_config.o \
-src/utils/overlay_layout.o \
-src/utils/overlay_pam.o \
-src/utils/overlay_scale.o \
-src/utils/overlay_soft_edge.o \
-src/utils/overlay_watch.o"
+src/vo_postprocess/overlay/overlay.o \
+src/vo_postprocess/overlay/alpha_blend.o \
+src/vo_postprocess/overlay/overlay_config.o \
+src/vo_postprocess/overlay/overlay_layout.o \
+src/vo_postprocess/overlay/overlay_pam.o \
+src/vo_postprocess/overlay/overlay_scale.o \
+src/vo_postprocess/overlay/overlay_soft_edge.o \
+src/vo_postprocess/overlay/overlay_watch.o"
                 add_module vo_pp_overlay "$overlay_obj" "${LIBSWSCALE_LIBS?}"
                 overlay=yes
         fi

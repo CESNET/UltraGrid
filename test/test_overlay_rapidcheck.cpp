@@ -1,7 +1,7 @@
 /**
  * @file   test/test_overlay_rapidcheck.cpp
  * @author Ben Roeder     <ben@sohonet.com>
- * @brief  Property-based tests for utils/overlay_layout.c.
+ * @brief  Property-based tests for vo_postprocess/overlay/overlay_layout.c.
  */
 /*
  * Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
@@ -39,7 +39,7 @@
 #include <rapidcheck.h>
 
 extern "C" {
-#include "utils/overlay_layout.h"
+#include "vo_postprocess/overlay/overlay_layout.h"
 }
 
 namespace {

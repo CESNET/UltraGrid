@@ -1,5 +1,5 @@
 /**
- * @file   utils/overlay_pam.h
+ * @file
  * @author Ben Roeder     <ben@sohonet.com>
  * @brief  PAM image loader normalised to 16-bit RGBA, used by the overlay
  *         postprocessor.
@@ -37,8 +37,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UTILS_OVERLAY_PAM_H_3F8E2A1D_6B4C_4A9F_92E0_7D5C8E3A2B6F
-#define UTILS_OVERLAY_PAM_H_3F8E2A1D_6B4C_4A9F_92E0_7D5C8E3A2B6F
+#ifndef VO_POSTPROCESS_OVERLAY_OVERLAY_PAM_H
+#define VO_POSTPROCESS_OVERLAY_OVERLAY_PAM_H
 
 #include <stdbool.h>
 #include <stdint.h>
