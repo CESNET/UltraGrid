@@ -66,7 +66,7 @@ namespace{
 struct state_multiplier {
         std::vector<unique_disp> displays;
 
-        struct video_desc desc;
+        video_desc desc{};
 
         queue<struct video_frame *> incoming_queue;
         condition_variable in_queue_decremented_cv;
@@ -74,7 +74,7 @@ struct state_multiplier {
         mutex lock;
         condition_variable cv;
 
-        struct module *parent;
+        module *parent = nullptr;
         thread worker_thread;
 };
 }
