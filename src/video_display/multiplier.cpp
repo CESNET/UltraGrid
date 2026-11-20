@@ -62,6 +62,7 @@ struct disp_deleter{ void operator()(display *d){ display_done(d); } };
 using unique_disp = std::unique_ptr<struct display, disp_deleter>;
 }
 
+namespace{
 struct state_multiplier {
         std::vector<unique_disp> displays;
 
@@ -76,6 +77,7 @@ struct state_multiplier {
         struct module *parent;
         thread worker_thread;
 };
+}
 
 static void show_help(){
         printf("Multiplier display\n");
