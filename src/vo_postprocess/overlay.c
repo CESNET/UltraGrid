@@ -47,6 +47,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "compat/c23.h"  // IWYU pragma: keep
 #include "debug.h"
 #include "lib_common.h"
 #include "tv.h"
@@ -60,8 +61,8 @@
 #include "utils/overlay_soft_edge.h"
 #include "utils/overlay_watch.h"
 #include "utils/worker.h"
-#include "video.h"
 #include "video_codec.h"
+#include "video_frame.h"
 #include "video_display.h"
 #include "vo_postprocess.h"
 
@@ -798,6 +799,10 @@ static bool
 overlay_postprocess(void *state, struct video_frame *in,
                     struct video_frame *out, int req_pitch)
 {
+        if (in == nullptr) {
+                return false;
+        }
+
         struct state_overlay *s = state;
         assert(in->tile_count == 1);
         assert(req_pitch == vc_get_linesize(in->tiles[0].width, in->color_spec));
@@ -869,13 +874,11 @@ overlay_done(void *state)
 }
 
 static void
-overlay_get_out_desc(void *state, struct video_desc *out,
-                     int *in_display_mode, int *out_frames)
+overlay_get_out_desc(void *state, struct video_desc *out, int *in_display_mode)
 {
         struct state_overlay *s = state;
         *out             = s->saved_desc;
         *in_display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
-        *out_frames      = 1;
 }
 
 static bool
