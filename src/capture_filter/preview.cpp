@@ -84,6 +84,7 @@ using ipc_frame_conv_func_t = bool (*)(struct Ipc_frame *dst,
 
 using clk = std::chrono::steady_clock;
 
+namespace{
 struct state_preview_filter{
         std::mutex mut;
         std::condition_variable frame_submitted_cv;
@@ -102,6 +103,7 @@ struct state_preview_filter{
 
         std::thread worker_thread;
 };
+}
 
 static void worker(struct state_preview_filter *s, std::string path){
         Ipc_frame_uniq frame;
