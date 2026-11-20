@@ -134,14 +134,7 @@ COMMON_OBJS     = \
 		src/rxtx/rtp_common.o \
 		src/rxtx/ultragrid_rtp.o \
 		src/to_planar.o \
-		src/utils/alpha_blend.o \
 		src/utils/audio_buffer.o \
-		src/utils/overlay_config.o \
-		src/utils/overlay_layout.o \
-		src/utils/overlay_pam.o \
-		src/utils/overlay_scale.o \
-		src/utils/overlay_soft_edge.o \
-		src/utils/overlay_watch.o \
 		src/utils/color_out.o \
 		src/utils/config_file.o \
 		src/utils/fs.o \

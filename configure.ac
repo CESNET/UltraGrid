@@ -1997,6 +1997,8 @@ AC_ARG_ENABLE(libswscale,
 [libswscale_req=$build_default]
 )
 
+found_libswscale=no
+
 if test "$libswscale_req" != no; then
         if test $system = Windows; then
                 AC_CHECK_HEADERS([libswscale/swscale.h])
@@ -2006,8 +2008,6 @@ if test "$libswscale_req" != no; then
                 then
                         found_libswscale=yes
                         LIBSWSCALE_LIBS="-lswscale"
-                else
-                        found_libswscale=no
                 fi
         else # Linux, OS X
                 PKG_CHECK_MODULES([LIBSWSCALE], [libswscale], [found_libswscale=yes], [found_libswscale=no])
@@ -3800,6 +3800,34 @@ fi
 
 ENSURE_FEATURE_PRESENT([$fluidsynth_req], [$fluidsynth], [fluidsynth not found!])
 
+# ---------------------------------------------------------------------
+# overlay
+# ---------------------------------------------------------------------
+AC_ARG_ENABLE(overlay,
+              AS_HELP_STRING([--disable-overlay],
+[disable overlay postprocess filter (default is auto); requires libswscale]),
+              [overlay_req=$enableval],
+              [overlay_req=$build_default])
+overlay=no
+
+if test "${overlay_req?}" != no; then
+        if test "${found_libswscale?}" = yes; then
+                overlay_obj="\
+src/vo_postprocess/overlay.o \
+src/utils/alpha_blend.o \
+src/utils/overlay_config.o \
+src/utils/overlay_layout.o \
+src/utils/overlay_pam.o \
+src/utils/overlay_scale.o \
+src/utils/overlay_soft_edge.o \
+src/utils/overlay_watch.o"
+                add_module vo_pp_overlay "$overlay_obj" "${LIBSWSCALE_LIBS?}"
+                overlay=yes
+        fi
+fi
+
+ENSURE_FEATURE_PRESENT([${overlay_req?}], [${overlay?}], [overlay not found!])
+
 # -----------------------------------------------------------------------------
 # Reflector
 # -----------------------------------------------------------------------------
@@ -3917,7 +3945,6 @@ if test "$build_default" != no || test "$req_files" = all; then
         src/vo_postprocess/delay.o
         src/vo_postprocess/dummy.o
         src/vo_postprocess/interlace.o
-        src/vo_postprocess/overlay.o
         src/vo_postprocess/split.o
         src/vo_postprocess/temporal-deint.o
         src/vo_postprocess/temporal_3d.o
@@ -4122,6 +4149,7 @@ add_column "Hole punching" "${libjuice?}"
 add_column "iHDTV support" "${ihdtv?}"
 add_column "MCU-like video mixer" "${video_mix?}"
 add_column "NAT-PMP traversal" "${natpmp?}"
+add_column "Overlay postprocessor" "${overlay?}"
 add_column "PCP NAT traversal" "${pcp?}"
 add_column "Resize capture filter" "${resize?}"
 add_column "RTSP server" "${rtsp_server?}"
