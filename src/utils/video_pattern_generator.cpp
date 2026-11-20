@@ -97,6 +97,7 @@ using std::unique_ptr;
 using std::uniform_int_distribution;
 using std::vector;
 
+namespace{
 enum class generator_depth {
         bits8, ///< RGBA
         bits16 ///< RG48
@@ -758,11 +759,14 @@ unique_ptr<image_pattern> image_pattern::create(string const &pattern, string co
         throw std::runtime_error("Unknown pattern: "s +  pattern + "!"s);
 }
 
+} //anon namespace
+
 struct video_pattern_generator {
         virtual char *get_next() = 0;
         virtual ~video_pattern_generator() {}
 };
 
+namespace{
 struct still_image_video_pattern_generator : public video_pattern_generator {
         still_image_video_pattern_generator(string const &pattern, string const &params, int w, int h, codec_t c, int o)
                 : width(w), height(h), color_spec(c), offset(o)
@@ -928,6 +932,8 @@ private:
         int cur_idx = 0;
         vector<char> data;
 };
+
+} //anon namespace
 
 video_pattern_generator_t
 video_pattern_generator_create(const char *config, int width, int height, codec_t color_spec, int offset)
