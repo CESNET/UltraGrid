@@ -3788,6 +3788,7 @@ src/vo_postprocess/overlay/overlay_scale.o \
 src/vo_postprocess/overlay/overlay_soft_edge.o \
 src/vo_postprocess/overlay/overlay_watch.o"
                 add_module vo_pp_overlay "$overlay_obj" "${LIBSWSCALE_LIBS?}"
+                AC_DEFINE([HAVE_OVERLAY], [1], [Build with overlay postprocess support])
                 overlay=yes
         fi
 fi

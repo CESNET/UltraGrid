@@ -189,13 +189,7 @@ TEST_OBJS = $(COMMON_OBJS) \
 	    @TEST_OBJS@ \
 	    test/codec_conversions_test.o \
 	    test/ff_codec_conversions_test.o \
-	    test/test_alpha_blend.o \
-	    test/test_overlay_config.o \
-	    test/test_overlay_layout.o \
-	    test/test_overlay_pam.o \
-	    test/test_overlay_scale.o \
-	    test/test_overlay_soft_edge.o \
-	    test/test_overlay_watch.o \
+	    test/test_overlay.o \
 	    test/get_framerate_test.o \
 	    test/gpujpeg_test.o \
 	    test/libavcodec_test.o \
