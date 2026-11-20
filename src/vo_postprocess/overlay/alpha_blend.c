@@ -36,10 +36,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <string.h>           // for memcpy
 
 #include "color_space.h"      // for get_color_coeffs, RGB_TO_*, COMP_BASE, LIMIT_*

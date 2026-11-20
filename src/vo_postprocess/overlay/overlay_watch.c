@@ -36,10 +36,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <sys/stat.h>
 
 #include "vo_postprocess/overlay/overlay_watch.h"

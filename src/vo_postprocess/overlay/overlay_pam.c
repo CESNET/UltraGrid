@@ -36,10 +36,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
 #include <stdlib.h>           // for free, malloc
 
 #include "vo_postprocess/overlay/overlay_pam.h"
