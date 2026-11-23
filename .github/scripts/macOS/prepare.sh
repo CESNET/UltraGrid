@@ -31,43 +31,43 @@ echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig" >> "$GITHUB_ENV"
 echo "/usr/local/opt/qt/bin" >> "$GITHUB_PATH"
 echo "DYLIBBUNDLER_FLAGS=$DYLIBBUNDLER_FLAGS" >> "$GITHUB_ENV"
 
-set -- \
-        asciidoctor \
-        autoconf \
-        automake \
-        ffmpeg \
-        fluidsynth \
-        glm \
-        imagemagick \
-        jack \
-        libcaca \
-        libnatpmp \
-        libsoxr \
-        libtool \
-        molten-vk \
-        opencv \
-        ossp-uuid `#for cineform` \
-        pkg-config \
-        portaudio \
-        qt \
-        readline `#for fluidsynth` \
-        sdl3 \
-        sdl3_ttf \
-        speexdsp \
-        vulkan-headers \
-        wolfssl \
-
-# shellcheck disable=SC2034
-for n in $(seq $#); do
-        # if not installed, add on the back of positional parameters
+brew_install_list=
+# if not installed, add on the back of brew_install_list
+# the rationale is not to install already installed items, otherwise
+# the Homebrew issues warning about it which is passed to GH Action
+# warning, which is ugly
+brew_add() {
         if ! brew list "$1" >/dev/null 2>&1; then
-                set -- "$@" "$1"
+                brew_install_list="$brew_install_list $1"
         fi
-        shift # remove from the front
-done
+}
+brew_add asciidoctor
+brew_add autoconf
+brew_add automake
+brew_add ffmpeg
+brew_add fluidsynth
+brew_add glm
+brew_add imagemagick
+brew_add jack
+brew_add libcaca
+brew_add libnatpmp
+brew_add libsoxr
+brew_add libtool
+brew_add molten-vk
+brew_add opencv
+brew_add ossp-uuid # for cineform
+brew_add pkg-config
+brew_add portaudio
+brew_add qt
+brew_add readline # for fluidsynth
+brew_add sdl3
+brew_add sdl3_ttf
+brew_add speexdsp
+brew_add vulkan-headers
+brew_add wolfssl
+# shellcheck disable=SC2086
+brew install $brew_install_list
 
-brew install "$@"
- 
 mkdir $TEMP_INST
 cd $TEMP_INST
 
