@@ -59,7 +59,6 @@ brew_add ossp-uuid # for cineform
 brew_add pkg-config
 brew_add portaudio
 brew_add qt
-brew_add readline # for fluidsynth
 brew_add sdl3
 brew_add sdl3_ttf
 brew_add speexdsp
@@ -70,6 +69,11 @@ brew install $brew_install_list
 
 mkdir $TEMP_INST
 cd $TEMP_INST
+
+HOMEBREW_PREFIX=$(brew --prefix)
+sed '/^Requires\.private/ s/^/# /'\
+ "$HOMEBREW_PREFIX"/lib/pkgconfig/fluidsynth.pc > override
+sudo mv override "$HOMEBREW_PREFIX"/lib/pkgconfig/fluidsynth.pc
 
 "$srcroot/.github/scripts/macOS/install_dylibbundler_v2.sh"
 
