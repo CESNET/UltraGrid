@@ -25,9 +25,6 @@ jobs:
       run: |
               echo "secrets.coverity_token not present, skipping the analysis!"
               exit 1
-    - name: Identify OS version
-      id: image
-      run: echo "os=${ImageOS?}" >> "$GITHUB_OUTPUT"
 
     - name: Get Coverity tool name # the file name contains version and is used as the cache key
       id: tool
@@ -56,6 +53,8 @@ jobs:
     - uses: actions/checkout@main
       with:
         submodules: true
+    - name: Set environment
+      run: . .github/scripts/environment.sh
     - name: Fetch SDKs ETags
       id: etags
       run: |
@@ -72,7 +71,7 @@ jobs:
       uses: actions/cache@main
       with:
         path: '/var/tmp/ffmpeg'
-        key: cache-ffmpeg-${{ github.workflow }}-${{ steps.image.outputs.os }}-${{
+        key: cache-ffmpeg-${{ github.workflow }}-${{ env.ImageOS }}-${{
          hashFiles( '.github/scripts/Linux/install_ffmpeg.sh',
          '.github/scripts/Linux/install_other.sh',
          '.github/scripts/Linux/ffmpeg-patches/*') }}
@@ -80,18 +79,16 @@ jobs:
       uses: actions/cache@main
       with:
         path: '/var/tmp/sdl'
-        key: cache-sdl-${{ github.workflow }}-${{ steps.image.outputs.os }}-${{ hashFiles(
+        key: cache-sdl-${{ github.workflow }}-${{ env.ImageOS }}-${{ hashFiles(
          '.github/scripts/Linux/install_sdl.sh' ) }}
     - name: Cache GLFW
       uses: actions/cache@main
       with:
         path: '/var/tmp/glfw'
-        key: cache-glfw-${{ github.workflow }}-${{ steps.image.outputs.os }}-${{ hashFiles(
+        key: cache-glfw-${{ github.workflow }}-${{ env.ImageOS }}-${{ hashFiles(
          '.github/scripts/Linux/install_glfw.sh' ) }}
     - name: bootstrap
-      run: |
-           . .github/scripts/environment.sh
-           .github/scripts/Linux/prepare.sh
+      run:  .github/scripts/Linux/prepare.sh
 
     - name: configure
       run: |
