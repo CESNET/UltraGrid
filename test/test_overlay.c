@@ -49,8 +49,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
+#ifdef _WIN32
+#include <sys/utime.h>
+#else
 #include <sys/time.h>
+#endif
 #include <unistd.h>
 
 #include "unit_common.h"
@@ -1550,7 +1553,8 @@ static int overlay_watch_test_detects_size_change(void)
 }
 
 /* Same size, different mtime -> change detected. Force the baseline mtime
- * into the past via utimes() so we don't depend on timing resolution. */
+ * into the past (Windows has neither utimes() nor utimensat(), so use the
+ * CRT _utime() there; 1-s resolution suffices for a backdate to 1000000). */
 static int overlay_watch_test_detects_mtime_change(void)
 {
         const char *path = NULL;
@@ -1559,10 +1563,17 @@ static int overlay_watch_test_detects_mtime_change(void)
         struct overlay_watch w;
         overlay_watch_init(&w, path);
 
+#ifdef _WIN32
+        struct _utimbuf tb;
+        tb.actime = 1000000;   /* atime */
+        tb.modtime = 1000000;  /* mtime: well in the past */
+        ASSERT_EQUAL_MESSAGE("_utime", 0, _utime(path, &tb));
+#else
         struct timeval tv[2];
         tv[0].tv_sec = 1000000; tv[0].tv_usec = 0;  /* atime */
         tv[1].tv_sec = 1000000; tv[1].tv_usec = 0;  /* mtime: well in the past */
         ASSERT_EQUAL_MESSAGE("utimes", 0, utimes(path, tv));
+#endif
 
         ASSERT_MESSAGE("changed", overlay_watch_changed(&w, path));
 
