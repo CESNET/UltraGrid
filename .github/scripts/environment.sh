@@ -76,6 +76,7 @@ export FEATURES="\
  --enable-speexdsp\
  --enable-swmix\
  --enable-libswscale\
+ --enable-overlay\
  --enable-testcard2=ttf\
  --enable-text\
  --enable-video-mixer\
