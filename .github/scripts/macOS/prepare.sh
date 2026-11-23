@@ -50,6 +50,7 @@ set -- \
         pkg-config \
         portaudio \
         qt \
+        readline `#for fluidsynth` \
         sdl3 \
         sdl3_ttf \
         speexdsp \
