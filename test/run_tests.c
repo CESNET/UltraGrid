@@ -42,6 +42,9 @@
 
 #include <assert.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "debug.h"
 #include "host.h"
@@ -139,7 +142,6 @@ test_helper(const char *name, int (*func)(), const char *test_opts, bool quiet)
 {
         assert(test_opts);
         g_test_opts = test_opts;
-        int ret = func();
         if (!quiet) {
                 char msg_start[] = "Testing ";
                 size_t len = sizeof msg_start + strlen(name);
@@ -147,7 +149,12 @@ test_helper(const char *name, int (*func)(), const char *test_opts, bool quiet)
                 for (int i = len; i < 74; ++i) {
                         fprintf(stderr, ".");
                 }
-                fprintf(stderr, " %s\n", ret == 0 ? "Ok" : ret < 0 ? "FAIL" : "--");
+                fprintf(stderr, " ");
+                fflush(stderr);
+        }
+        int ret = func();
+        if (!quiet) {
+                fprintf(stderr, "%s\n", ret == 0 ? "Ok" : ret < 0 ? "FAIL" : "--");
         }
         return ret >= 0;
 }
