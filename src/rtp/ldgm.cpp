@@ -100,7 +100,7 @@ typedef struct {
 #define PCT10 10.0
 typedef double loss_t;
 
-loss_t losses[] = {
+static loss_t losses[] = {
         std::numeric_limits<double>::min(),
                 PCT2,
                 PCT5,
