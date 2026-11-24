@@ -178,8 +178,6 @@ unsigned int cuda_devices[MAX_CUDA_DEVICES] = { 0 };
 unsigned int cuda_devices_count = 1;
 bool cuda_devices_explicit = false;
 
-uint32_t RTT = 0;               /*  this is computed by handle_rr in rtp_callback */
-
 int uv_argc;
 char **uv_argv;
 

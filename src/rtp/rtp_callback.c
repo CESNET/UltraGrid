@@ -80,7 +80,7 @@ char hdr_buf[100];
 // struct msghdr msg;
 // struct iovec iov[10];
 
-extern uint32_t RTT;
+static uint32_t RTT = 0;
 
 static void process_rr(struct rtp *session, rtp_event * e)
 {
