@@ -40,6 +40,7 @@
 #include "config.h"
 #endif
 
+#include <assert.h>
 #include <stdbool.h>
 
 #include "debug.h"
@@ -65,6 +66,8 @@ uint32_t progressive = 0;
 uint32_t hd_video_mode;
 
 long packet_rate = 13600;
+
+const char *g_test_opts = "";
 
 #define DECLARE_TEST(func) int func(void)
 #define DEFINE_QUIET_TEST(func) { #func, func, true } // original tests that print status by itselves
@@ -131,7 +134,11 @@ static const struct {
         DEFINE_TEST(test_sdp_parser),
 };
 
-static bool test_helper(const char *name, int (*func)(), bool quiet) {
+static bool
+test_helper(const char *name, int (*func)(), const char *test_opts, bool quiet)
+{
+        assert(test_opts);
+        g_test_opts = test_opts;
         int ret = func();
         if (!quiet) {
                 char msg_start[] = "Testing ";
@@ -148,9 +155,18 @@ static bool test_helper(const char *name, int (*func)(), bool quiet) {
 static bool run_tests(const char *test)
 {
         if (test) {
+                char buf[2048];
+                snprintf(buf, sizeof buf, "%s", test);
+                char *delim = strchr(buf, ':');
+                const char *test_opts = "";
+                if (delim) {
+                        *delim = '\0';
+                        test_opts = delim + 1;
+                }
+                test = buf;
                 for (unsigned i = 0; i < sizeof tests / sizeof tests[0]; ++i) {
                         if (strcmp(test, tests[i].name) == 0) {
-                                return test_helper(tests[i].name, tests[i].test, tests[i].quiet);
+                                return test_helper(tests[i].name, tests[i].test, test_opts, tests[i].quiet);
                         }
                 }
                 fprintf(stderr, "No such a test named \"%s!\"\n", test);
@@ -158,7 +174,7 @@ static bool run_tests(const char *test)
         }
         bool ret = true;
         for (unsigned i = 0; i < sizeof tests / sizeof tests[0]; ++i) {
-                ret = test_helper(tests[i].name, tests[i].test, tests[i].quiet) && ret;
+                ret = test_helper(tests[i].name, tests[i].test, "", tests[i].quiet) && ret;
         }
         return ret;
 }

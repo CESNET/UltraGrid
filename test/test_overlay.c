@@ -65,6 +65,8 @@
 
 int overlay_test(void);
 
+extern const char *g_test_opts; // set by run_tests.c from "overlay_test:<opts>"
+
 /*
  * ---- test_alpha_blend (formerly test/test_alpha_blend.c) ----
  */
@@ -2070,14 +2072,40 @@ static const struct {
  */
 int overlay_test(void)
 {
+        if (strcmp(g_test_opts, "help") == 0) {
+                printf("Usage: run_tests overlay_test[:help|<subtest>]\n\n"
+                       "Runs all subtests, a single subtest selected by name,\n"
+                       "or lists the subtests with :help.\n"
+                       "Available subtests:\n");
+                for (size_t i = 0; i < sizeof subtests / sizeof subtests[0]; ++i) {
+                        printf(" - %s\n", subtests[i].name);
+                }
+                return 1; // help requested, runner reports "--"
+        }
+
+        bool single_test = strlen(g_test_opts) > 0;
+
         bool ok = true;
+        int nr_run = 0;
         for (size_t i = 0; i < sizeof subtests / sizeof subtests[0]; i++) {
+                if (single_test && strcmp(subtests[i].name, g_test_opts) != 0) {
+                        continue;
+                }
+                nr_run += 1;
                 int ret = subtests[i].test();
                 if (ret != 0) {
                         fprintf(stderr, "overlay subtest %s failed\n",
                                 subtests[i].name);
                         ok = false;
                 }
+        }
+
+        if (!nr_run) {
+                fprintf(stderr,
+                        "No overlay subtest run! Requested: \"%s\", "
+                        "run \"overlay_test:help\" for the list.\n",
+                        g_test_opts);
+                ok = 0;
         }
 
         return ok ? 0 : -1;
