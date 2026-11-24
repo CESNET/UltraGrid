@@ -85,7 +85,7 @@ sudo mv override "$HOMEBREW_PREFIX"/lib/pkgconfig/fluidsynth.pc
 # TODO TOREMOVE when no longer needed
 # fix incorrectly included '$ORIGIN' in rpath causing dylibbundler fail
 if [ "$(uname -m)" = arm64 ]; then
-        sudo install_name_tool -delete_rpath '$ORIGIN' /opt/homebrew/lib/libtbb.dylib
+        sudo install_name_tool -delete_rpath '$ORIGIN' /opt/homebrew/lib/libtbb.dylib || true
 fi
 
 # Remove installation files
