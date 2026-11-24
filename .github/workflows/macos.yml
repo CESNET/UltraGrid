@@ -12,12 +12,18 @@ on:
 
 jobs:
   macOS:
-    name: run macOS
+    name: run macOS (${{ matrix.arch }})
     strategy:
-      matrix:
-        os: [macos-15-intel, macos-15]
       fail-fast: false
-    runs-on: ${{ matrix.os }}
+      matrix:
+        include:
+          - os: macos-15
+            arch: arm64
+            runner_var: MACOS_ARM64_RUNNER # custom runner - repo var name
+          - os: macos-15-intel
+            arch: x86_64
+            runner_var: MACOS_X86_64_RUNNER # custom runner - repo var name
+    runs-on: ${{ vars[matrix.runner_var] || matrix.os }}
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SDK_NONFREE_PATH: /private/var/tmp/sdks-nonfree
@@ -59,7 +65,7 @@ jobs:
       uses: actions/cache@main
       with:
         path: /var/tmp/XIMEA.pkg
-        key: cache-ximea-${{ matrix.os }}-${{ steps.etags.outputs.ximea }}
+        key: cache-ximea-${{ matrix.arch }}-${{ steps.etags.outputs.ximea }}
     - name: Download XIMEA
       if: steps.cache-macos-ximea.outputs.cache-hit == ''
       run: curl -LSf "$XIMEA_DOWNLOAD_URL" -o /private/var/tmp/XIMEA.pkg

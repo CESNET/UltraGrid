@@ -131,6 +131,17 @@ specific branch:
 - [**macos.yml**](macos.yml) - push to _macos-build_
 - [**windows.yml**](windows.yml) - push to _windows-build_
 
+#### Default runner override
+
+MacOS runners can be overridden by specifying MACOS_ARM64_RUNNER
+or MACOS_X86_64_RUNNER repo variable to custom name like
+_macos-15-arm64-self-hosted_. This may be used to route the build
+to eg. a self-hosted runner. The self-hosted runner must, however,
+behave like the GitHub-hosted image - namely have the same relevant SW
+equipment. Self-hosted runners run in the environment where invoked, so
+on bare metal if invoked so. Also GH doesn't provide the images directly
+but there are [build recipes](https://github.com/actions/runner-images).
+
 ### Semi-weekly tests
 
 (file [.github/workflows/semi-weekly_tests.yml](semi-weekly_tests.yml))
