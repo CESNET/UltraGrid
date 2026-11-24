@@ -74,12 +74,6 @@
 struct pdb;
 struct rtp;
 
-extern char *frame;
-
-char hdr_buf[100];
-// struct msghdr msg;
-// struct iovec iov[10];
-
 static uint32_t RTT = 0;
 
 static void process_rr(struct rtp *session, rtp_event * e)
