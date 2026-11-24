@@ -96,14 +96,6 @@ static_assert(sizeof(sample_type_mixed) > sizeof(sample_type_source), "sample_ty
 using namespace std;
 using namespace std::chrono;
 
-class sockaddr_storage_less {
-public:
-        bool operator() (const sockaddr_storage & x, const sockaddr_storage & y) const {
-                return sockaddr_compare((const sockaddr *) &x,
-                                        (const sockaddr *) &y) < 0;
-        }
-};
-
 static void mixer_dummy_rtp_callback(struct rtp *session [[gnu::unused]], rtp_event * e [[gnu::unused]]) {
 }
 
@@ -140,7 +132,6 @@ struct am_participant {
         tx_uniq m_tx_session;
         chrono::steady_clock::time_point last_seen;
 };
-}
 
 template<typename source_t, typename intermediate_t>
 class generic_mix_algo {
@@ -193,6 +184,14 @@ public:
                         double ret = sample_norm / fabs(sample_norm) * (t + (1.0 - t) * log(1.0 + alpha * (fabs(sample_norm) - t) / (2 - t)) / log(1.0 + alpha)) * numeric_limits<source_t>::max();
                         return ret;
                 }
+        }
+};
+
+class sockaddr_storage_less {
+public:
+        bool operator() (const sockaddr_storage & x, const sockaddr_storage & y) const {
+                return sockaddr_compare((const sockaddr *) &x,
+                                        (const sockaddr *) &y) < 0;
         }
 };
 
@@ -275,6 +274,7 @@ private:
         thread thread_id;
         unique_ptr<generic_mix_algo<sample_type_source, sample_type_mixed>> mixing_algorithm{new linear_mix_algo<sample_type_source, sample_type_mixed>()};
 };
+}
 
 void
 state_audio_mixer::check_messages()
