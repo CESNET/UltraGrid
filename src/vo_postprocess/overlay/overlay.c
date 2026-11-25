@@ -83,7 +83,7 @@ parallel_workers(int requested, size_t pixels)
         return requested > MAX_CPU_CORES ? MAX_CPU_CORES : requested;
 }
 
-typedef void (*blend_fn)(uint8_t *dst, const uint16_t *rgba16, int width);
+typedef void (*blend_fn)(uint8_t  * __restrict dst, const uint16_t * __restrict rgba16, int width);
 
 struct state_overlay {
         struct overlay_config cfg;
