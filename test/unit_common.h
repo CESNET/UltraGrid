@@ -1,6 +1,9 @@
 #ifndef TEST_UNIT_COMMON_H_7A471D89_C7E4_470A_A330_74F4BD85BBAC
 #define TEST_UNIT_COMMON_H_7A471D89_C7E4_470A_A330_74F4BD85BBAC
 
+#include <fcntl.h>
+#include <unistd.h>
+
 #ifdef __cplusplus
 #include <cinttypes>
 #include <cstdio>
@@ -11,6 +14,8 @@
 #include <stdio.h>
 #include <string.h>
 #endif
+
+#include "utils/fs.h"
 
 #define ASSERT(expr)                                                           \
         if (!(expr)) {                                                         \
@@ -117,5 +122,29 @@
                         (intmax_t) (expected), (intmax_t) (actual), (msg)); \
                 return -1; \
         }
+
+static inline int
+ret_fd_dup_and_silence(int fd)
+{
+        int orig    = dup(fd);
+        int null_fd = open(NULL_FILE, O_WRONLY);
+        if (orig == -1 || null_fd == -1) {
+                perror(__func__);
+                return -1;
+        }
+        dup2(null_fd, fd);
+        close(null_fd);
+        return orig;
+}
+
+static inline void
+fd_restore(int saved_fd, int orig_fd)
+{
+        if (saved_fd == -1) { // error storing - do not restore
+                return;
+        }
+        dup2(saved_fd, orig_fd);
+        close(saved_fd);
+}
 
 #endif // defined TEST_UNIT_COMMON_H_7A471D89_C7E4_470A_A330_74F4BD85BBAC

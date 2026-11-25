@@ -79,6 +79,10 @@
 #else
 typedef int gpujpeg_sampling_factor_t;
 #endif
+// compat
+#ifndef GPUJPEG_INIT_DEV_VERBOSE
+#define GPUJPEG_INIT_DEV_VERBOSE GPUJPEG_VERBOSE
+#endif
 
 #define MOD_NAME "[GPUJPEG enc.] "
 
@@ -561,8 +565,9 @@ shared_ptr<video_frame> encoder_state::compress_step(shared_ptr<video_frame> tx)
         // first run - initialize device
         if (!m_encoder) {
                 log_msg(LOG_LEVEL_INFO, "Initializing CUDA device %d...\n", m_device_id);
+                int flags = log_level >= LOG_LEVEL_INFO ? GPUJPEG_INIT_DEV_VERBOSE : 0;
                 const int ret =
-                    gpujpeg_init_device(m_device_id, GPUJPEG_VERBOSE);
+                    gpujpeg_init_device(m_device_id, flags);
                 if(ret != 0) {
                         log_msg(LOG_LEVEL_ERROR, MOD_NAME "initializing CUDA device %d failed.\n", m_device_id);
                         exit_uv(EXIT_FAILURE);

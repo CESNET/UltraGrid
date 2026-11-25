@@ -40,7 +40,6 @@
 #include <libgpujpeg/gpujpeg_version.h>  // for GPUJPEG_VERSION_INT, GPUJPEG...
 #include <stdbool.h>                     // for false, true
 #include <stdint.h>                      // for uint8_t
-#include <stdio.h>                       // for printf
 #include <stdlib.h>                      // for abort, free, NULL, calloc
 #include <string.h>                      // for strncpy, memcpy
 
@@ -58,6 +57,10 @@
 
 #if GPUJPEG_VERSION_INT >= GPUJPEG_MK_VERSION_INT(0, 25, 0)
 #define NEW_PARAM_IMG_NO_COMP_COUNT
+#endif
+// compat
+#ifndef GPUJPEG_INIT_DEV_VERBOSE
+#define GPUJPEG_INIT_DEV_VERBOSE GPUJPEG_VERBOSE
 #endif
 
 struct state_decompress_gpujpeg {
@@ -159,8 +162,9 @@ static void * gpujpeg_decompress_init(void)
         struct state_decompress_gpujpeg *s = (struct state_decompress_gpujpeg *) calloc(1, sizeof(struct state_decompress_gpujpeg));
 
         int ret;
-        printf("Initializing CUDA device %d...\n", cuda_devices[0]);
-        ret = gpujpeg_init_device(cuda_devices[0], true);
+        MSG(INFO, "Initializing CUDA device %d...\n", cuda_devices[0]);
+        int flags = log_level >= LOG_LEVEL_INFO ? GPUJPEG_INIT_DEV_VERBOSE : 0;
+        ret = gpujpeg_init_device(cuda_devices[0], flags);
         if(ret != 0) {
                 log_msg(LOG_LEVEL_ERROR, MOD_NAME "initializing CUDA device %d failed.\n", cuda_devices[0]);
                 free(s);

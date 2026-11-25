@@ -45,6 +45,7 @@
 
 #include <fcntl.h>
 #include <stdbool.h>
+#include <libavutil/avutil.h> // for av_log_set_level
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -781,8 +782,13 @@ static int overlay_pam_test_rejects_missing_file(void)
 {
         uint16_t *out = (uint16_t *)0xDEADBEEF;
         int w = 999, h = 999;
+
+        // pam_read writes to stderr unconditionally
+        int stderr_fileno_save = ret_fd_dup_and_silence(STDERR_FILENO);
         bool ok = overlay_load_pam_rgba16("/nonexistent/path/no.pam",
                                           &out, &w, &h);
+        fd_restore(stderr_fileno_save, STDERR_FILENO);
+
         ASSERT_MESSAGE("load returned false", !ok);
         /* outputs untouched per contract */
         ASSERT_EQUAL_MESSAGE("out untouched", (uintptr_t)0xDEADBEEF, (uintptr_t)out);
@@ -2096,6 +2102,8 @@ int overlay_test(void)
 
         bool single_test = strlen(g_test_opts) > 0;
 
+        int av_ll_orig = av_log_get_level();
+        av_log_set_level(AV_LOG_WARNING);
         bool ok = true;
         int nr_run = 0;
         for (size_t i = 0; i < sizeof subtests / sizeof subtests[0]; i++) {
@@ -2110,6 +2118,7 @@ int overlay_test(void)
                         ok = false;
                 }
         }
+        av_log_set_level(av_ll_orig);
 
         if (!nr_run) {
                 fprintf(stderr,
