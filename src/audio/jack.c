@@ -53,8 +53,6 @@
 #include "audio/utils.h"
 #include "jack_common.h"
 #include "pthread.h"
-#include "rtp/pbuf.h"
-#include "rtp/rtp.h"
 
 #define CLIENT_NAME "UltraGrid Transport"
 #define BUFF_ELEM (1<<16)
