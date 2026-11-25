@@ -53,6 +53,7 @@ typedef void *(*runnable_t)(void *);
 task_result_handle_t task_run_async(runnable_t task, void *data);
 void task_run_async_detached(runnable_t task, void *data);
 void *wait_task(task_result_handle_t handle);
+int task_is_done(task_result_handle_t handle);
 void task_run_parallel(runnable_t task, int worker_count, void *data, size_t data_size, void **res);
 
 /**

@@ -108,6 +108,7 @@ struct wp_worker {
 
         void              push(wp_task_data *);
         void             *pop(wp_task_data *);
+        bool              is_done(wp_task_data *);
 
         queue<wp_task_data*> m_data;
         pthread_mutex_t   m_lock;
@@ -179,6 +180,13 @@ void *wp_worker::pop(wp_task_data *d) {
         return res;
 }
 
+bool wp_worker::is_done(wp_task_data *d) {
+        pthread_mutex_lock(&m_lock);
+        bool done = d->m_returned;
+        pthread_mutex_unlock(&m_lock);
+        return done;
+}
+
 static void func_delete(wp_worker *arg) {
         delete arg;
 }
@@ -214,6 +222,7 @@ class worker_pool : public worker_state_observer
 
                 task_result_handle_t run_async(runnable_t task, void *data, bool detached);
                 void *wait_task(task_result_handle_t handle);
+                bool  task_is_done(task_result_handle_t handle);
 
         private:
                 set<wp_worker*>    m_empty_workers;
@@ -250,6 +259,12 @@ void *worker_pool::wait_task(task_result_handle_t handle)
         return w->pop(d);
 }
 
+bool worker_pool::task_is_done(task_result_handle_t handle)
+{
+        wp_task_data *d = (wp_task_data *) handle;
+        return d->m_w->is_done(d);
+}
+
 static class worker_pool instance;
 
 /**
@@ -283,6 +298,22 @@ void task_run_async_detached(runnable_t task, void *data)
 void *wait_task(task_result_handle_t handle)
 {
         return instance.wait_task(handle);
+}
+
+/**
+ * @brief Non-blocking poll for completion of an async task.
+ *
+ * Returns nonzero if the task has finished — a subsequent wait_task() call on
+ * the same handle will return immediately. Returns zero if the task is still
+ * running. Either way the handle remains valid; ownership transfers only on
+ * the wait_task() call that consumes it.
+ *
+ * Uses int (rather than bool) so the C and C++ ABIs agree on the return
+ * representation across the extern "C" boundary.
+ */
+int task_is_done(task_result_handle_t handle)
+{
+        return instance.task_is_done(handle) ? 1 : 0;
 }
 
 /**
