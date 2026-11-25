@@ -82,8 +82,6 @@ static_assert(VO_PP_ABI_VERSION  == VO_PP_ABI_POSTPROCESS_NULLPTR);
 
 struct state_text {
         struct video_frame *in;
-        char *data;
-        size_t data_size;
         char *text;
         int req_x, req_y, req_h;
         int width;                 // pixels
@@ -500,7 +498,6 @@ static void text_done(void *state)
                 DestroyDrawingWand(s->dw);
         }
 
-        free(s->data);
         free(s->text);
         free(s->req_font);
         free(s);
