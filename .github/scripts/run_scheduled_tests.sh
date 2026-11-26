@@ -70,3 +70,8 @@ fi
 prepare
 
 "$origdir"/test/run_e2e_tests.sh "$run_uv" "$run_reflector" ${release:+release}
+# overlay not yet in release, TODO TOREMOVE the if when released
+if [ "$release" ]; then
+        exit 0
+fi
+UV=$run_uv "$origdir"/test/run_overlay_e2e.sh
