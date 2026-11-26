@@ -148,6 +148,10 @@ while [ $i -lt $test_count ]; do
                                 "$args" "$timeout"
                         exit 1
                 fi
+        elif expr -- "$opts" : '.*should_timeout' >/dev/null; then
+                printf "$tool with arguments %s exited (rc %d) instead of running!\n" \
+                         "$args" "$rc"
+                exit 1
         elif expr -- "$opts" : '.*should_fail' >/dev/null; then
                 if [ $rc -eq 0 ]; then
                         printf "$tool with arguments %s should have failed but\
