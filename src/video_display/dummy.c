@@ -123,32 +123,33 @@ dummy_parse_opts(struct dummy_display_state *s, char *fmt, const char **audio_dr
         char *save_ptr = nullptr;
         while ((item = strtok_r(fmt, ":", &save_ptr)) != nullptr) {
                 fmt = nullptr;
-                if (strstr(item, "codec=") != nullptr) {
+                if (IS_KEY_PREFIX(item, "codec")) {
                         if (!parse_codecs(strchr(item, '=') + 1, s->codecs, &s->codec_count)) {
                                 return false;
                         }
-                } else if (strstr(item, "dump") != nullptr) {
+                } else if (IS_PREFIX_WO_VAL(item, "dump")) {
                         s->dump_to_file = true;
-                } else if (strstr(item, "hexdump") != nullptr) {
-                        if (strstr(item, "hexdump=") != nullptr) {
-                                s->dump_bytes = atoi(item + strlen("hexdump="));
+                } else if (IS_PREFIX(item, "hexdump")) {
+                        char *eq_sign = strchr(item, '=');
+                        if (eq_sign) {
+                                s->dump_bytes = atoi(eq_sign + 1);
                         } else {
                                 s->dump_bytes = DEFAULT_DUMP_LEN;
                         }
-                } else if (strstr(item, "rgb_shift=") != nullptr) {
-                        item += strlen("rgb_shift=");
+                } else if (IS_KEY_PREFIX(item, "rgb_shift")) {
+                        item = strchr(item, '=') + 1;
                         s->rgb_shift[0] = strtol(item, &item, 0);
                         item += 1;
                         s->rgb_shift[1] = strtol(item, &item, 0);
                         item += 1;
                         s->rgb_shift[2] = strtol(item, &item, 0);
-                } else if (strstr(item, "skip=") != nullptr) {
+                } else if (IS_KEY_PREFIX(item, "skip")) {
                         s->dump_to_file_skip_frames = atoi(strchr(item, '=') + 1);
-                } else if (strcmp(item, "oneshot") == 0) {
+                } else if (IS_PREFIX_WO_VAL(item, "oneshot")) {
                         s->oneshot = true;
-                } else if (strcmp(item, "raw") == 0) {
+                } else if (IS_PREFIX_WO_VAL(item, "raw")) {
                         s->raw = true;
-                } else if (strcmp(item, "discard") == 0) {
+                } else if (IS_PREFIX_WO_VAL(item, "discard")) {
                         s->discard = true;
                 } else if (IS_KEY_PREFIX(item, "audio")) {
                         *audio_drv = strchr(item, '=') + 1;
