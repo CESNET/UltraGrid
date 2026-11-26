@@ -12,10 +12,14 @@ jobs:
     # run by cron only in CESNET/UltraGrid, on push to run_tests anywhere
     if: github.repository == 'CESNET/UltraGrid' || github.event.schedule == null
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: macos-latest
+            runner_var: MACOS_ARM64_RUNNER # custom runner - repo var name
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ vars[matrix.runner_var] || matrix.os }}
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     defaults:
