@@ -508,6 +508,7 @@ tests: $(TEST_TARGET)
 
 .PHONY: e2e-tests
 e2e-tests: $(TARGET)
+	@$(srcdir)/test/run_e2e_tests.sh
 	@$(srcdir)/test/run_overlay_e2e.sh
 
 .PHONY: check

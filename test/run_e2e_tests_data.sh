@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2026 CESNET, zájmové sdružení právnických osob
 #
-# test cases for run_scheduled_tests.sh
+# test cases for run_e2e_tests.sh
 #
 # For the documentation of add_test parameters see the
-# run_scheduled_tests.sh file.
+# run_e2e_tests.sh file.
 
 # UltraGrid
 add_test -v                                                  # basic sanity test
