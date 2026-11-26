@@ -19,11 +19,14 @@ UV="${UV:-./bin/uv}"
 [ -x "$UV" ] || { echo "uv binary not found at $UV"; exit 2; }
 # Resolve to absolute path so the cd-into-workdir below still finds it.
 UV=$(cd "$(dirname "$UV")" && pwd)/$(basename "$UV")
+if [ ${CI-} ]; then
+    UV_OPTS='-x loopback'
+fi
 
 WORK=$(mktemp -d -t ug-overlay-e2e.XXXXXX)
 trap 'rm -rf "$WORK"' EXIT
 
-PAM=$WORK/overlay.pam
+PAM=overlay.pam
 DUMP=$WORK/dummy
 PASS=0
 FAIL=0
@@ -39,7 +42,7 @@ OVERLAY_H=2
     for _ in $(seq 1 $((OVERLAY_W * OVERLAY_H))); do
         printf '\x00\xff\x00\xff'
     done
-} > "$PAM"
+} > "$WORK/$PAM"
 
 FRAME_W=48
 FRAME_H=4
@@ -48,10 +51,11 @@ FRAME_H=4
 # Args: codec [extra_display_opts]
 run_uv() {
     local codec=$1
-    local display="dummy:codec=$codec:dump=oneshot:raw"
+    local display="dummy:codec=$codec:dump:oneshot:raw"
     rm -f "$DUMP".*
     cd "$WORK"
-    "$UV" -t "testcard:size=${FRAME_W}x${FRAME_H}:fps=1:codec=$codec:pattern=blank=0xFF" \
+    # shellcheck disable=SC2086 # for UV_OPTS
+    "$UV" $UV_OPTS -t "testcard:size=${FRAME_W}x${FRAME_H}:fps=1:codec=$codec:pattern=blank=0xFF" \
           -d "$display" \
           --postprocess "overlay:file=$PAM:position=top_left" \
           >/dev/null 2>&1 &
@@ -167,8 +171,9 @@ test_blend_threads_parity() {
     echo "==> blend_threads parity (RGBA, 0 vs 4 workers)"
     rm -f "$DUMP".*
     cd "$WORK"
-    "$UV" -t "testcard:size=64x16:fps=1:codec=RGBA:pattern=blank=0xFF" \
-          -d "dummy:codec=RGBA:dump=oneshot:raw" \
+    # shellcheck disable=SC2086 # for UV_OPTS
+    "$UV" $UV_OPTS -t "testcard:size=64x16:fps=1:codec=RGBA:pattern=blank=0xFF" \
+          -d "dummy:codec=RGBA:dump:oneshot:raw" \
           --postprocess "overlay:file=$PAM:position=top_left" \
           >/dev/null 2>&1 &
     local pid=$!
@@ -182,8 +187,9 @@ test_blend_threads_parity() {
 
     rm -f "$DUMP".*
     cd "$WORK"
-    "$UV" -t "testcard:size=64x16:fps=1:codec=RGBA:pattern=blank=0xFF" \
-          -d "dummy:dump=oneshot:raw" \
+    # shellcheck disable=SC2086 # for UV_OPTS
+    "$UV" $UV_OPTS -t "testcard:size=64x16:fps=1:codec=RGBA:pattern=blank=0xFF" \
+          -d "dummy:dump:oneshot:raw" \
           --postprocess "overlay:file=$PAM:position=top_left:blend_threads=4" \
           >/dev/null 2>&1 &
     local pid2=$!
@@ -215,9 +221,10 @@ test_dual_overlay_chain() {
     echo "==> dual overlay chain (RGBA, green top_left + red top_right)"
     local ddir=$WORK/dual
     mkdir -p "$ddir"
+    cd "$ddir"
     # Green and red 24x2 PAMs (same dims as the main test PAM).
-    local gpam=$ddir/green.pam
-    local rpam=$ddir/red.pam
+    local gpam=green.pam
+    local rpam=red.pam
     for spec in "$gpam:00:ff:00" "$rpam:ff:00:00"; do
         local file=${spec%%:*}
         local rest=${spec#*:}
@@ -234,9 +241,9 @@ test_dual_overlay_chain() {
         } > "$file"
     done
 
-    cd "$ddir"
-    "$UV" -t "testcard:size=${FRAME_W}x${FRAME_H}:fps=1:codec=RGBA:pattern=blank=0xFF" \
-          -d "dummy:codec=RGBA:dump=oneshot:raw" \
+    # shellcheck disable=SC2086 # for UV_OPTS
+    "$UV" $UV_OPTS -t "testcard:size=${FRAME_W}x${FRAME_H}:fps=1:codec=RGBA:pattern=blank=0xFF" \
+          -d "dummy:codec=RGBA:dump:oneshot:raw" \
           --postprocess "overlay:file=$gpam:position=top_left,overlay:file=$rpam:position=top_right" \
           >/dev/null 2>&1 &
     local pid=$!
@@ -273,7 +280,8 @@ test_oversized_center() {
     echo "==> oversized overlay (96x8) centred on 48x4 frame"
     local odir=$WORK/oversize
     mkdir -p "$odir"
-    local pam=$odir/big.pam
+    cd "$odir"
+    local pam=big.pam
     local OW=96 OH=8
     {
         printf 'P7\nWIDTH %d\nHEIGHT %d\nDEPTH 4\nMAXVAL 255\n' "$OW" "$OH"
@@ -284,9 +292,9 @@ test_oversized_center() {
         done
     } > "$pam"
 
-    cd "$odir"
-    "$UV" -t "testcard:size=${FRAME_W}x${FRAME_H}:fps=1:codec=RGBA:pattern=blank=0xFF" \
-          -d "dummy:codec=RGBA:dump=oneshot:raw" \
+    # shellcheck disable=SC2086 # for UV_OPTS
+    "$UV" $UV_OPTS -t "testcard:size=${FRAME_W}x${FRAME_H}:fps=1:codec=RGBA:pattern=blank=0xFF" \
+          -d "dummy:codec=RGBA:dump:oneshot:raw" \
           --postprocess "overlay:file=$pam:position=center" \
           >/dev/null 2>&1 &
     local pid=$!
@@ -320,7 +328,8 @@ test_scale_frame() {
     echo "==> scale=frame stretches small PAM to the full frame"
     local sdir=$WORK/scaleframe
     mkdir -p "$sdir"
-    local pam=$sdir/tiny.pam
+    cd "$sdir"
+    local pam=tiny.pam
     # 4x2 PAM: row 0 = red, green, blue, white; row 1 = same.
     {
         printf 'P7\nWIDTH 4\nHEIGHT 2\nDEPTH 4\nMAXVAL 255\n'
@@ -333,12 +342,12 @@ test_scale_frame() {
         done
     } > "$pam"
 
-    cd "$sdir"
     # dump:skip=4 lets the async rescale (kicked from postprocess on
     # the first frame) complete and harvest before we dump frame 5.
     # fps=10 keeps the wait short. dummy parses these as separate
     # colon-tokens — not `dump=skip=4` (that's parsed as just dump).
-    "$UV" -t "testcard:size=${FRAME_W}x${FRAME_H}:fps=10:codec=RGBA:pattern=blank=0xFF" \
+    # shellcheck disable=SC2086 # for UV_OPTS
+    "$UV" $UV_OPTS -t "testcard:size=${FRAME_W}x${FRAME_H}:fps=10:codec=RGBA:pattern=blank=0xFF" \
           -d "dummy:codec=RGBA:dump:skip=4:oneshot:raw" \
           --postprocess "overlay:file=$pam:scale=frame:scale_filter=nearest" \
           >/dev/null 2>&1 &
@@ -371,7 +380,8 @@ test_i420_parallel_parity() {
     echo "==> I420 parallel parity (1 vs 8 workers, 1280x720 overlay)"
     local pdir=$WORK/i420parity
     mkdir -p "$pdir"
-    local big=$pdir/big.pam
+    cd "$pdir"
+    local big=big.pam
     python3 - "$big" <<'PYEOF' || { echo "  python3 missing — skip"; return; }
 import struct, sys
 W, H = 1280, 720
@@ -385,9 +395,10 @@ PYEOF
         local label=$1 threads=$2
         mkdir -p "$pdir/$label"
         cd "$pdir/$label"
-        "$UV" -t "testcard:size=1920x1080:fps=1:codec=I420:pattern=ebu_bars" \
-              -d "dummy:codec=I420:dump=oneshot:raw" \
-              --postprocess "overlay:file=$big:position=top_left:blend_threads=$threads" \
+        # shellcheck disable=SC2086 # for UV_OPTS
+        "$UV" $UV_OPTS -t "testcard:size=1920x1080:fps=1:codec=I420:pattern=ebu_bars" \
+              -d "dummy:codec=I420:dump:oneshot:raw" \
+              --postprocess "overlay:file=../$big:position=top_left:blend_threads=$threads" \
               >/dev/null 2>&1 &
         local pid=$!
         local n=0
