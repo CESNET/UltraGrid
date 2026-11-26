@@ -61,6 +61,7 @@ fi
 ## used by run_test_data.sh
 ## @param $1 args
 ## @param $2 opts (optional, separated by comma):
+##  - continuous    - test only on continous (when "release" optarg not given)
 ##  - should_fail - expected outcome of the command is failure
 ##  - should_timeout - the command is expected to keep running
 ##                     (will be terminated by timeout)
@@ -85,7 +86,7 @@ validate_opts() {
                 if [ "$1" != run_reflector ] &&
                    [ "$1" != should_fail ] &&
                    [ "$1" != should_timeout ] &&
-                   [ "$1" != continuous_only ] &&
+                   [ "$1" != continuous ] &&
                    [ "$1" != Linux_only ] &&
                    [ "$1" != Windows_only ] &&
                    [ "$1" != macOS_only ]; then
@@ -122,7 +123,7 @@ while [ $i -lt $test_count ]; do
                         continue
                 fi
         fi
-        if [ "$release" ] && expr -- "$opts" : '.*continuous_only' >/dev/null; then
+        if [ "$release" ] && expr -- "$opts" : '.*continuous' >/dev/null; then
                 continue
         fi
 

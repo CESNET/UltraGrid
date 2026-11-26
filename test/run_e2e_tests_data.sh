@@ -13,27 +13,28 @@ add_test "-d gl"                               should_timeout,Linux_only
 add_test "-d gl:unknown_param"                 should_fail
 add_test "-d sdl"                              should_timeout
 add_test "-t testcard -c lavc:e=libx265 -f rs -d dummy" should_timeout
-add_test "-t spout:check_lib"                  Windows_only,continuous_only
+add_test "-t spout:check_lib"                  Windows_only,continuous
 
 # rxtx/compress help + incorrect options
 add_test "-c help -t testcard"
 add_test "-c lavc:help -t testcard"
 add_test "-x help"
-add_test "-x sdp:help"                         continuous_only
+add_test "-x sdp:help"                         continuous
 add_test "-c nonexistent"                      should_fail
 add_test "-c lavc:wrongopt -t testcard"        should_fail
 add_test "-x nonexistent"                      should_fail
 add_test "-x sdp:wrongopt"                     should_fail
 
 # UDP Segmentation Offload (Linux)
-add_test "-t testcard -x ultragrid_rtp:udp-gso=off"            should_timeout
-add_test "-t testcard -x ultragrid_rtp:udp-gso=-1"             should_fail
-add_test "-t testcard -x ultragrid_rtp:udp-gso=65"             should_fail
-add_test "-t testcard -x ultragrid_rtp:udp-gso=bad"            should_fail
-add_test "-t testcard -x ultragrid_rtp:udp-gso=on -d dummy"    should_fail,Windows_only,macOS_only
-add_test "-t testcard -x ultragrid_rtp:udp-gso=on -d dummy"    should_timeout,Linux_only
-add_test "-t testcard -x ultragrid_rtp:udp-gso=force -d dummy" should_timeout,Linux_only
-add_test "-t testcard -x ultragrid_rtp:udp-gso=8 -d dummy"     should_timeout,Linux_only
+add_test "-t testcard -x ultragrid_rtp:wrongopt"               continuous,should_fail
+add_test "-t testcard -x ultragrid_rtp:udp-gso=off"            continuous,should_timeout
+add_test "-t testcard -x ultragrid_rtp:udp-gso=-1"             continuous,should_fail
+add_test "-t testcard -x ultragrid_rtp:udp-gso=65"             continuous,should_fail
+add_test "-t testcard -x ultragrid_rtp:udp-gso=bad"            continuous,should_fail
+add_test "-t testcard -x ultragrid_rtp:udp-gso=on -d dummy"    continuous,should_fail,Windows_only,macOS_only
+add_test "-t testcard -x ultragrid_rtp:udp-gso=on -d dummy"    continuous,should_timeout,Linux_only
+add_test "-t testcard -x ultragrid_rtp:udp-gso=force -d dummy" continuous,should_timeout,Linux_only
+add_test "-t testcard -x ultragrid_rtp:udp-gso=8 -d dummy"     continuous,should_timeout,Linux_only
 
 # reflector
 add_test -v                                    run_reflector # basic sanity test
