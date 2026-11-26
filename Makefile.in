@@ -507,8 +507,8 @@ tests: $(TEST_TARGET)
 	@export DYLD_LIBRARY_PATH=$(MY_DYLD_LIBRARY_PATH); $(TEST_TARGET)
 
 .PHONY: e2e-tests
-e2e-tests: $(TARGET)
-	@$(srcdir)/test/run_e2e_tests.sh
+e2e-tests: $(TARGET) $(REFLECTOR_TARGET)
+	@$(srcdir)/test/run_e2e_tests.sh "$(TARGET)" "$(REFLECTOR_TARGET)"
 	@$(srcdir)/test/run_overlay_e2e.sh
 
 .PHONY: check

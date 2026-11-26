@@ -14,13 +14,19 @@ fi
 
 origdir="$(realpath -- "$(dirname -- "$0")")"
 
+red=$(tput setaf 1 2>/dev/null || true)
+reset=$(tput sgr0 2>/dev/null || true)
+
 # note: if run_uv/run_reflector given as a env var, those must be with
 # the absolute path (see also further note)
 if [ ! "${run_uv:=${1-}}" ]; then
         run_uv=./bin/uv
         run_uv=$(realpath "$run_uv")
 fi
-if [ ! "${run_reflector:=${2-}}" ]; then
+if [ "${2+x}" = x ] &&  [ "${2:+x}" = "" ]; then
+        run_reflector=  # "" given explicitly - reflector disabled
+        echo "${red}Warning: reflector given as an empty string - won't test!${reset}" 1>&2
+elif [ ! "${run_reflector=${2-}}" ]; then
         run_reflector=./bin/hd-rum-transcode
         run_reflector=$(realpath "$run_reflector")
 fi
@@ -30,7 +36,7 @@ if ! $run_uv -v >/dev/null 2>&1; then
         echo "uv binary $run_uv not found or cannot be executed"
         exit 2
 fi
-if ! $run_reflector -v >/dev/null 2>&1; then
+if [ "$run_reflector" ] && ! $run_reflector -v >/dev/null 2>&1; then
         echo "hd-rum-transcode binary $run_reflector not found or cannot be executed"
         exit 2
 fi
@@ -114,6 +120,9 @@ while [ $i -lt $test_count ]; do
         exec=$run_uv
         tool=uv
         if expr -- "$opts" : '.*run_reflector' >/dev/null; then
+                if [ ! "$run_reflector" ]; then
+                        continue # reflector unavailable
+                fi
                 tool=reflector
                 exec=$run_reflector
         fi
