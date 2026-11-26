@@ -33,7 +33,12 @@ case "${RUNNER_OS-}" in
                         ./"$ai" --appimage-extract
                 }
                 run_uv=$(pwd)/squashfs-root/AppRun
-                run_reflector="$(pwd)/squashfs-root/AppRun -o hd-rum-transcode"
+                cat > hd-rum-transcode << EOF
+#!/bin/sh
+exec $(pwd)/squashfs-root/AppRun -o hd-rum-transcode "\$@"
+EOF
+                chmod 755 hd-rum-transcode
+                run_reflector="$(pwd)/hd-rum-transcode"
                 ;;
         Windows)
                 continuous_build_file=UltraGrid-continuous-win64.zip

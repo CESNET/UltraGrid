@@ -17,21 +17,19 @@ origdir="$(realpath -- "$(dirname -- "$0")")"
 red=$(tput setaf 1 2>/dev/null || true)
 reset=$(tput sgr0 2>/dev/null || true)
 
-# note: if run_uv/run_reflector given as a env var, those must be with
-# the absolute path (see also further note)
 if [ ! "${run_uv:=${1-}}" ]; then
         run_uv=./bin/uv
-        run_uv=$(realpath "$run_uv")
 fi
+run_uv=$(realpath "$run_uv")
 if [ "${2+x}" = x ] &&  [ "${2:+x}" = "" ]; then
         run_reflector=  # "" given explicitly - reflector disabled
         echo "${red}Warning: reflector given as an empty string - won't test!${reset}" 1>&2
-elif [ ! "${run_reflector=${2-}}" ]; then
-        run_reflector=./bin/hd-rum-transcode
+else
+        if  [ ! "${run_reflector=${2-}}" ]; then
+                run_reflector=./bin/hd-rum-transcode
+        fi
         run_reflector=$(realpath "$run_reflector")
 fi
-# note: intentionally not enclosing in "" - when invoked from run_scheduled_tests.sh
-# in Linux, the values for reflector is ".../AppRun -o hd-rum-transcode"
 if ! $run_uv -v >/dev/null 2>&1; then
         echo "uv binary $run_uv not found or cannot be executed"
         exit 2
