@@ -138,11 +138,11 @@ dummy_parse_opts(struct dummy_display_state *s, char *fmt, const char **audio_dr
                         }
                 } else if (IS_KEY_PREFIX(item, "rgb_shift")) {
                         item = strchr(item, '=') + 1;
-                        s->rgb_shift[0] = strtol(item, &item, 0);
-                        item += 1;
-                        s->rgb_shift[1] = strtol(item, &item, 0);
-                        item += 1;
-                        s->rgb_shift[2] = strtol(item, &item, 0);
+                        if (sscanf(item, "%i,%i,%i", &s->rgb_shift[0],
+                               &s->rgb_shift[1], &s->rgb_shift[2]) != 3) {
+                                MSG(ERROR, "Wrong number of values for rgb_shift!\n");
+                                return false;
+                        }
                 } else if (IS_KEY_PREFIX(item, "skip")) {
                         s->dump_to_file_skip_frames = atoi(strchr(item, '=') + 1);
                 } else if (IS_PREFIX_WO_VAL(item, "oneshot")) {
