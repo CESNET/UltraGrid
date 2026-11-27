@@ -3937,6 +3937,8 @@ TEST_LIBS="$LIB_MODULES $LIBS $UG_LIB_MODULES"
 TEST_OBJS="$OBJS $LIB_OBJS $UG_LIB_OBJS"
 REFLECTOR_OBJS="$REFLECTOR_OBJS src/video_display/blend.o src/video_display/pipe.o"
 
+TEST_OBJS="$TEST_OBJS src/video_capture/testcard_common.o"
+
 # this is only needed when passing to "clean" make target
 if test "$build_libraries" != yes
 then
