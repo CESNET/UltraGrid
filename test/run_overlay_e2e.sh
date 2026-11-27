@@ -19,7 +19,7 @@ UV="${UV:-./bin/uv}"
 [ -x "$UV" ] || { echo "uv binary not found at $UV"; exit 2; }
 # Resolve to absolute path so the cd-into-workdir below still finds it.
 UV=$(cd "$(dirname "$UV")" && pwd)/$(basename "$UV")
-if [ ${CI-} ]; then
+if [ "${CI-}" ]; then
     UV_OPTS='-x loopback'
 fi
 
@@ -47,6 +47,13 @@ OVERLAY_H=2
 FRAME_W=48
 FRAME_H=4
 
+# timeout is present nativel on macOS since the version 27 (Golden Gate)
+if [ "$(uname -s)" = Darwin ] && ! command -v timeout >/dev/null; then
+        timeout() {
+                gtimeout "$@"
+        }
+fi
+
 # Run uv once and pull a single frame to $DUMP.
 # Args: codec [extra_display_opts]
 run_uv() {
@@ -55,22 +62,11 @@ run_uv() {
     rm -f "$DUMP".*
     cd "$WORK"
     # shellcheck disable=SC2086 # for UV_OPTS
-    "$UV" $UV_OPTS -t "testcard:size=${FRAME_W}x${FRAME_H}:fps=1:codec=$codec:pattern=blank=0xFF" \
+    timeout 5 "$UV" $UV_OPTS \
+          -t "testcard:size=${FRAME_W}x${FRAME_H}:fps=1:codec=$codec:pattern=blank=0xFF" \
           -d "$display" \
           --postprocess "overlay:file=$PAM:position=top_left" \
-          >/dev/null 2>&1 &
-    local pid=$!
-    local n=0
-    while kill -0 "$pid" 2>/dev/null; do
-        sleep 0.2
-        n=$((n + 1))
-        if [ $n -gt 25 ]; then
-            kill "$pid" 2>/dev/null
-            wait "$pid" 2>/dev/null
-            break
-        fi
-    done
-    wait "$pid" 2>/dev/null || true
+          >/dev/null 2>&1
     cd - >/dev/null
 }
 
@@ -172,15 +168,11 @@ test_blend_threads_parity() {
     rm -f "$DUMP".*
     cd "$WORK"
     # shellcheck disable=SC2086 # for UV_OPTS
-    "$UV" $UV_OPTS -t "testcard:size=64x16:fps=1:codec=RGBA:pattern=blank=0xFF" \
+    timeout 5 "$UV" $UV_OPTS \
+          -t "testcard:size=64x16:fps=1:codec=RGBA:pattern=blank=0xFF" \
           -d "dummy:codec=RGBA:dump:oneshot:raw" \
           --postprocess "overlay:file=$PAM:position=top_left" \
-          >/dev/null 2>&1 &
-    local pid=$!
-    local n=0
-    while kill -0 "$pid" 2>/dev/null && [ $n -lt 25 ]; do sleep 0.2; n=$((n+1)); done
-    kill "$pid" 2>/dev/null || true
-    wait "$pid" 2>/dev/null || true
+          >/dev/null 2>&1
     cd - >/dev/null
     [ -s "$DUMP".rgba ] || { echo "  FAIL: serial dump missing or empty (uv crash?)"; FAIL=$((FAIL+1)); return; }
     cp "$DUMP".rgba "$WORK/serial.rgba"
@@ -188,15 +180,11 @@ test_blend_threads_parity() {
     rm -f "$DUMP".*
     cd "$WORK"
     # shellcheck disable=SC2086 # for UV_OPTS
-    "$UV" $UV_OPTS -t "testcard:size=64x16:fps=1:codec=RGBA:pattern=blank=0xFF" \
+    timeout 5 "$UV" $UV_OPTS \
+          -t "testcard:size=64x16:fps=1:codec=RGBA:pattern=blank=0xFF" \
           -d "dummy:dump:oneshot:raw" \
           --postprocess "overlay:file=$PAM:position=top_left:blend_threads=4" \
-          >/dev/null 2>&1 &
-    local pid2=$!
-    local n=0
-    while kill -0 "$pid2" 2>/dev/null && [ $n -lt 25 ]; do sleep 0.2; n=$((n+1)); done
-    kill "$pid2" 2>/dev/null || true
-    wait "$pid2" 2>/dev/null || true
+          >/dev/null 2>&1
     cd - >/dev/null
 
     # cmp -s passes for two empty files; guard against a uv crash in the
@@ -242,15 +230,11 @@ test_dual_overlay_chain() {
     done
 
     # shellcheck disable=SC2086 # for UV_OPTS
-    "$UV" $UV_OPTS -t "testcard:size=${FRAME_W}x${FRAME_H}:fps=1:codec=RGBA:pattern=blank=0xFF" \
+    timeout 5 "$UV" $UV_OPTS \
+          -t "testcard:size=${FRAME_W}x${FRAME_H}:fps=1:codec=RGBA:pattern=blank=0xFF" \
           -d "dummy:codec=RGBA:dump:oneshot:raw" \
           --postprocess "overlay:file=$gpam:position=top_left,overlay:file=$rpam:position=top_right" \
-          >/dev/null 2>&1 &
-    local pid=$!
-    local n=0
-    while kill -0 "$pid" 2>/dev/null && [ $n -lt 25 ]; do sleep 0.2; n=$((n+1)); done
-    kill "$pid" 2>/dev/null || true
-    wait "$pid" 2>/dev/null || true
+          >/dev/null 2>&1
     cd - >/dev/null
 
     local f=$(ls "$ddir"/dummy.* 2>/dev/null | head -1)
@@ -293,15 +277,11 @@ test_oversized_center() {
     } > "$pam"
 
     # shellcheck disable=SC2086 # for UV_OPTS
-    "$UV" $UV_OPTS -t "testcard:size=${FRAME_W}x${FRAME_H}:fps=1:codec=RGBA:pattern=blank=0xFF" \
+    timeout 5 "$UV" $UV_OPTS \
+          -t "testcard:size=${FRAME_W}x${FRAME_H}:fps=1:codec=RGBA:pattern=blank=0xFF" \
           -d "dummy:codec=RGBA:dump:oneshot:raw" \
           --postprocess "overlay:file=$pam:position=center" \
-          >/dev/null 2>&1 &
-    local pid=$!
-    local n=0
-    while kill -0 "$pid" 2>/dev/null && [ $n -lt 25 ]; do sleep 0.2; n=$((n+1)); done
-    kill "$pid" 2>/dev/null || true
-    wait "$pid" 2>/dev/null || true
+          >/dev/null 2>&1
     cd - >/dev/null
 
     local f=$(ls "$odir"/dummy.* 2>/dev/null | head -1)
@@ -347,15 +327,11 @@ test_scale_frame() {
     # fps=10 keeps the wait short. dummy parses these as separate
     # colon-tokens — not `dump=skip=4` (that's parsed as just dump).
     # shellcheck disable=SC2086 # for UV_OPTS
-    "$UV" $UV_OPTS -t "testcard:size=${FRAME_W}x${FRAME_H}:fps=10:codec=RGBA:pattern=blank=0xFF" \
+    timeout 5 "$UV" $UV_OPTS \
+          -t "testcard:size=${FRAME_W}x${FRAME_H}:fps=10:codec=RGBA:pattern=blank=0xFF" \
           -d "dummy:codec=RGBA:dump:skip=4:oneshot:raw" \
           --postprocess "overlay:file=$pam:scale=frame:scale_filter=nearest" \
-          >/dev/null 2>&1 &
-    local pid=$!
-    local n=0
-    while kill -0 "$pid" 2>/dev/null && [ $n -lt 25 ]; do sleep 0.2; n=$((n+1)); done
-    kill "$pid" 2>/dev/null || true
-    wait "$pid" 2>/dev/null || true
+          >/dev/null 2>&1
     cd - >/dev/null
 
     local f=$(ls "$sdir"/dummy.* 2>/dev/null | head -1)
@@ -396,15 +372,11 @@ PYEOF
         mkdir -p "$pdir/$label"
         cd "$pdir/$label"
         # shellcheck disable=SC2086 # for UV_OPTS
-        "$UV" $UV_OPTS -t "testcard:size=1920x1080:fps=1:codec=I420:pattern=ebu_bars" \
+        timeout 6 "$UV" $UV_OPTS \
+              -t "testcard:size=1920x1080:fps=1:codec=I420:pattern=ebu_bars" \
               -d "dummy:codec=I420:dump:oneshot:raw" \
               --postprocess "overlay:file=../$big:position=top_left:blend_threads=$threads" \
-              >/dev/null 2>&1 &
-        local pid=$!
-        local n=0
-        while kill -0 "$pid" 2>/dev/null && [ $n -lt 30 ]; do sleep 0.2; n=$((n+1)); done
-        kill "$pid" 2>/dev/null || true
-        wait "$pid" 2>/dev/null || true
+              >/dev/null 2>&1
         cd - >/dev/null
     }
     run_threads t1 1
