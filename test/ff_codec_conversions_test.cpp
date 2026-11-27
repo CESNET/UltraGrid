@@ -2,6 +2,14 @@
 #include "config.h"
 #endif
 
+extern "C" {
+        int ff_codec_conversions_test_yuv444pXXle_from_to_r10k();
+        int ff_codec_conversions_test_yuv444pXXle_from_to_r12l();
+        int ff_codec_conversions_test_yuv444p16le_from_to_rg48();
+        int ff_codec_conversions_test_yuv444p16le_from_to_rg48_out_of_range();
+        int ff_codec_conversions_test_pX10_from_to_v210();
+}
+
 #if defined HAVE_LAVC
 
 #include <algorithm>
@@ -38,14 +46,6 @@ using std::vector;
 constexpr int MIN_12B = 16;
 constexpr int MAX_12B = 4079;
 constexpr int RGB_SHIFT[] = DEFAULT_RGB_SHIFT_INIT;
-
-extern "C" {
-        int ff_codec_conversions_test_yuv444pXXle_from_to_r10k();
-        int ff_codec_conversions_test_yuv444pXXle_from_to_r12l();
-        int ff_codec_conversions_test_yuv444p16le_from_to_rg48();
-        int ff_codec_conversions_test_yuv444p16le_from_to_rg48_out_of_range();
-        int ff_codec_conversions_test_pX10_from_to_v210();
-}
 
 #define CHECK(res) if ((res) != 0) { return res; }
 
@@ -400,4 +400,25 @@ int ff_codec_conversions_test_pX10_from_to_v210()
         return 0;
 }
 
+#else
+int ff_codec_conversions_test_yuv444pXXle_from_to_r10k()
+{
+        return 1;
+}
+int ff_codec_conversions_test_yuv444pXXle_from_to_r12l()
+{
+        return 1;
+}
+int ff_codec_conversions_test_yuv444p16le_from_to_rg48()
+{
+        return 1;
+}
+int ff_codec_conversions_test_yuv444p16le_from_to_rg48_out_of_range()
+{
+        return 1;
+}
+int ff_codec_conversions_test_pX10_from_to_v210()
+{
+        return 1;
+}
 #endif // HAVE_LAVC

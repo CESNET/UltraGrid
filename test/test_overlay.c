@@ -41,6 +41,8 @@
 
 #include "config.h"
 
+extern int overlay_test(void);
+
 #ifdef HAVE_OVERLAY
 
 #include <fcntl.h>
@@ -66,8 +68,6 @@
 #include "vo_postprocess/overlay/overlay_scale.h"
 #include "vo_postprocess/overlay/overlay_soft_edge.h"
 #include "vo_postprocess/overlay/overlay_watch.h"
-
-int overlay_test(void);
 
 extern const char *g_test_opts; // set by run_tests.c from "overlay_test:<opts>"
 
@@ -2131,4 +2131,9 @@ int overlay_test(void)
         return ok ? 0 : -1;
 }
 
+#else
+int overlay_test()
+{
+        return 1;
+}
 #endif // defined HAVE_OVERLAY
