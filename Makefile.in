@@ -492,7 +492,7 @@ $(GUI_TARGET): gui/QT/Makefile
 # -------------------------------------------------------------------------------------------------
 $(TEST_TARGET): $(TEST_OBJS) @TEST_OBJS@
 	$(MKDIR_P) $$(dirname $@)
-	$(LINKER) $(LDFLAGS) $(TEST_OBJS) @TEST_LIBS@ -o $@
+	$(LINKER) $(LDFLAGS) $(TEST_OBJS) @TEST_LIBS@ @CUDA_LIB@ -o $@
 	@if [ -n '@DLL_LIBS@' ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 
 suggest-tests:
