@@ -236,6 +236,7 @@ bool vo_postprocess(struct vo_postprocess_state *s, struct video_frame *in,
         if (s == NULL) {
                 return false;
         }
+        bool ret = false;
         assert(in == ((struct vo_postprocess_state_single *) simple_linked_list_first(s->postprocessors))->f || in == NULL);
 
         for (list_it it = simple_linked_list_it_init(s->postprocessors);
@@ -249,17 +250,20 @@ bool vo_postprocess(struct vo_postprocess_state *s, struct video_frame *in,
                 }
 
                 int pitch = vc_get_linesize(next->tiles[0].width, next->color_spec);
-                if (it == NULL) {
+                if (it == nullptr) { // we are the last postprocess
                         pitch = req_pitch;
                 }
-                bool ret = state->funcs->vo_postprocess(state->state, in, next, pitch);
-                if (!ret) {
-                        return false;
+                ret = state->funcs->vo_postprocess(state->state, in, next, pitch);
+                if (ret) {
+                        in = next;
+                } else {
+                        if (in != nullptr) {
+                                return false;
+                        }
                 }
-                in = next;
         }
 
-        return true;
+        return ret;
 }
 
 void vo_postprocess_done(struct vo_postprocess_state *s)
